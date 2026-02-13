@@ -173,7 +173,7 @@ export function MatchChat({ matchId }: MatchChatProps) {
           </div>
         )}
         {messages.map((msg) => (
-          <div key={msg.id} className="flex items-start gap-2 group">
+          <div key={msg.id} className="flex items-start gap-2 group animate-fade-in-up" style={{ animationDuration: '0.2s' }}>
             <span
               className={clsx(
                 "text-[10px] font-mono flex-shrink-0 mt-0.5",
@@ -184,7 +184,10 @@ export function MatchChat({ matchId }: MatchChatProps) {
             >
               {msg.senderDisplay}
             </span>
-            <span className="text-xs text-gray-300 break-words min-w-0">
+            <span className={clsx(
+              "text-xs break-words min-w-0",
+              EMOTES.includes(msg.text.trim().toUpperCase()) ? "text-arcade-gold font-bold" : "text-gray-300",
+            )}>
               {msg.text}
             </span>
             <span className="text-[9px] text-gray-700 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -215,7 +218,7 @@ export function MatchChat({ matchId }: MatchChatProps) {
             key={emote}
             onClick={() => handleEmote(emote)}
             disabled={!isConnected}
-            className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-3 hover:bg-arcade-purple/20 text-gray-500 hover:text-arcade-purple transition-colors disabled:opacity-30"
+            className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-3 hover:bg-arcade-purple/20 text-gray-500 hover:text-arcade-purple hover:scale-110 active:scale-90 transition-all duration-150 disabled:opacity-30"
           >
             {emote}
           </button>
@@ -239,11 +242,12 @@ export function MatchChat({ matchId }: MatchChatProps) {
               onClick={handleSend}
               disabled={!input.trim()}
               className={clsx(
-                "p-2 rounded-lg transition-colors",
+                "p-2 rounded-lg transition-all duration-200",
                 input.trim()
-                  ? "text-arcade-cyan hover:bg-arcade-cyan/10"
+                  ? "text-arcade-cyan hover:bg-arcade-cyan/10 hover:scale-110 active:scale-90"
                   : "text-gray-700"
               )}
+              style={input.trim() ? { filter: 'drop-shadow(0 0 4px rgba(6,182,212,0.4))' } : undefined}
             >
               <Send size={16} />
             </button>

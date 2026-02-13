@@ -95,7 +95,10 @@ export function MatchCommentary({
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">
           AI COMMENTARY
         </h3>
-        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-arcade-gold/10 text-arcade-gold border border-arcade-gold/20">
+        <span
+          className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-arcade-gold/10 text-arcade-gold border border-arcade-gold/20 animate-pulse-soft"
+          style={{ boxShadow: '0 0 6px rgba(255,215,0,0.15)' }}
+        >
           CLAUDE
         </span>
       </div>
@@ -239,8 +242,11 @@ function CommentaryInsights({ text, context }: { text: string; context: string }
             />
             {/* Marker dot */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-surface-0 shadow-sm transition-all duration-500"
-              style={{ left: `calc(${sentimentPct}% - 5px)` }}
+              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-surface-0 transition-all duration-500"
+              style={{
+                left: `calc(${sentimentPct}% - 5px)`,
+                boxShadow: `0 0 6px ${analysis.sentiment > 0.3 ? 'rgba(105,240,174,0.5)' : analysis.sentiment < -0.3 ? 'rgba(255,82,82,0.5)' : 'rgba(255,255,255,0.3)'}`,
+              }}
             />
           </div>
         </div>
@@ -255,7 +261,7 @@ function CommentaryInsights({ text, context }: { text: string; context: string }
             return (
               <span
                 key={i}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono transition-all duration-150 hover:scale-110 cursor-default"
                 style={{
                   backgroundColor: `${statColors[s.type]}10`,
                   color: statColors[s.type],

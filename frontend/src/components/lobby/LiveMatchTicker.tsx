@@ -38,6 +38,9 @@ function TickerItem({ match, resolveHandle, getAgent }: { match: Match; resolveH
           ? 'bg-arcade-green/10 border-arcade-green/30 hover:border-arcade-green/50'
           : 'bg-surface-2 border-white/[0.06] hover:border-arcade-purple/30',
       )}
+      style={{
+        boxShadow: isLive ? '0 0 8px rgba(105,240,174,0.12)' : undefined,
+      }}
     >
       {isLive && (
         <span className="flex items-center gap-1">
@@ -56,9 +59,15 @@ function TickerItem({ match, resolveHandle, getAgent }: { match: Match; resolveH
         </span>
       )}
       {competitiveness && eloGap !== null && (
-        <span className={clsx('flex items-center gap-0.5 text-[8px] font-bold', compColor)}>
+        <span
+          className={clsx('flex items-center gap-0.5 text-[8px] font-bold px-1 py-0.5 rounded', compColor,
+            competitiveness === 'CLOSE' && 'bg-arcade-green/10',
+            competitiveness === 'FAIR' && 'bg-arcade-gold/10',
+            competitiveness === 'MISMATCH' && 'bg-arcade-red/10',
+          )}
+        >
           <Shield size={8} />
-          {eloGap < 50 ? '~' : `Δ${eloGap}`}
+          {competitiveness === 'CLOSE' ? '~' : `Δ${eloGap}`}
         </span>
       )}
     </Link>
