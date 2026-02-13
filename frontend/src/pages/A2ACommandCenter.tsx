@@ -241,12 +241,20 @@ function NetworkStatsBar({ stats }: { stats: A2ANetworkStats }) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      {items.map((item) => (
-        <div key={item.label} className="arcade-card p-3 text-center">
-          <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
-          <p className="text-[10px] text-gray-500 font-pixel tracking-wider">{item.label}</p>
-        </div>
-      ))}
+      {items.map((item) => {
+        const glowMap: Record<string, string> = {
+          'text-arcade-cyan': 'rgba(0,229,255,0.15)',
+          'text-arcade-pink': 'rgba(236,72,153,0.15)',
+          'text-arcade-green': 'rgba(105,240,174,0.15)',
+          'text-arcade-gold': 'rgba(255,215,0,0.15)',
+        };
+        return (
+          <div key={item.label} className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+            <p className={`text-xl font-bold ${item.color}`} style={{ textShadow: `0 0 8px ${glowMap[item.color] ?? 'none'}` }}>{item.value}</p>
+            <p className="text-[10px] text-gray-500 font-pixel tracking-wider">{item.label}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -279,10 +287,10 @@ function ChallengeCard({ challenge }: { challenge: A2AChallenge }) {
   };
 
   return (
-    <div className="arcade-card p-4">
+    <div className="arcade-card p-4 transition-all duration-200 hover:scale-[1.01]">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Swords size={16} className="text-arcade-pink" />
+          <Swords size={16} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
           <span className="text-xs font-bold text-white">
             Challenge #{challenge.id}
           </span>
@@ -515,7 +523,7 @@ function AgentNetworkPanel({ agents }: { agents: DiscoveredAgent[] }) {
       ) : (
         <div className="space-y-2">
           {agents.map((agent) => (
-            <div key={agent.address} className="arcade-card p-3">
+            <div key={agent.address} className="arcade-card p-3 transition-all duration-150 hover:bg-surface-2">
               <div className="flex items-center justify-between">
                 <div>
                   <Link
@@ -592,8 +600,8 @@ function MessageLog({ messages }: { messages: A2AMessage[] }) {
             }
 
             return (
-              <div key={msg.id} className="flex items-start gap-2 py-1 border-b border-white/[0.04] last:border-0">
-                <Icon size={14} className={`${iconColor} mt-0.5 flex-shrink-0`} />
+              <div key={msg.id} className="flex items-start gap-2 py-1 border-b border-white/[0.04] last:border-0 transition-all duration-150 hover:bg-surface-1 rounded px-1 -mx-1">
+                <Icon size={14} className={`${iconColor} mt-0.5 flex-shrink-0`} style={{ filter: 'drop-shadow(0 0 2px currentColor)' }} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1 text-[10px]">
                     <span className="text-arcade-cyan font-mono">{shortAddr(msg.fromAgent)}</span>
@@ -652,7 +660,7 @@ export function A2ACommandCenter() {
         {realtimeTrigger > 0 && (
           <span className="flex items-center gap-1.5 ml-2">
             <span className="w-2 h-2 bg-arcade-green rounded-full animate-pulse" />
-            <span className="text-[10px] text-arcade-green font-mono">{realtimeTrigger} live events</span>
+            <span className="text-[10px] text-arcade-green font-mono" style={{ textShadow: '0 0 6px rgba(105,240,174,0.3)' }}>{realtimeTrigger} live events</span>
           </span>
         )}
       </div>
@@ -672,6 +680,7 @@ export function A2ACommandCenter() {
                 ? 'bg-arcade-cyan/20 text-arcade-cyan border border-arcade-cyan/30'
                 : 'text-gray-500 hover:text-gray-300 hover:bg-surface-2'
             )}
+            style={activeTab === tab.id ? { boxShadow: '0 0 10px rgba(0,229,255,0.15)' } : undefined}
           >
             <tab.icon size={14} />
             {tab.label}

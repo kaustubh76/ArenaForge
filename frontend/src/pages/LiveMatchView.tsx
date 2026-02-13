@@ -493,8 +493,8 @@ export function LiveMatchView() {
       {/* Match result overlay */}
       {isComplete && match.winner && !showReplay && (
         <div className="mt-6 text-center">
-          <div className="inline-block arcade-card border-arcade-purple/30 px-8 py-6">
-            <p className="font-pixel text-lg neon-text-green animate-score-pop">
+          <div className="inline-block arcade-card border-arcade-purple/30 px-8 py-6" style={{ boxShadow: '0 0 20px rgba(168,85,247,0.15)' }}>
+            <p className="font-pixel text-lg neon-text-green animate-score-pop" style={{ textShadow: '0 0 12px rgba(105,240,174,0.4)' }}>
               WINNER!
             </p>
             <p className="text-sm text-gray-400 mt-2">
@@ -584,14 +584,17 @@ function ScoreMomentumStrip({
           <Zap size={14} className={clsx(
             leader === 1 ? 'text-arcade-cyan' : leader === 2 ? 'text-arcade-pink' : 'text-gray-500',
             isLive && leader !== 0 && 'animate-pulse',
-          )} />
+          )} style={leader !== 0 ? { filter: `drop-shadow(0 0 3px ${leader === 1 ? 'rgba(0,229,255,0.4)' : 'rgba(255,64,129,0.4)'})` } : undefined} />
           <span className="text-[9px] font-pixel text-gray-500 tracking-wider">MOMENTUM</span>
         </div>
         {leader !== 0 && (
-          <span className={clsx(
-            'text-[10px] font-mono font-bold',
-            leader === 1 ? 'text-arcade-cyan' : 'text-arcade-pink',
-          )}>
+          <span
+            className={clsx(
+              'text-[10px] font-mono font-bold',
+              leader === 1 ? 'text-arcade-cyan' : 'text-arcade-pink',
+            )}
+            style={{ textShadow: `0 0 6px ${leader === 1 ? 'rgba(0,229,255,0.3)' : 'rgba(255,64,129,0.3)'}` }}
+          >
             {leader === 1 ? player1Handle : player2Handle} +{absDelta}
           </span>
         )}
@@ -682,6 +685,7 @@ function ScoreMomentumStrip({
                     : 'bg-gray-700',
                   active && i === 4 && isLive && 'animate-pulse',
                 )}
+                style={active && i >= 3 ? { boxShadow: `0 0 4px ${leader === 1 ? 'rgba(0,229,255,0.4)' : 'rgba(255,64,129,0.4)'}` } : undefined}
               />
             );
           })}
@@ -733,6 +737,7 @@ function MatchStatusTimeline({
                     isPast && 'border-arcade-purple bg-arcade-purple/20 text-arcade-purple',
                     !isActive && !isPast && 'border-gray-700 bg-surface-1 text-gray-600',
                   )}
+                  style={isActive ? { boxShadow: '0 0 10px rgba(105,240,174,0.25)' } : isPast ? { boxShadow: '0 0 8px rgba(168,85,247,0.15)' } : undefined}
                 >
                   {isPast ? (
                     <CheckCircle2 size={14} />
@@ -769,6 +774,7 @@ function MatchStatusTimeline({
                       'h-0.5 w-full rounded-full transition-all',
                       isPast ? 'bg-arcade-purple' : 'bg-gray-700',
                     )}
+                    style={isPast ? { boxShadow: '0 0 4px rgba(168,85,247,0.3)' } : undefined}
                   />
                 </div>
               )}

@@ -269,19 +269,19 @@ function BondingCurveRing({ progress, graduated }: { progress: number; graduated
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
-            style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+            style={{ transition: 'stroke-dashoffset 1s ease-out', filter: `drop-shadow(0 0 6px ${graduated ? 'rgba(105,240,174,0.4)' : 'rgba(255,215,0,0.3)'})` }}
           />
         </svg>
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           {graduated ? (
             <>
-              <span className="text-lg font-bold text-arcade-green">100%</span>
+              <span className="text-lg font-bold text-arcade-green" style={{ textShadow: '0 0 10px rgba(105,240,174,0.4)' }}>100%</span>
               <span className="text-[9px] text-arcade-green font-pixel mt-0.5">GRADUATED</span>
             </>
           ) : (
             <>
-              <span className="text-lg font-bold text-arcade-gold">{progress.toFixed(1)}%</span>
+              <span className="text-lg font-bold text-arcade-gold" style={{ textShadow: '0 0 10px rgba(255,215,0,0.3)' }}>{progress.toFixed(1)}%</span>
               <span className="text-[9px] text-gray-500 font-pixel mt-0.5">PROGRESS</span>
             </>
           )}
@@ -320,7 +320,7 @@ function TokenMetricsGrid({ token }: { token: TokenMetrics }) {
         {METRIC_CONFIGS.map(({ key, label, icon: Icon, gradient }) => {
           const { display, pct } = values[key];
           return (
-            <div key={key} className="bg-surface-1 rounded-lg p-3">
+            <div key={key} className="bg-surface-1 rounded-lg p-3 transition-all duration-200 hover:scale-[1.02] hover:bg-surface-2">
               <div className="flex items-center gap-1.5 mb-1">
                 <Icon size={12} className="text-gray-400" />
                 <p className="text-[10px] text-gray-500 uppercase">{label}</p>
@@ -345,9 +345,9 @@ function HoldersVsVolume({ holders, volume, marketCap }: { holders: number; volu
   const mcapVal = parseFloat(formatPrice(marketCap));
   const ratio = mcapVal > 0 ? (volVal / mcapVal) * 100 : 0;
 
-  const health = ratio > 10 ? { label: 'HIGH ACTIVITY', color: 'text-arcade-green', bg: 'bg-arcade-green' }
-    : ratio > 1 ? { label: 'MODERATE', color: 'text-arcade-purple', bg: 'bg-arcade-purple' }
-    : { label: 'LOW', color: 'text-gray-500', bg: 'bg-gray-500' };
+  const health = ratio > 10 ? { label: 'HIGH ACTIVITY', color: 'text-arcade-green', bg: 'bg-arcade-green', glow: 'rgba(105,240,174,0.3)' }
+    : ratio > 1 ? { label: 'MODERATE', color: 'text-arcade-purple', bg: 'bg-arcade-purple', glow: 'rgba(168,85,247,0.3)' }
+    : { label: 'LOW', color: 'text-gray-500', bg: 'bg-gray-500', glow: 'none' };
 
   const dotsCount = Math.min(holders, 50);
 
@@ -357,7 +357,7 @@ function HoldersVsVolume({ holders, volume, marketCap }: { holders: number; volu
         <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
           <Activity size={12} /> Market Health
         </h3>
-        <span className={`text-[10px] font-pixel ${health.color}`}>{health.label}</span>
+        <span className={`text-[10px] font-pixel ${health.color}`} style={{ textShadow: health.glow !== 'none' ? `0 0 6px ${health.glow}` : 'none' }}>{health.label}</span>
       </div>
 
       {/* Volume / Market Cap Ratio */}
@@ -385,7 +385,7 @@ function HoldersVsVolume({ holders, volume, marketCap }: { holders: number; volu
             <span
               key={i}
               className="w-2 h-2 rounded-full bg-arcade-cyan"
-              style={{ opacity: 0.3 + (i / dotsCount) * 0.7 }}
+              style={{ opacity: 0.3 + (i / dotsCount) * 0.7, boxShadow: i > dotsCount * 0.7 ? '0 0 4px rgba(0,229,255,0.3)' : 'none' }}
             />
           ))}
           {holders > 50 && (
@@ -417,7 +417,7 @@ function DiscoveredAgentsPanel({ agents, count }: { agents: DiscoveredAgent[]; c
           {agents.slice(0, 5).map((agent) => (
             <div
               key={agent.address}
-              className="flex items-center justify-between bg-surface-1 rounded-lg px-3 py-2"
+              className="flex items-center justify-between bg-surface-1 rounded-lg px-3 py-2 transition-all duration-150 hover:bg-surface-2"
             >
               <div>
                 <p className="text-xs font-mono text-white">{shortAddr(agent.address)}</p>
@@ -433,7 +433,8 @@ function DiscoveredAgentsPanel({ agents, count }: { agents: DiscoveredAgent[]; c
 
       <Link
         to="/a2a"
-        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-arcade-cyan/10 border border-arcade-cyan/30 text-arcade-cyan text-xs font-bold tracking-wider hover:bg-arcade-cyan/20 transition-colors"
+        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-arcade-cyan/10 border border-arcade-cyan/30 text-arcade-cyan text-xs font-bold tracking-wider hover:bg-arcade-cyan/20 transition-all hover:scale-[1.01]"
+        style={{ boxShadow: '0 0 8px rgba(0,229,255,0.08)' }}
       >
         <Radio size={14} />
         OPEN A2A COMMAND CENTER

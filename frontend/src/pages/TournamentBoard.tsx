@@ -145,7 +145,7 @@ export function TournamentBoard() {
             <StatusIndicator status={tournament.status} />
             {/* Live indicator */}
             {isSubscribed && (
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-arcade-green/10 border border-arcade-green/30">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-arcade-green/10 border border-arcade-green/30" style={{ boxShadow: '0 0 8px rgba(105,240,174,0.15)' }}>
                 <span className="w-1.5 h-1.5 bg-arcade-green rounded-full animate-pulse" />
                 <span className="text-[9px] font-pixel text-arcade-green">LIVE</span>
               </div>
@@ -377,7 +377,7 @@ export function TournamentBoard() {
       {liveMatches.length > 0 && (
         <div className="mt-8">
           <h3 className="font-pixel text-xs text-gray-400 mb-4 tracking-wider flex items-center gap-2">
-            <Eye size={14} className="text-arcade-green" />
+            <Eye size={14} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
             LIVE MATCHES — BET NOW
           </h3>
           <div className="space-y-3">
@@ -385,7 +385,7 @@ export function TournamentBoard() {
               const p1 = getAgentByAddress(match.player1);
               const p2 = getAgentByAddress(match.player2);
               return (
-                <div key={match.id} className="arcade-card p-4">
+                <div key={match.id} className="arcade-card p-4 transition-all duration-200" style={{ boxShadow: '0 0 10px rgba(105,240,174,0.06)' }}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 bg-arcade-green rounded-full animate-pulse" />
@@ -452,8 +452,8 @@ export function TournamentBoard() {
         <div className="arcade-card">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <p className="font-pixel text-[9px] neon-text-gold mb-1">1ST PLACE</p>
-              <p className="font-mono text-lg font-bold text-white">60%</p>
+              <p className="font-pixel text-[9px] neon-text-gold mb-1" style={{ textShadow: '0 0 6px rgba(255,215,0,0.3)' }}>1ST PLACE</p>
+              <p className="font-mono text-lg font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,215,0,0.2)' }}>60%</p>
               <p className="text-xs text-gray-500">{formatMON(String(parseFloat(tournament.prizePool) * 0.57))}</p>
             </div>
             <div className="text-center">
@@ -520,32 +520,32 @@ function TournamentQuickStats({
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-      <div className="arcade-card p-3 text-center">
-        <Zap size={14} className="text-arcade-cyan mx-auto mb-1" />
-        <div className="text-lg font-bold font-mono text-white">{avgElo}</div>
+      <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.05]">
+        <Zap size={14} className="text-arcade-cyan mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
+        <div className="text-lg font-bold font-mono text-white" style={{ textShadow: '0 0 6px rgba(0,229,255,0.2)' }}>{avgElo}</div>
         <div className="text-[9px] text-gray-500 uppercase tracking-wider">Avg ELO</div>
       </div>
-      <div className="arcade-card p-3 text-center">
-        <Percent size={14} className="text-arcade-purple mx-auto mb-1" />
-        <div className="text-lg font-bold font-mono text-white">{completionPct}%</div>
+      <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.05]">
+        <Percent size={14} className="text-arcade-purple mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
+        <div className="text-lg font-bold font-mono text-white" style={{ textShadow: '0 0 6px rgba(168,85,247,0.2)' }}>{completionPct}%</div>
         <div className="text-[9px] text-gray-500 uppercase tracking-wider">Completion</div>
       </div>
-      <div className="arcade-card p-3 text-center">
-        <Timer size={14} className="text-arcade-gold mx-auto mb-1" />
-        <div className="text-lg font-bold font-mono text-white">{velocity}</div>
+      <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.05]">
+        <Timer size={14} className="text-arcade-gold mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
+        <div className="text-lg font-bold font-mono text-white" style={{ textShadow: '0 0 6px rgba(255,215,0,0.2)' }}>{velocity}</div>
         <div className="text-[9px] text-gray-500 uppercase tracking-wider">Matches/hr</div>
       </div>
-      <div className="arcade-card p-3 text-center">
-        <Eye size={14} className="text-arcade-green mx-auto mb-1" />
+      <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.05]">
+        <Eye size={14} className="text-arcade-green mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
         <div className="text-lg font-bold font-mono text-white flex items-center justify-center gap-1.5">
           {liveMatchCount}
           {liveMatchCount > 0 && <span className="w-2 h-2 bg-arcade-green rounded-full animate-pulse" />}
         </div>
         <div className="text-[9px] text-gray-500 uppercase tracking-wider">Live Now</div>
       </div>
-      <div className="arcade-card p-3 text-center">
-        <Timer size={14} className="text-arcade-pink mx-auto mb-1" />
-        <div className="text-lg font-bold font-mono text-white">{estRemaining}</div>
+      <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.05]">
+        <Timer size={14} className="text-arcade-pink mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
+        <div className="text-lg font-bold font-mono text-white" style={{ textShadow: '0 0 6px rgba(236,72,153,0.2)' }}>{estRemaining}</div>
         <div className="text-[9px] text-gray-500 uppercase tracking-wider">Est. Left</div>
       </div>
     </div>

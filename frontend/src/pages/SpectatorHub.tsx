@@ -279,7 +279,10 @@ export function SpectatorHub() {
           wsConnected
             ? 'bg-arcade-green/10 border-arcade-green/30 text-arcade-green'
             : 'bg-gray-500/10 border-gray-500/30 text-gray-500'
-        )} title={wsConnected ? 'Real-time updates active' : 'Connecting to real-time updates'}>
+        )}
+          style={wsConnected ? { boxShadow: '0 0 8px rgba(105,240,174,0.15)' } : undefined}
+          title={wsConnected ? 'Real-time updates active' : 'Connecting to real-time updates'}
+        >
           {wsConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
           <span className="text-[10px] font-pixel">
             {wsConnected ? 'LIVE UPDATES' : 'CONNECTING'}
@@ -289,28 +292,31 @@ export function SpectatorHub() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="arcade-card p-3 text-center">
+        <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
           <div className="flex items-center justify-center gap-2">
-            <Eye size={16} className="text-arcade-cyan" />
+            <Eye size={16} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
             <AnimatedScore value={liveMatches.length} className="text-lg text-white" />
           </div>
           <p className="text-[10px] text-gray-500 mt-1">LIVE MATCHES</p>
         </div>
-        <div className="arcade-card p-3 text-center">
+        <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
           <AnimatedScore value={activeBets.length} className="text-lg text-arcade-purple" />
           <p className="text-[10px] text-gray-500 mt-1">ACTIVE BETS</p>
         </div>
-        <div className="arcade-card p-3 text-center">
-          <div className="text-lg font-mono text-arcade-gold">
+        <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+          <div className="text-lg font-mono text-arcade-gold" style={{ textShadow: totalWagered > 0 ? '0 0 6px rgba(255,215,0,0.2)' : 'none' }}>
             {totalWagered.toFixed(2)}
           </div>
           <p className="text-[10px] text-gray-500 mt-1">TOTAL WAGERED (ETH)</p>
         </div>
-        <div className="arcade-card p-3 text-center">
-          <div className={clsx(
-            'text-lg font-mono',
-            netProfit >= 0 ? 'text-arcade-green' : 'text-arcade-red'
-          )}>
+        <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+          <div
+            className={clsx(
+              'text-lg font-mono',
+              netProfit >= 0 ? 'text-arcade-green' : 'text-arcade-red'
+            )}
+            style={{ textShadow: netProfit !== 0 ? `0 0 6px ${netProfit >= 0 ? 'rgba(105,240,174,0.2)' : 'rgba(255,82,82,0.2)'}` : 'none' }}
+          >
             {netProfit >= 0 ? '+' : ''}{netProfit.toFixed(4)}
           </div>
           <p className="text-[10px] text-gray-500 mt-1">NET PROFIT (ETH)</p>
@@ -357,7 +363,7 @@ export function SpectatorHub() {
                         Live
                       </span>
                       {hasRealtimeData && (
-                        <span className="text-[9px] text-arcade-cyan px-1.5 py-0.5 bg-arcade-cyan/10 rounded">
+                        <span className="text-[9px] text-arcade-cyan px-1.5 py-0.5 bg-arcade-cyan/10 rounded" style={{ boxShadow: '0 0 6px rgba(0,229,255,0.15)' }}>
                           STREAMING
                         </span>
                       )}
@@ -448,15 +454,18 @@ export function SpectatorHub() {
                 <div
                   key={bettor.address}
                   className={clsx(
-                    'p-3 flex items-center gap-3',
+                    'p-3 flex items-center gap-3 transition-all duration-150 hover:bg-surface-1',
                     i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
                   )}
                 >
                   {/* Rank */}
-                  <span className={clsx(
-                    'w-6 text-center font-bold',
-                    i === 0 ? 'text-arcade-gold' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-gray-500',
-                  )}>
+                  <span
+                    className={clsx(
+                      'w-6 text-center font-bold',
+                      i === 0 ? 'text-arcade-gold' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-gray-500',
+                    )}
+                    style={i === 0 ? { textShadow: '0 0 6px rgba(255,215,0,0.3)' } : undefined}
+                  >
                     {i + 1}
                   </span>
 

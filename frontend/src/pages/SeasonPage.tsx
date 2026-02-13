@@ -341,12 +341,15 @@ function TopMovers({ profiles }: { profiles: SeasonalProfile[] }) {
           <Link
             key={m.address}
             to={`/agent/${m.address}`}
-            className="flex items-center gap-3 p-2 rounded-lg bg-surface-1 hover:bg-surface-2 transition-colors group"
+            className="flex items-center gap-3 p-2 rounded-lg bg-surface-1 hover:bg-surface-2 transition-all duration-150 group hover:scale-[1.01]"
           >
-            <span className={clsx(
-              'w-5 text-center font-pixel text-xs',
-              i === 0 ? 'text-arcade-gold' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-gray-500',
-            )}>
+            <span
+              className={clsx(
+                'w-5 text-center font-pixel text-xs',
+                i === 0 ? 'text-arcade-gold' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-gray-500',
+              )}
+              style={i === 0 ? { textShadow: '0 0 6px rgba(255,215,0,0.4)' } : undefined}
+            >
               {i + 1}
             </span>
             <div className="flex-1 min-w-0">
@@ -359,10 +362,13 @@ function TopMovers({ profiles }: { profiles: SeasonalProfile[] }) {
             </div>
             <div className="text-right flex-shrink-0">
               <div className="font-mono text-sm font-bold text-white">{m.elo}</div>
-              <div className={clsx(
-                'text-[10px] font-mono flex items-center gap-0.5 justify-end',
-                m.climb >= 0 ? 'text-arcade-green' : 'text-red-400',
-              )}>
+              <div
+                className={clsx(
+                  'text-[10px] font-mono flex items-center gap-0.5 justify-end',
+                  m.climb >= 0 ? 'text-arcade-green' : 'text-red-400',
+                )}
+                style={m.climb > 200 ? { textShadow: '0 0 6px rgba(105,240,174,0.3)' } : undefined}
+              >
                 {m.climb >= 0 ? <ArrowUp size={8} /> : <ArrowDown size={8} />}
                 {Math.abs(m.climb)}
               </div>
@@ -487,18 +493,24 @@ function LeaderboardTable({
               return (
                 <tr
                   key={p.address}
-                  className="border-b border-white/[0.03] hover:bg-surface-2 transition-colors"
+                  className={clsx(
+                    'border-b border-white/[0.03] hover:bg-surface-2 transition-all duration-150',
+                    rank <= 3 && 'hover:bg-surface-1',
+                  )}
+                  style={rank === 1 ? { boxShadow: 'inset 0 0 20px rgba(255,215,0,0.04)' } : undefined}
                 >
                   <td className="px-4 py-3">
                     <span
                       className={clsx(
-                        'font-mono text-sm font-bold',
+                        'font-mono text-sm font-bold inline-flex items-center gap-1',
                         rank === 1 && 'text-arcade-gold',
                         rank === 2 && 'text-gray-300',
                         rank === 3 && 'text-amber-600',
                         rank > 3 && 'text-gray-500',
                       )}
+                      style={rank === 1 ? { textShadow: '0 0 8px rgba(255,215,0,0.3)' } : undefined}
                     >
+                      {rank <= 3 && <Crown size={10} className={rank === 1 ? 'text-arcade-gold' : rank === 2 ? 'text-gray-300' : 'text-amber-600'} />}
                       {rank}
                     </span>
                   </td>
@@ -514,7 +526,10 @@ function LeaderboardTable({
                     <RankBadge tier={p.tier} size="sm" />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <span className="font-mono text-sm font-bold text-white">
+                    <span
+                      className="font-mono text-sm font-bold text-white"
+                      style={rank <= 3 ? { textShadow: '0 0 6px rgba(255,255,255,0.15)' } : undefined}
+                    >
                       {p.seasonalElo}
                     </span>
                   </td>

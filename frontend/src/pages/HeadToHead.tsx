@@ -194,8 +194,8 @@ export function HeadToHead() {
 
           {/* VS */}
           <div className="text-center flex flex-col items-center gap-1.5">
-            <Swords className="w-10 h-10 text-arcade-purple" />
-            <div className="text-sm text-gray-400 uppercase tracking-wider">versus</div>
+            <Swords className="w-10 h-10 text-arcade-purple" style={{ filter: 'drop-shadow(0 0 6px rgba(168,85,247,0.4))' }} />
+            <div className="text-sm text-gray-400 uppercase tracking-wider" style={{ textShadow: '0 0 6px rgba(168,85,247,0.2)' }}>versus</div>
             {a2aRel.relationship !== 'NEUTRAL' && (
               <GlowBadge
                 color={a2aRel.relationship === 'RIVAL' ? 'pink' : 'green'}
@@ -229,20 +229,20 @@ export function HeadToHead() {
       {(a2aRel.matchCount > 0 || a2aRel.challengeCount > 0 || a2aRel.messagesExchanged > 0) && (
         <div className="arcade-card p-4 mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <Radio size={14} className="text-arcade-pink" />
+            <Radio size={14} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">A2A History</span>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-surface-1 rounded-lg p-3 text-center">
-              <div className="text-lg font-mono font-bold text-arcade-cyan">{a2aRel.matchCount}</div>
+            <div className="bg-surface-1 rounded-lg p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+              <div className="text-lg font-mono font-bold text-arcade-cyan" style={{ textShadow: '0 0 6px rgba(0,229,255,0.2)' }}>{a2aRel.matchCount}</div>
               <div className="text-[9px] text-gray-500 uppercase">A2A Matches</div>
             </div>
-            <div className="bg-surface-1 rounded-lg p-3 text-center">
-              <div className="text-lg font-mono font-bold text-arcade-pink">{a2aRel.challengeCount}</div>
+            <div className="bg-surface-1 rounded-lg p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+              <div className="text-lg font-mono font-bold text-arcade-pink" style={{ textShadow: '0 0 6px rgba(236,72,153,0.2)' }}>{a2aRel.challengeCount}</div>
               <div className="text-[9px] text-gray-500 uppercase">Challenges</div>
             </div>
-            <div className="bg-surface-1 rounded-lg p-3 text-center">
-              <div className="text-lg font-mono font-bold text-arcade-gold">{a2aRel.messagesExchanged}</div>
+            <div className="bg-surface-1 rounded-lg p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+              <div className="text-lg font-mono font-bold text-arcade-gold" style={{ textShadow: '0 0 6px rgba(255,215,0,0.2)' }}>{a2aRel.messagesExchanged}</div>
               <div className="text-[9px] text-gray-500 uppercase">Messages</div>
             </div>
           </div>
@@ -452,7 +452,7 @@ function MatchupPredictor({
     <div className="arcade-card p-5 mb-6">
       <div className="text-center mb-2">
         <h3 className="text-sm font-bold text-gray-300 tracking-wider uppercase flex items-center justify-center gap-2">
-          <Target size={14} className="text-arcade-gold" />
+          <Target size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           Matchup Predictor
         </h3>
       </div>
@@ -512,7 +512,7 @@ function MatchupPredictor({
 
       {/* Factor breakdown */}
       <div className="grid grid-cols-3 gap-3 mt-2">
-        <div className="text-center bg-surface-1 rounded-lg p-2">
+        <div className="text-center bg-surface-1 rounded-lg p-2 transition-all duration-200 hover:scale-[1.03]">
           <div className="text-[9px] text-gray-500 uppercase">ELO Edge</div>
           <div className={clsx(
             'text-sm font-mono font-bold',
@@ -522,14 +522,14 @@ function MatchupPredictor({
           </div>
           <div className="text-[8px] text-gray-600 truncate">{eloFavor}</div>
         </div>
-        <div className="text-center bg-surface-1 rounded-lg p-2">
+        <div className="text-center bg-surface-1 rounded-lg p-2 transition-all duration-200 hover:scale-[1.03]">
           <div className="text-[9px] text-gray-500 uppercase">H2H Record</div>
           <div className="text-sm font-mono font-bold text-gray-300">
             {hasH2H ? `${h2h!.agent1Wins}-${h2h!.draws}-${h2h!.agent2Wins}` : 'N/A'}
           </div>
           <div className="text-[8px] text-gray-600">{hasH2H ? `${h2h!.totalMatches} games` : 'No history'}</div>
         </div>
-        <div className="text-center bg-surface-1 rounded-lg p-2">
+        <div className="text-center bg-surface-1 rounded-lg p-2 transition-all duration-200 hover:scale-[1.03]">
           <div className="text-[9px] text-gray-500 uppercase">Form</div>
           <div className="flex items-center justify-center gap-1">
             <span className="text-[10px] font-mono text-arcade-cyan">{agent1.winRate.toFixed(0)}%</span>
@@ -563,11 +563,24 @@ function StatCard({
     pink: 'text-arcade-pink border-arcade-pink/30',
     gray: 'text-gray-400 border-gray-600',
   };
+  const glowMap = {
+    cyan: '0 0 8px rgba(0,229,255,0.06)',
+    pink: '0 0 8px rgba(236,72,153,0.06)',
+    gray: 'none',
+  };
+  const textGlowMap = {
+    cyan: '0 0 8px rgba(0,229,255,0.25)',
+    pink: '0 0 8px rgba(236,72,153,0.25)',
+    gray: 'none',
+  };
 
   return (
-    <div className={clsx('arcade-card p-4 text-center border', colorMap[color])}>
+    <div
+      className={clsx('arcade-card p-4 text-center border transition-all duration-200 hover:scale-[1.03]', colorMap[color])}
+      style={{ boxShadow: glowMap[color] }}
+    >
       <div className={clsx('mx-auto mb-2', colorMap[color].split(' ')[0])}>{icon}</div>
-      <div className={clsx('text-3xl font-mono font-bold', colorMap[color].split(' ')[0])}>
+      <div className={clsx('text-3xl font-mono font-bold', colorMap[color].split(' ')[0])} style={{ textShadow: textGlowMap[color] }}>
         {value}
       </div>
       <div className="text-xs text-gray-400 mt-1 truncate">{label}</div>
@@ -661,7 +674,7 @@ function GameTypeBreakdown({
   return (
     <div className="arcade-card p-4">
       <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-        <BarChart3 size={14} />
+        <BarChart3 size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
         By Game Type
       </h3>
       <div className="space-y-3">
@@ -791,7 +804,7 @@ function RivalryTimeline({
   return (
     <div className="arcade-card p-4 mt-6">
       <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-        <Flame size={14} />
+        <Flame size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(255,152,0,0.4))' }} />
         Rivalry Timeline
       </h3>
 
@@ -829,12 +842,15 @@ function RivalryTimeline({
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4">
         {/* Longest streak */}
-        <div className="bg-surface-1 rounded-lg p-3 text-center">
+        <div className="bg-surface-1 rounded-lg p-3 text-center transition-all duration-200 hover:scale-[1.02]">
           <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Longest Streak</div>
-          <div className={clsx(
-            'text-xl font-bold font-mono',
-            longestStreak.type === 'a1' ? 'text-arcade-cyan' : longestStreak.type === 'a2' ? 'text-arcade-pink' : 'text-gray-400',
-          )}>
+          <div
+            className={clsx(
+              'text-xl font-bold font-mono',
+              longestStreak.type === 'a1' ? 'text-arcade-cyan' : longestStreak.type === 'a2' ? 'text-arcade-pink' : 'text-gray-400',
+            )}
+            style={{ textShadow: longestStreak.type === 'a1' ? '0 0 8px rgba(0,229,255,0.25)' : longestStreak.type === 'a2' ? '0 0 8px rgba(236,72,153,0.25)' : 'none' }}
+          >
             {longestStreak.count} {longestStreak.count === 1 ? 'win' : 'wins'}
           </div>
           <div className="text-[10px] text-gray-500">
@@ -843,9 +859,9 @@ function RivalryTimeline({
         </div>
 
         {/* Recent momentum */}
-        <div className="bg-surface-1 rounded-lg p-3 text-center">
+        <div className="bg-surface-1 rounded-lg p-3 text-center transition-all duration-200 hover:scale-[1.02]">
           <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-            <Zap size={10} />
+            <Zap size={10} style={{ filter: 'drop-shadow(0 0 2px rgba(255,215,0,0.4))' }} />
             Recent Form (Last 5)
           </div>
           <div className="flex h-3 rounded-full overflow-hidden bg-surface-0 my-2">
