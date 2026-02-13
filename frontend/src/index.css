@@ -1,0 +1,401 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   DESIGN TOKENS
+   ======================================== */
+:root {
+  --arcade-purple: #a855f7;
+  --arcade-cyan: #06b6d4;
+  --arcade-pink: #ec4899;
+  --arcade-green: #22c55e;
+  --arcade-gold: #eab308;
+  --surface-0: #050508;
+  --surface-1: #0a0a10;
+  --surface-2: #101018;
+  --surface-3: #161622;
+  --surface-4: #1c1c2e;
+  --game-oracle: #f59e0b;
+  --game-strategy: #8b5cf6;
+  --game-auction: #06b6d4;
+  --game-quiz: #22c55e;
+}
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
+body {
+  @apply bg-surface-0 text-white antialiased;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.3);
+  color: white;
+}
+
+/* ========================================
+   SCROLLBAR
+   ======================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700/60 rounded-full;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500/80;
+}
+
+/* ========================================
+   ARCADE CARD SYSTEM
+   ======================================== */
+.arcade-card {
+  @apply bg-surface-2 rounded-lg border border-white/[0.06] p-5 relative overflow-hidden;
+  box-shadow: 0 0 1px rgba(168, 85, 247, 0.4), 0 4px 12px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.arcade-card-hoverable {
+  @apply transition-all duration-300 ease-out cursor-pointer;
+}
+
+.arcade-card-hoverable:hover {
+  @apply border-arcade-purple/30 -translate-y-1;
+  box-shadow: 0 0 2px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.arcade-card-oracle { border-left: 3px solid var(--game-oracle); }
+.arcade-card-strategy { border-left: 3px solid var(--game-strategy); }
+.arcade-card-auction { border-left: 3px solid var(--game-auction); }
+.arcade-card-quiz { border-left: 3px solid var(--game-quiz); }
+
+/* ========================================
+   BUTTON SYSTEM
+   ======================================== */
+.btn-neon {
+  @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-semibold text-sm
+         transition-all duration-300 relative overflow-hidden border;
+}
+
+.btn-neon-purple {
+  @apply text-arcade-purple border-arcade-purple/40 bg-arcade-purple/10;
+}
+.btn-neon-purple:hover {
+  @apply bg-arcade-purple/20 border-arcade-purple/60;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+}
+
+.btn-neon-cyan {
+  @apply text-arcade-cyan border-arcade-cyan/40 bg-arcade-cyan/10;
+}
+.btn-neon-cyan:hover {
+  @apply bg-arcade-cyan/20 border-arcade-cyan/60;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+}
+
+.btn-neon-pink {
+  @apply text-arcade-pink border-arcade-pink/40 bg-arcade-pink/10;
+}
+.btn-neon-pink:hover {
+  @apply bg-arcade-pink/20 border-arcade-pink/60;
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.3);
+}
+
+.btn-neon-green {
+  @apply text-arcade-green border-arcade-green/40 bg-arcade-green/10;
+}
+.btn-neon-green:hover {
+  @apply bg-arcade-green/20 border-arcade-green/60;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+}
+
+.btn-insert-coin {
+  @apply inline-flex items-center justify-center px-6 py-3 rounded-lg
+         font-pixel text-xs text-arcade-gold border-2 border-arcade-gold/50
+         bg-arcade-gold/5 transition-all duration-300 uppercase tracking-wider;
+  animation: pulseNeon 2s ease-in-out infinite;
+  --tw-shadow-color: rgba(234, 179, 8, 0.3);
+}
+.btn-insert-coin:hover {
+  @apply bg-arcade-gold/15 border-arcade-gold/80;
+  box-shadow: 0 0 16px rgba(234, 179, 8, 0.4), 0 0 32px rgba(234, 179, 8, 0.15);
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-semibold text-sm text-white transition-all duration-300;
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #c084fc, #a855f7);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.45);
+  @apply -translate-y-0.5;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-semibold text-sm
+         bg-surface-3 text-white border border-white/[0.08] transition-all duration-300;
+}
+.btn-secondary:hover {
+  @apply bg-surface-4 border-white/[0.12];
+}
+
+/* ========================================
+   INPUT SYSTEM
+   ======================================== */
+.input-arcade {
+  @apply w-full px-4 py-3 bg-surface-1 border border-white/[0.08] rounded-lg text-white
+         placeholder-gray-500 transition-all duration-300 font-mono text-sm;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.input-arcade:focus {
+  @apply outline-none border-arcade-purple/50;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(168, 85, 247, 0.12);
+}
+
+/* ========================================
+   NEON TEXT EFFECTS
+   ======================================== */
+.neon-text-purple {
+  color: #a855f7;
+  text-shadow: 0 0 7px rgba(168, 85, 247, 0.6), 0 0 20px rgba(168, 85, 247, 0.3);
+}
+.neon-text-cyan {
+  color: #06b6d4;
+  text-shadow: 0 0 7px rgba(6, 182, 212, 0.6), 0 0 20px rgba(6, 182, 212, 0.3);
+}
+.neon-text-pink {
+  color: #ec4899;
+  text-shadow: 0 0 7px rgba(236, 72, 153, 0.6), 0 0 20px rgba(236, 72, 153, 0.3);
+}
+.neon-text-green {
+  color: #22c55e;
+  text-shadow: 0 0 7px rgba(34, 197, 94, 0.6), 0 0 20px rgba(34, 197, 94, 0.3);
+}
+.neon-text-gold {
+  color: #eab308;
+  text-shadow: 0 0 7px rgba(234, 179, 8, 0.6), 0 0 20px rgba(234, 179, 8, 0.3);
+}
+
+/* ========================================
+   GLASS EFFECT
+   ======================================== */
+.glass {
+  @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-lg;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ========================================
+   GRADIENT TEXT
+   ======================================== */
+.gradient-text-arcade {
+  @apply bg-clip-text text-transparent;
+  background-image: linear-gradient(135deg, #a855f7, #06b6d4, #ec4899);
+  background-size: 200% 200%;
+  animation: gradientShift 8s ease infinite;
+}
+
+/* ========================================
+   SCANLINE OVERLAY
+   ======================================== */
+.scanline-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.03;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.3) 2px,
+    rgba(0, 0, 0, 0.3) 4px
+  );
+}
+
+/* ========================================
+   CRT VIGNETTE
+   ======================================== */
+.crt-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+}
+
+/* ========================================
+   MESH BACKGROUND
+   ======================================== */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(168, 85, 247, 0.1), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%, rgba(6, 182, 212, 0.06), transparent),
+    radial-gradient(ellipse 50% 60% at 10% 80%, rgba(236, 72, 153, 0.04), transparent);
+}
+
+/* ========================================
+   GRID PATTERN
+   ======================================== */
+.grid-pattern {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 30%, transparent 100%);
+}
+
+/* ========================================
+   NOISE TEXTURE
+   ======================================== */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* ========================================
+   SKELETON LOADING
+   ======================================== */
+.skeleton {
+  @apply rounded-lg;
+  background: linear-gradient(
+    90deg,
+    rgba(168, 85, 247, 0.03) 0%,
+    rgba(168, 85, 247, 0.08) 50%,
+    rgba(168, 85, 247, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* ========================================
+   DIVIDER
+   ======================================== */
+.divider-glow {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.4), transparent);
+}
+
+/* ========================================
+   FOCUS RING
+   ======================================== */
+*:focus-visible {
+  @apply outline-none;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.5);
+  border-radius: inherit;
+}
+
+/* ========================================
+   GAME TYPE BADGE BACKGROUNDS
+   ======================================== */
+.game-bg-oracle {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+  @apply text-amber-400 border border-amber-500/30;
+}
+.game-bg-strategy {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05));
+  @apply text-purple-400 border border-purple-500/30;
+}
+.game-bg-auction {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.05));
+  @apply text-cyan-400 border border-cyan-500/30;
+}
+.game-bg-quiz {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  @apply text-green-400 border border-green-500/30;
+}
+
+/* ========================================
+   ELO TIER BADGES
+   ======================================== */
+.elo-bronze {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.06));
+  @apply text-amber-300 border border-amber-700/30;
+}
+.elo-silver {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.12), rgba(192, 192, 192, 0.05));
+  @apply text-gray-200 border border-gray-400/20;
+}
+.elo-gold {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.06));
+  @apply text-yellow-300 border border-yellow-500/30;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.1);
+}
+.elo-diamond {
+  background: linear-gradient(135deg, rgba(185, 242, 255, 0.15), rgba(139, 92, 246, 0.08));
+  @apply text-cyan-300 border border-cyan-400/30;
+  box-shadow: 0 0 16px rgba(185, 242, 255, 0.1);
+}
+.elo-master {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(168, 85, 247, 0.1));
+  @apply text-red-300 border border-red-400/30;
+  box-shadow: 0 0 16px rgba(255, 107, 107, 0.1);
+}
+
+/* ========================================
+   BRACKET CONNECTORS
+   ======================================== */
+.bracket-match {
+  position: relative;
+}
+
+.bracket-match::after {
+  content: '';
+  position: absolute;
+  right: -2rem;
+  top: 50%;
+  width: 2rem;
+  height: 1px;
+  background: rgba(168, 85, 247, 0.25);
+}
+
+.bracket-round-last .bracket-match::after {
+  display: none;
+}
+
+.bracket-connector-top::before {
+  content: '';
+  position: absolute;
+  right: -2rem;
+  top: 50%;
+  height: calc(50% + 0.5rem);
+  width: 1px;
+  background: rgba(168, 85, 247, 0.25);
+}
+
+.bracket-connector-bottom::before {
+  content: '';
+  position: absolute;
+  right: -2rem;
+  bottom: 50%;
+  height: calc(50% + 0.5rem);
+  width: 1px;
+  background: rgba(168, 85, 247, 0.25);
+}
