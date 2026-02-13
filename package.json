@@ -1,0 +1,52 @@
+{
+  "name": "arenaforge",
+  "version": "1.0.0",
+  "description": "ArenaForge - Autonomous AI Gaming Arena Protocol on Monad",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "test:gas": "forge test --gas-report",
+    "deploy:local": "forge script script/Deploy.s.sol --broadcast --rpc-url http://127.0.0.1:8545",
+    "deploy:testnet": "forge script script/Deploy.s.sol --broadcast --rpc-url ${MONAD_TESTNET_RPC_URL}",
+    "deploy:mainnet": "forge script script/Deploy.s.sol --broadcast --rpc-url ${MONAD_RPC_URL}",
+    "agent:dev": "USE_TESTNET=true npx ts-node agent/index.ts",
+    "agent:prod": "USE_TESTNET=false npx ts-node agent/index.ts",
+    "agent:local": "USE_LOCAL=true npx ts-node agent/index.ts",
+    "anvil:start": "bash scripts/local-deploy.sh",
+    "anvil:stop": "bash scripts/anvil-stop.sh",
+    "test:e2e": "npx ts-node agent/test-local.ts",
+    "test:testnet": "npx ts-node agent/test-testnet.ts",
+    "setup:arena": "npx ts-node --transpile-only agent/setup-arena.ts",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@apollo/server": "^4.10.0",
+    "@graphql-tools/schema": "^10.0.0",
+    "@nadfun/sdk": "^0.4.3",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "dataloader": "^2.2.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2",
+    "graphql": "^16.8.0",
+    "graphql-subscriptions": "^2.0.0",
+    "graphql-ws": "^5.14.0",
+    "socket.io": "^4.7.0",
+    "viem": "^2.21.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "@types/ws": "^8.5.10",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

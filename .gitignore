@@ -1,0 +1,32 @@
+# Foundry
+out/
+cache/
+broadcast/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+frontend/.env
+
+# IDE
+.vscode/
+.idea/
+
+# Local dev
+.anvil-pid
+.anvil.log
+
+# Database
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+*.log
