@@ -274,15 +274,16 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         onClick={() => goToResult(item)}
                         onMouseEnter={() => setSelectedIndex(idx)}
                         className={clsx(
-                          'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                          'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150',
                           isSelected
-                            ? 'bg-arcade-purple/10'
+                            ? 'bg-white/[0.06]'
                             : 'hover:bg-surface-3',
                         )}
+                        style={isSelected ? { boxShadow: categoryGlow[item.category] } : undefined}
                       >
                         <span className={clsx(
-                          'shrink-0',
-                          isSelected ? 'text-arcade-purple' : 'text-gray-500',
+                          'shrink-0 transition-colors',
+                          isSelected ? categoryColors[item.category] : 'text-gray-500',
                         )}>
                           {item.icon}
                         </span>
@@ -297,7 +298,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                           )}
                         </div>
                         {isSelected && (
-                          <CornerDownLeft size={12} className="text-gray-500 shrink-0" />
+                          <CornerDownLeft size={12} className={clsx('shrink-0', categoryColors[item.category])} />
                         )}
                       </button>
                     );
@@ -309,6 +310,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
           {/* Footer with keyboard hints */}
           <div className="flex items-center gap-4 px-4 py-2 border-t border-white/[0.06] text-[10px] text-gray-600">
+            {results.length > 0 && (
+              <span className="text-gray-700 font-mono mr-auto">{results.length} result{results.length !== 1 ? 's' : ''}</span>
+            )}
             <span className="flex items-center gap-1">
               <kbd className="px-1 py-0.5 bg-surface-3 border border-white/[0.08] rounded font-mono">↑↓</kbd>
               navigate
