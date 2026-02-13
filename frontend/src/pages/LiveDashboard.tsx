@@ -399,17 +399,25 @@ function HeroStat({
   pulse?: boolean;
 }) {
   const c = COLOR_MAP[color] ?? COLOR_MAP.cyan;
+  const glowMap: Record<string, string> = {
+    purple: 'rgba(168,85,247,0.3)', green: 'rgba(105,240,174,0.3)',
+    cyan: 'rgba(0,229,255,0.3)', gold: 'rgba(255,215,0,0.3)',
+  };
+  const iconGlow = glowMap[color] ?? 'none';
   return (
-    <div className={clsx('arcade-card p-4 border', c.border, c.bg)}>
+    <div
+      className={clsx('arcade-card p-4 border transition-all duration-200 hover:scale-[1.03]', c.border, c.bg)}
+      style={{ boxShadow: `0 0 8px ${(glowMap[color] ?? 'transparent').replace('0.3', '0.06')}` }}
+    >
       <div className="flex items-center justify-between mb-2">
-        <Icon size={18} className={clsx(c.text, pulse && 'animate-pulse')} />
+        <Icon size={18} className={clsx(c.text, pulse && 'animate-pulse')} style={{ filter: `drop-shadow(0 0 4px ${iconGlow})` }} />
         {trend != null && trend > 0 && (
           <span className="text-[10px] text-arcade-green flex items-center gap-0.5">
             <TrendingUp size={10} /> +{trend} today
           </span>
         )}
       </div>
-      <div className="text-2xl font-mono font-bold text-white">{value.toLocaleString()}</div>
+      <div className="text-2xl font-mono font-bold text-white" style={{ textShadow: `0 0 8px ${iconGlow}` }}>{value.toLocaleString()}</div>
       <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">{label}</div>
     </div>
   );
@@ -450,7 +458,7 @@ function WinRateDistribution({ agents }: { agents: AgentProfileExtended[] }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-4">
-        <BarChart3 size={16} className="text-arcade-cyan" />
+        <BarChart3 size={16} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
           Win Rate Distribution
         </span>
@@ -540,7 +548,7 @@ function MatchVelocityGauge({ allMatches }: { allMatches: Match[] }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-2">
-        <Activity size={16} className="text-arcade-green" />
+        <Activity size={16} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
           Match Velocity
         </span>
@@ -629,7 +637,7 @@ function EloDistributionChart({ agents }: { agents: AgentProfileExtended[] }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-4">
-        <Crown size={16} className="text-arcade-gold" />
+        <Crown size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
           ELO Distribution
         </span>
@@ -683,7 +691,7 @@ function GameTypeBreakdown({ tournaments }: { tournaments: Tournament[] }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-4">
-        <Target size={16} className="text-arcade-pink" />
+        <Target size={16} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
           Game Type Distribution
         </span>
@@ -754,7 +762,7 @@ function TopAgentsWidget({ agents }: { agents: AgentProfileExtended[] }) {
     <div className="arcade-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Crown size={16} className="text-arcade-gold" />
+          <Crown size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Top Agents</span>
         </div>
         <Link to="/leaderboard" className="text-[10px] text-arcade-purple hover:text-arcade-cyan transition-colors">
@@ -775,9 +783,10 @@ function TopAgentsWidget({ agents }: { agents: AgentProfileExtended[] }) {
                 key={agent.agentAddress}
                 to={`/agent/${agent.agentAddress}`}
                 className={clsx(
-                  'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors hover:bg-surface-2',
+                  'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all duration-200 hover:bg-surface-2',
                   i < 3 && 'bg-surface-1',
                 )}
+                style={i === 0 ? { boxShadow: '0 0 8px rgba(255,215,0,0.06)' } : undefined}
               >
                 <span className="text-[10px] font-mono text-gray-500 w-5 text-center">
                   {medal ?? `#${i + 1}`}
@@ -785,7 +794,7 @@ function TopAgentsWidget({ agents }: { agents: AgentProfileExtended[] }) {
                 <span className="text-xs text-white truncate flex-1">
                   {agent.moltbookHandle || agent.agentAddress.slice(0, 8)}
                 </span>
-                <span className="text-[10px] font-mono text-arcade-cyan">{agent.elo ?? 1200}</span>
+                <span className="text-[10px] font-mono text-arcade-cyan" style={i < 3 ? { textShadow: '0 0 6px rgba(0,229,255,0.3)' } : undefined}>{agent.elo ?? 1200}</span>
                 <span className={clsx(
                   'text-[10px] font-mono w-10 text-right',
                   winRate >= 60 ? 'text-arcade-green' : winRate >= 40 ? 'text-gray-400' : 'text-arcade-red',
@@ -844,7 +853,7 @@ function LiveActivityWidget({ events }: { events: RealtimeEvent[] }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <Activity size={16} className="text-arcade-green" />
+        <Activity size={16} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Live Activity</span>
         {events.length > 0 && (
           <span className="ml-auto text-[10px] font-mono text-arcade-green">{events.length} events</span>
@@ -873,7 +882,7 @@ function LiveActivityWidget({ events }: { events: RealtimeEvent[] }) {
                       : 'bg-surface-1',
                 )}
               >
-                <Icon size={12} className={clsx(info.color, isNew && 'animate-pulse')} />
+                <Icon size={12} className={clsx(info.color, isNew && 'animate-pulse')} style={isNew ? { filter: 'drop-shadow(0 0 3px currentColor)' } : undefined} />
                 <span className="text-[10px] text-gray-300 flex-1 truncate">{info.label}</span>
                 {isNew && (
                   <span className="w-1.5 h-1.5 bg-arcade-green rounded-full animate-pulse flex-shrink-0" />
@@ -903,7 +912,7 @@ function HotStreaksWidget({ agents }: { agents: AgentProfileExtended[] }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <Flame size={16} className="text-arcade-orange" />
+        <Flame size={16} className="text-arcade-orange" style={{ filter: 'drop-shadow(0 0 3px rgba(255,152,0,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Hot Streaks</span>
       </div>
       {streakers.length === 0 ? (
@@ -917,21 +926,24 @@ function HotStreaksWidget({ agents }: { agents: AgentProfileExtended[] }) {
               <Link
                 key={agent.agentAddress}
                 to={`/agent/${agent.agentAddress}`}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-2 transition-colors"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-2 transition-all duration-200 hover:scale-[1.01]"
               >
                 <span className="text-xs text-white truncate flex-1">
                   {agent.moltbookHandle || agent.agentAddress.slice(0, 8)}
                 </span>
                 <div className="flex items-center gap-1">
                   {isWin ? (
-                    <TrendingUp size={12} className="text-arcade-green" />
+                    <TrendingUp size={12} className="text-arcade-green" style={Math.abs(streak) >= 4 ? { filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.5))' } : undefined} />
                   ) : (
-                    <TrendingDown size={12} className="text-arcade-red" />
+                    <TrendingDown size={12} className="text-arcade-red" style={Math.abs(streak) >= 4 ? { filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.5))' } : undefined} />
                   )}
-                  <span className={clsx(
-                    'text-xs font-mono font-bold',
-                    isWin ? 'text-arcade-green' : 'text-arcade-red',
-                  )}>
+                  <span
+                    className={clsx(
+                      'text-xs font-mono font-bold',
+                      isWin ? 'text-arcade-green' : 'text-arcade-red',
+                    )}
+                    style={Math.abs(streak) >= 4 ? { textShadow: `0 0 6px ${isWin ? 'rgba(105,240,174,0.3)' : 'rgba(255,82,82,0.3)'}` } : undefined}
+                  >
                     {isWin ? `W${streak}` : `L${Math.abs(streak)}`}
                   </span>
                 </div>
@@ -981,7 +993,7 @@ function RecentResultsWidget({
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <Swords size={16} className="text-arcade-cyan" />
+        <Swords size={16} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Recent Results</span>
       </div>
       {recent.length === 0 ? (
@@ -1050,7 +1062,7 @@ function A2AStatsBar({ stats }: { stats: A2ANetworkStats }) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <Radio size={16} className="text-arcade-pink" />
+        <Radio size={16} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
           A2A Network
         </span>
@@ -1069,9 +1081,9 @@ function A2AStatsBar({ stats }: { stats: A2ANetworkStats }) {
           return (
             <div
               key={item.key}
-              className={clsx('rounded-lg border p-3 flex items-center gap-3', c.bg, c.border)}
+              className={clsx('rounded-lg border p-3 flex items-center gap-3 transition-all duration-200 hover:scale-[1.03]', c.bg, c.border)}
             >
-              <Icon size={18} className={c.text} />
+              <Icon size={18} className={c.text} style={{ filter: 'drop-shadow(0 0 3px currentColor)' }} />
               <div>
                 <div className={clsx('text-lg font-mono font-bold', c.text)}>
                   {item.value}
@@ -1131,7 +1143,7 @@ function A2AChallengesWidget({ challenges }: { challenges: A2AChallenge[] }) {
     <div className="arcade-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Swords size={16} className="text-arcade-pink" />
+          <Swords size={16} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
           <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
             A2A Challenges
           </span>
@@ -1163,7 +1175,7 @@ function A2AChallengesWidget({ challenges }: { challenges: A2AChallenge[] }) {
               <div
                 key={c.id}
                 className={clsx(
-                  'relative overflow-hidden rounded-lg bg-surface-1',
+                  'relative overflow-hidden rounded-lg bg-surface-1 transition-all duration-200 hover:scale-[1.01]',
                   c.status === 'pending' && 'ring-1 ring-arcade-cyan/20',
                 )}
               >
@@ -1264,7 +1276,7 @@ function A2ACommsWidget({ messages }: { messages: A2AMessage[] }) {
     <div className="arcade-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Radio size={16} className="text-arcade-gold" />
+          <Radio size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
             A2A Comms Log
           </span>
@@ -1298,7 +1310,7 @@ function A2ACommsWidget({ messages }: { messages: A2AMessage[] }) {
             return (
               <div
                 key={msg.id}
-                className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-surface-1"
+                className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-surface-1 transition-colors hover:bg-surface-2"
               >
                 <Icon size={12} className={clsx(iconColor, 'mt-0.5 flex-shrink-0')} />
                 <div className="flex-1 min-w-0">
@@ -1357,7 +1369,7 @@ function ArenaPulse({ allMatches }: { allMatches: Match[] }) {
     <div className="arcade-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <BarChart3 size={16} className="text-arcade-cyan" />
+          <BarChart3 size={16} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
           <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
             Arena Pulse
           </span>
@@ -1425,7 +1437,7 @@ function TournamentPipeline({ tournaments }: { tournaments: Tournament[] }) {
     <div className="arcade-card p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Trophy size={16} className="text-arcade-purple" />
+          <Trophy size={16} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
             Tournament Pipeline
           </span>
@@ -1438,7 +1450,7 @@ function TournamentPipeline({ tournaments }: { tournaments: Tournament[] }) {
         {stages.map((stage, i) => (
           <div key={stage.label} className="flex items-center flex-1 gap-2">
             <div className={clsx(
-              'flex-1 rounded-lg border p-3 text-center transition-all',
+              'flex-1 rounded-lg border p-3 text-center transition-all duration-200 hover:scale-[1.03]',
               stage.bg, stage.border,
               stage.count > 0 && 'ring-1 ring-white/5',
             )}>

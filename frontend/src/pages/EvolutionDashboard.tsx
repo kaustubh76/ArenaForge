@@ -66,6 +66,7 @@ export function EvolutionDashboard() {
               ? 'bg-arcade-cyan/15 text-arcade-cyan border-arcade-cyan/40'
               : 'text-gray-500 border-white/[0.06] hover:text-gray-300',
           )}
+          style={selectedTournamentId === null ? { boxShadow: '0 0 8px rgba(0,229,255,0.15)' } : undefined}
         >
           ALL
         </button>
@@ -82,6 +83,7 @@ export function EvolutionDashboard() {
                   ? 'bg-arcade-cyan/15 text-arcade-cyan border-arcade-cyan/40'
                   : 'text-gray-500 border-white/[0.06] hover:text-gray-300',
               )}
+              style={selectedTournamentId === tid ? { boxShadow: '0 0 8px rgba(0,229,255,0.15)' } : undefined}
             >
               <GameTypeBadge gameType={t.gameType} size="sm" showLabel={false} />
               {t.name}
@@ -103,7 +105,7 @@ export function EvolutionDashboard() {
         /* Timeline */
         <div className="relative">
           {/* Vertical line */}
-          <div className="absolute left-4 top-0 bottom-0 w-px bg-arcade-cyan/20" />
+          <div className="absolute left-4 top-0 bottom-0 w-px bg-arcade-cyan/20" style={{ boxShadow: '0 0 4px rgba(0,229,255,0.1)' }} />
 
           <div className="space-y-8">
             {filteredRecords.map((record, i) => {
@@ -115,7 +117,7 @@ export function EvolutionDashboard() {
                   style={{ animationDelay: `${i * 0.1}s`, animationFillMode: 'forwards' }}
                 >
                   {/* Timeline dot */}
-                  <div className="absolute left-2.5 top-1 w-3 h-3 rounded-full bg-arcade-cyan border-2 border-surface-0 animate-glow-pulse" />
+                  <div className="absolute left-2.5 top-1 w-3 h-3 rounded-full bg-arcade-cyan border-2 border-surface-0 animate-glow-pulse" style={{ boxShadow: '0 0 6px rgba(0,229,255,0.4)' }} />
 
                   {/* Header */}
                   <div className="flex items-center gap-3 mb-3">
@@ -228,7 +230,7 @@ function EvolutionAnalytics({ records }: { records: import('@/types/arena').Evol
       {/* Stats summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="arcade-card p-3 text-center">
-          <Zap size={16} className="text-arcade-purple mx-auto mb-1" />
+          <Zap size={16} className="text-arcade-purple mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 4px rgba(168,85,247,0.4))' }} />
           <p className="text-lg font-mono font-bold text-white">{stats.totalMutations}</p>
           <p className="text-[9px] font-pixel text-gray-500">MUTATIONS</p>
         </div>
@@ -245,12 +247,12 @@ function EvolutionAnalytics({ records }: { records: import('@/types/arena').Evol
           <p className="text-[9px] font-pixel text-gray-500">BUFF / NERF</p>
         </div>
         <div className="arcade-card p-3 text-center">
-          <Activity size={16} className="text-arcade-cyan mx-auto mb-1" />
+          <Activity size={16} className="text-arcade-cyan mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 4px rgba(0,229,255,0.4))' }} />
           <p className="text-lg font-mono font-bold text-white">{(stats.avgDrawRate * 100).toFixed(0)}%</p>
           <p className="text-[9px] font-pixel text-gray-500">AVG DRAW RATE</p>
         </div>
         <div className="arcade-card p-3 text-center">
-          <BarChart3 size={16} className="text-arcade-gold mx-auto mb-1" />
+          <BarChart3 size={16} className="text-arcade-gold mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.4))' }} />
           <p className="text-lg font-mono font-bold text-white capitalize">{stats.dominantBehavior}</p>
           <p className="text-[9px] font-pixel text-gray-500">META BEHAVIOR</p>
         </div>
@@ -262,7 +264,7 @@ function EvolutionAnalytics({ records }: { records: import('@/types/arena').Evol
         {stats.trendData.length > 1 && (
           <div className="arcade-card p-4 md:col-span-2">
             <div className="flex items-center gap-2 mb-3">
-              <Zap size={14} className="text-arcade-purple" />
+              <Zap size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">MUTATION TREND</span>
             </div>
             <ResponsiveContainer width="100%" height={140}>

@@ -74,6 +74,7 @@ function EloSparkline({ history }: { history: number[] }) {
           strokeWidth={1.5}
           strokeLinejoin="round"
           strokeLinecap="round"
+          filter={`drop-shadow(0 0 2px ${strokeColor}66)`}
         />
         {/* Dot on latest point */}
         <circle
@@ -111,15 +112,23 @@ function StreakBadge({ streak }: { streak: number }) {
   const intensity = Math.min(absStreak, 10);
 
   return (
-    <span className={clsx(
-      'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold',
-      isWin
-        ? intensity >= 7 ? 'bg-arcade-orange/20 text-arcade-orange animate-pulse' :
-          intensity >= 5 ? 'bg-arcade-gold/20 text-arcade-gold' :
-          'bg-arcade-green/15 text-arcade-green'
-        : intensity >= 5 ? 'bg-arcade-cyan/20 text-arcade-cyan animate-pulse' :
-          'bg-red-500/15 text-red-400',
-    )}>
+    <span
+      className={clsx(
+        'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold',
+        isWin
+          ? intensity >= 7 ? 'bg-arcade-orange/20 text-arcade-orange animate-pulse' :
+            intensity >= 5 ? 'bg-arcade-gold/20 text-arcade-gold' :
+            'bg-arcade-green/15 text-arcade-green'
+          : intensity >= 5 ? 'bg-arcade-cyan/20 text-arcade-cyan animate-pulse' :
+            'bg-red-500/15 text-red-400',
+      )}
+      style={{
+        boxShadow: isWin
+          ? intensity >= 7 ? '0 0 8px rgba(255,171,64,0.3)' :
+            intensity >= 5 ? '0 0 6px rgba(255,215,0,0.2)' : 'none'
+          : intensity >= 5 ? '0 0 6px rgba(0,229,255,0.2)' : 'none',
+      }}
+    >
       {isWin ? (
         <>
           {intensity >= 5 && <Flame size={10} />}
@@ -438,8 +447,9 @@ export function Leaderboard() {
                 aria-expanded={isExpanded}
                 aria-label={`${agent.moltbookHandle}, rank ${rank}, ELO ${agent.elo}`}
                 className={clsx(
-                  'grid grid-cols-[2.5rem_1fr_4rem_3rem] sm:grid-cols-[3rem_1fr_10rem_5rem_5rem_5rem_5rem_3rem] gap-2 px-4 py-3 items-center transition-colors cursor-pointer',
+                  'grid grid-cols-[2.5rem_1fr_4rem_3rem] sm:grid-cols-[3rem_1fr_10rem_5rem_5rem_5rem_5rem_3rem] gap-2 px-4 py-3 items-center transition-all duration-150 cursor-pointer',
                   'focus:outline-none focus-visible:ring-1 focus-visible:ring-arcade-purple/50',
+                  'hover:bg-surface-1',
                   i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
                   rank <= 3 && 'border-l-2',
                   rank === 1 && 'border-l-arcade-gold',

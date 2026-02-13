@@ -193,6 +193,7 @@ export function AnalyticsDashboard() {
                 ? 'bg-arcade-purple/20 text-arcade-purple border border-arcade-purple/30'
                 : 'text-gray-500 hover:text-gray-300 border border-transparent'
             )}
+            style={tab === t.id ? { boxShadow: '0 0 10px rgba(168,85,247,0.15)' } : undefined}
           >
             <t.icon size={14} />
             {t.label}
@@ -326,40 +327,40 @@ function OverviewTab({
       {records && (
         <div className="arcade-card p-5">
           <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <Flame size={14} className="text-arcade-gold" />
+            <Flame size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.4))' }} />
             Arena Records
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {/* Highest ELO */}
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-gold/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-gold/10 transition-all duration-200 hover:scale-[1.02]" style={{ boxShadow: '0 0 8px rgba(255,215,0,0.06)' }}>
               <div className="flex items-center gap-1.5 mb-1">
-                <Trophy size={12} className="text-arcade-gold" />
+                <Trophy size={12} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Highest ELO</span>
               </div>
-              <p className="text-lg font-mono font-bold text-arcade-gold">{records.topElo.elo}</p>
+              <p className="text-lg font-mono font-bold text-arcade-gold" style={{ textShadow: '0 0 8px rgba(255,215,0,0.2)' }}>{records.topElo.elo}</p>
               <p className="text-[10px] text-gray-400 truncate mt-0.5">
                 {records.topElo.moltbookHandle || `${records.topElo.agentAddress.slice(0, 8)}...`}
               </p>
             </div>
             {/* Most Wins */}
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-green/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-green/10 transition-all duration-200 hover:scale-[1.02]" style={{ boxShadow: '0 0 8px rgba(105,240,174,0.06)' }}>
               <div className="flex items-center gap-1.5 mb-1">
-                <Target size={12} className="text-arcade-green" />
+                <Target size={12} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Most Wins</span>
               </div>
-              <p className="text-lg font-mono font-bold text-arcade-green">{records.mostWins.wins}</p>
+              <p className="text-lg font-mono font-bold text-arcade-green" style={{ textShadow: '0 0 8px rgba(105,240,174,0.2)' }}>{records.mostWins.wins}</p>
               <p className="text-[10px] text-gray-400 truncate mt-0.5">
                 {records.mostWins.moltbookHandle || `${records.mostWins.agentAddress.slice(0, 8)}...`}
               </p>
             </div>
             {/* Best Win Rate */}
             {records.bestWinRate && (
-              <div className="bg-surface-1 rounded-lg p-3 border border-arcade-cyan/10">
+              <div className="bg-surface-1 rounded-lg p-3 border border-arcade-cyan/10 transition-all duration-200 hover:scale-[1.02]" style={{ boxShadow: '0 0 8px rgba(0,229,255,0.06)' }}>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Zap size={12} className="text-arcade-cyan" />
+                  <Zap size={12} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
                   <span className="text-[9px] text-gray-500 uppercase">Best Win Rate</span>
                 </div>
-                <p className="text-lg font-mono font-bold text-arcade-cyan">
+                <p className="text-lg font-mono font-bold text-arcade-cyan" style={{ textShadow: '0 0 8px rgba(0,229,255,0.2)' }}>
                   {(records.bestWinRate.matchesPlayed > 0
                     ? (records.bestWinRate.wins / records.bestWinRate.matchesPlayed) * 100
                     : 0
@@ -372,12 +373,12 @@ function OverviewTab({
               </div>
             )}
             {/* Most Active */}
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-purple/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-purple/10 transition-all duration-200 hover:scale-[1.02]" style={{ boxShadow: '0 0 8px rgba(168,85,247,0.06)' }}>
               <div className="flex items-center gap-1.5 mb-1">
-                <Activity size={12} className="text-arcade-purple" />
+                <Activity size={12} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Most Active</span>
               </div>
-              <p className="text-lg font-mono font-bold text-arcade-purple">{records.mostMatches.matchesPlayed}</p>
+              <p className="text-lg font-mono font-bold text-arcade-purple" style={{ textShadow: '0 0 8px rgba(168,85,247,0.2)' }}>{records.mostMatches.matchesPlayed}</p>
               <p className="text-[10px] text-gray-400 truncate mt-0.5">
                 {records.mostMatches.moltbookHandle || `${records.mostMatches.agentAddress.slice(0, 8)}...`}
               </p>
@@ -415,16 +416,16 @@ function OverviewTab({
             </Link>
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-pink/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-pink/10 transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-center gap-1.5 mb-1">
-                <Swords size={12} className="text-arcade-pink" />
+                <Swords size={12} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Total Challenges</span>
               </div>
               <p className="text-lg font-mono font-bold text-arcade-pink">{a2aChallenges.length}</p>
             </div>
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-cyan/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-cyan/10 transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-center gap-1.5 mb-1">
-                <Zap size={12} className="text-arcade-cyan" />
+                <Zap size={12} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Accept Rate</span>
               </div>
               <p className="text-lg font-mono font-bold text-arcade-cyan">
@@ -435,16 +436,16 @@ function OverviewTab({
                 })()}
               </p>
             </div>
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-green/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-green/10 transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-center gap-1.5 mb-1">
-                <HeartHandshake size={12} className="text-arcade-green" />
+                <HeartHandshake size={12} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Alliances</span>
               </div>
               <p className="text-lg font-mono font-bold text-arcade-green">{a2aStats.activeAlliances}</p>
             </div>
-            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-gold/10">
+            <div className="bg-surface-1 rounded-lg p-3 border border-arcade-gold/10 transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-center gap-1.5 mb-1">
-                <Flame size={12} className="text-arcade-gold" />
+                <Flame size={12} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
                 <span className="text-[9px] text-gray-500 uppercase">Top Rivalry</span>
               </div>
               {(() => {
@@ -468,7 +469,7 @@ function OverviewTab({
       {/* Duration by game type bar chart */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <BarChart3 size={14} />
+          <BarChart3 size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           Average Match Duration by Game Type
         </h3>
         {barData.length > 0 ? (
@@ -496,7 +497,7 @@ function OverviewTab({
       {/* Match count by game type */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <Trophy size={14} />
+          <Trophy size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           Matches by Game Type
         </h3>
         {barData.length > 0 ? (
@@ -838,10 +839,10 @@ function GameTypesTab({ durationData }: { durationData: DurationByGameType[] }) 
       {/* Game type detail cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {durationData.map(d => (
-          <div key={d.gameType} className="arcade-card p-4 text-center">
+          <div key={d.gameType} className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.03]">
             <div
               className="w-3 h-3 rounded-full mx-auto mb-2"
-              style={{ backgroundColor: GAME_TYPE_COLORS[d.gameType] }}
+              style={{ backgroundColor: GAME_TYPE_COLORS[d.gameType], boxShadow: `0 0 6px ${GAME_TYPE_COLORS[d.gameType]}66` }}
             />
             <div className="text-xs text-gray-400 mb-1">{GAME_TYPE_LABELS[d.gameType] ?? d.gameType}</div>
             <div className="text-2xl font-bold font-mono text-white">{d.matchCount}</div>
@@ -958,7 +959,7 @@ function TrendsTab({
       {/* 1: Matches per day (existing) */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <TrendingUp size={14} />
+          <TrendingUp size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           Matches Over Time
         </h3>
         {dailyData.length > 0 ? (
@@ -986,7 +987,7 @@ function TrendsTab({
       {/* 2: Duration trend (existing) */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <Clock size={14} />
+          <Clock size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
           Match Duration Trend
         </h3>
         {durationTrend.length > 0 ? (
@@ -1020,7 +1021,7 @@ function TrendsTab({
       {/* 3: ELO Distribution Histogram (NEW) */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <Zap size={14} />
+          <Zap size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
           ELO Distribution
         </h3>
         {eloBuckets.length > 0 ? (
@@ -1041,7 +1042,7 @@ function TrendsTab({
       {/* 4: Activity Heatmap (NEW) */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <Grid3X3 size={14} />
+          <Grid3X3 size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
           Activity Heatmap
         </h3>
         {heatmap.max > 0 ? (
@@ -1065,8 +1066,11 @@ function TrendsTab({
                   return (
                     <div
                       key={hourIdx}
-                      className="flex-1 aspect-square rounded-[2px] m-[1px] transition-colors"
-                      style={{ backgroundColor: count > 0 ? `rgba(0, 229, 255, ${opacity})` : 'rgba(255,255,255,0.03)' }}
+                      className="flex-1 aspect-square rounded-[2px] m-[1px] transition-all duration-150 hover:scale-150 cursor-default"
+                      style={{
+                        backgroundColor: count > 0 ? `rgba(0, 229, 255, ${opacity})` : 'rgba(255,255,255,0.03)',
+                        boxShadow: opacity > 0.5 ? `0 0 4px rgba(0, 229, 255, ${opacity * 0.3})` : 'none',
+                      }}
                       title={`${DAY_LABELS[dayIdx]} ${hourIdx}:00 — ${count} match${count !== 1 ? 'es' : ''}`}
                     />
                   );
@@ -1094,7 +1098,7 @@ function TrendsTab({
       {/* 5: Game Type Popularity Over Time (NEW) */}
       <div className="arcade-card p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <Flame size={14} />
+          <Flame size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           Game Type Popularity
         </h3>
         {popularityData.length > 0 ? (
@@ -1137,9 +1141,18 @@ function MiniStat({ icon: Icon, label, value, color }: {
   value: string | number;
   color: string;
 }) {
+  // Extract color for glow (map tailwind class to rgba)
+  const glowMap: Record<string, string> = {
+    'text-arcade-cyan': 'rgba(0,229,255,0.3)',
+    'text-arcade-purple': 'rgba(168,85,247,0.3)',
+    'text-arcade-gold': 'rgba(255,215,0,0.3)',
+    'text-arcade-green': 'rgba(105,240,174,0.3)',
+  };
+  const iconGlow = glowMap[color] ?? 'none';
+
   return (
-    <div className="arcade-card p-4 text-center">
-      <Icon size={18} className={clsx('mx-auto mb-2', color)} />
+    <div className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.02]">
+      <Icon size={18} className={clsx('mx-auto mb-2', color)} style={{ filter: `drop-shadow(0 0 4px ${iconGlow})` }} />
       <div className="text-xl font-bold text-white font-mono">
         {typeof value === 'number' ? <AnimatedScore value={value} /> : value}
       </div>
