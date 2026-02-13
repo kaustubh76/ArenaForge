@@ -103,8 +103,8 @@ function StatBox({ label, value, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <div className="arcade-card p-4 text-center">
-      <Icon size={18} className={clsx('mx-auto mb-2', color)} />
+    <div className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.03]">
+      <Icon size={18} className={clsx('mx-auto mb-2', color)} style={{ filter: 'drop-shadow(0 0 3px currentColor)' }} />
       <div className="text-xl font-bold text-white font-mono">
         {typeof value === 'number' ? <AnimatedScore value={value} /> : value}
       </div>
@@ -351,7 +351,7 @@ export function AgentProfile() {
             {/* ELO Display */}
             <div className="flex items-center gap-6">
               <div>
-                <div className="text-3xl font-bold font-mono text-arcade-gold">
+                <div className="text-3xl font-bold font-mono text-arcade-gold" style={{ textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>
                   {agent.elo}
                 </div>
                 <div className="text-[10px] text-gray-500 uppercase">Current ELO</div>
@@ -408,7 +408,7 @@ export function AgentProfile() {
       {gameTypeStats.length > 0 && (
         <div className="arcade-card p-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <Gamepad2 size={14} className="text-arcade-cyan" />
+            <Gamepad2 size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
             Game Performance
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -416,7 +416,7 @@ export function AgentProfile() {
               const gtNum = gameTypeStringToNumber(stat.gameType);
               const total = stat.wins + stat.losses + stat.draws;
               return (
-                <div key={stat.gameType} className="arcade-card p-4 bg-surface-1">
+                <div key={stat.gameType} className="arcade-card p-4 bg-surface-1 transition-all duration-200 hover:scale-[1.02]">
                   <div className="flex items-center gap-2 mb-3">
                     <GameTypeBadge gameType={gtNum} size="sm" />
                     <span className="text-xs text-gray-400">{total} matches</span>
@@ -451,7 +451,7 @@ export function AgentProfile() {
       {eloHistory.length > 1 && (
         <div className="arcade-card p-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <TrendingUp size={14} className="text-arcade-gold" />
+            <TrendingUp size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
             ELO History
           </h2>
           <div className="flex items-end gap-1 h-24">
@@ -491,7 +491,7 @@ export function AgentProfile() {
         {/* Achievements */}
         <div className="arcade-card p-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <Award size={14} className="text-arcade-purple" />
+            <Award size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
             Achievements ({achievements.length}/{ACHIEVEMENTS.length})
           </h2>
           <div className="grid grid-cols-2 gap-2">
@@ -502,9 +502,9 @@ export function AgentProfile() {
                 <div
                   key={achievement.id}
                   className={clsx(
-                    'p-3 rounded-lg border transition-all',
+                    'p-3 rounded-lg border transition-all duration-200',
                     unlocked
-                      ? `${colors.bg} ${colors.border}`
+                      ? `${colors.bg} ${colors.border} hover:scale-[1.03]`
                       : 'bg-surface-2 border-gray-700/50 opacity-40'
                   )}
                 >
@@ -535,7 +535,7 @@ export function AgentProfile() {
         {/* Recent Matches */}
         <div className="arcade-card p-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <Clock size={14} className="text-arcade-cyan" />
+            <Clock size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
             Recent Matches
           </h2>
           {matchHistory.length > 0 ? (
@@ -552,7 +552,7 @@ export function AgentProfile() {
                     key={match.id}
                     to={`/match/${match.id}`}
                     className={clsx(
-                      'flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-surface-2',
+                      'flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:bg-surface-2 hover:scale-[1.01]',
                       isLive ? 'bg-arcade-green/5 border border-arcade-green/20' : 'bg-surface-1'
                     )}
                   >
@@ -620,12 +620,12 @@ export function AgentProfile() {
       {currentSeason && currentSeason.active && (
         <div className="arcade-card p-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <Star size={14} className="text-arcade-gold" />
+            <Star size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
             Season {currentSeason.id}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="text-center">
-              <Shield size={20} className="mx-auto text-arcade-purple mb-1" />
+              <Shield size={20} className="mx-auto text-arcade-purple mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
               <div className="text-lg font-bold text-white">
                 {mySeasonalProfile?.seasonalElo ?? 'Unranked'}
               </div>
@@ -730,7 +730,7 @@ function MatchActivityHeatmap({ matches, agentAddress }: {
   return (
     <div className="arcade-card p-4">
       <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-        <CalendarDays size={14} className="text-arcade-green" />
+        <CalendarDays size={14} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
         Match Activity
         <span className="text-[10px] text-gray-600 font-normal ml-1">Last 12 weeks</span>
       </h2>
@@ -883,15 +883,18 @@ function AgentRadarChart({
     <div className="arcade-card p-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-          <Radar size={14} className="text-arcade-purple" />
+          <Radar size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           Agent Power Profile
         </h2>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-gray-500 uppercase tracking-wider">Power Rating</span>
-          <span className={clsx(
-            'text-lg font-mono font-bold',
-            powerRating >= 70 ? 'text-arcade-green' : powerRating >= 40 ? 'text-arcade-gold' : 'text-arcade-red',
-          )}>
+          <span
+            className={clsx(
+              'text-lg font-mono font-bold',
+              powerRating >= 70 ? 'text-arcade-green' : powerRating >= 40 ? 'text-arcade-gold' : 'text-arcade-red',
+            )}
+            style={{ textShadow: powerRating >= 70 ? '0 0 8px rgba(105,240,174,0.3)' : powerRating >= 40 ? '0 0 8px rgba(255,215,0,0.3)' : undefined }}
+          >
             {powerRating}
           </span>
         </div>
