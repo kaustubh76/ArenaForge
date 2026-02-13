@@ -70,6 +70,7 @@ export default {
         'type-cursor': 'typeCursor 1s step-end infinite',
         'bounce-subtle': 'bounceSubtle 2s ease-in-out infinite',
         'ticker': 'ticker 40s linear infinite',
+        'shake-x': 'shakeX 0.4s ease-out',
       },
       keyframes: {
         ticker: {
@@ -178,6 +179,14 @@ export default {
         bounceSubtle: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-4px)' },
+        },
+        shakeX: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '15%': { transform: 'translateX(-4px)' },
+          '30%': { transform: 'translateX(4px)' },
+          '45%': { transform: 'translateX(-3px)' },
+          '60%': { transform: 'translateX(2px)' },
+          '75%': { transform: 'translateX(-1px)' },
         },
       },
       backgroundImage: {
