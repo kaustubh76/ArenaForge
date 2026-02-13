@@ -90,8 +90,21 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
           avatarUrl={displayUrl}
           handle={handle}
           size="xl"
-          className="ring-4 ring-surface-3"
+          className={clsx('ring-4 transition-all duration-300', success ? 'ring-arcade-green/40' : 'ring-surface-3')}
         />
+
+        {/* SVG progress ring during upload */}
+        {uploading && (
+          <svg className="absolute -inset-1.5 w-[calc(100%+12px)] h-[calc(100%+12px)] -rotate-90 pointer-events-none" viewBox="0 0 68 68">
+            <circle cx="34" cy="34" r="31" fill="none" stroke="rgba(168,85,247,0.15)" strokeWidth="2" />
+            <circle cx="34" cy="34" r="31" fill="none" stroke="rgb(168,85,247)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 31}`} strokeDashoffset={`${2 * Math.PI * 31 * 0.25}`} className="animate-spin" style={{ transformOrigin: 'center', animationDuration: '1.5s' }} />
+          </svg>
+        )}
+
+        {/* Success burst effect */}
+        {success && (
+          <span className="absolute -inset-2 rounded-full bg-arcade-green/15 animate-ping pointer-events-none" />
+        )}
 
         {/* Upload overlay */}
         <button
@@ -99,14 +112,15 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
           disabled={disabled || uploading}
           className={clsx(
             'absolute inset-0 rounded-full flex items-center justify-center',
-            'bg-black/60 opacity-0 hover:opacity-100 transition-opacity',
-            'disabled:cursor-not-allowed'
+            'bg-black/60 opacity-0 hover:opacity-100 transition-all duration-200',
+            'disabled:cursor-not-allowed',
+            uploading && 'opacity-100 bg-black/40',
           )}
         >
           {uploading ? (
-            <Loader2 size={20} className="text-white animate-spin" />
+            <Loader2 size={20} className="text-arcade-purple animate-spin" />
           ) : success ? (
-            <Check size={20} className="text-arcade-green" />
+            <Check size={20} className="text-arcade-green drop-shadow-lg" />
           ) : (
             <Upload size={20} className="text-white" />
           )}
@@ -128,9 +142,10 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
         onClick={() => fileInputRef.current?.click()}
         disabled={disabled || uploading}
         className={clsx(
-          'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-          'bg-surface-3 hover:bg-surface-4 text-text-secondary hover:text-white',
-          'border border-white/[0.06] hover:border-arcade-purple/50',
+          'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+          success
+            ? 'bg-arcade-green/10 text-arcade-green border border-arcade-green/30'
+            : 'bg-surface-3 hover:bg-surface-4 text-text-secondary hover:text-white border border-white/[0.06] hover:border-arcade-purple/50',
           'disabled:opacity-50 disabled:cursor-not-allowed'
         )}
       >
