@@ -17,24 +17,42 @@ const dotColors: Record<string, string> = {
   orange: 'bg-arcade-orange',
 };
 
+const labelColors: Record<string, string> = {
+  green: 'text-arcade-green',
+  cyan: 'text-arcade-cyan',
+  purple: 'text-arcade-purple',
+  red: 'text-arcade-red',
+  orange: 'text-arcade-orange',
+};
+
 export function StatusIndicator({ status, type = 'tournament', showLabel = true, className }: StatusIndicatorProps) {
   const config = type === 'tournament'
     ? STATUS_CONFIG[status as TournamentStatus]
     : MATCH_STATUS_CONFIG[status as MatchStatus];
 
   const isLive = config.label === 'LIVE';
+  const dotColor = dotColors[config.color] || 'bg-gray-500';
 
   return (
     <span className={clsx('inline-flex items-center gap-1.5', className)}>
-      <span
-        className={clsx(
-          'w-2 h-2 rounded-full',
-          dotColors[config.color] || 'bg-gray-500',
-          isLive && 'animate-pulse',
+      <span className="relative flex items-center justify-center">
+        {/* Halo ring for LIVE */}
+        {isLive && (
+          <span className={clsx('absolute w-3.5 h-3.5 rounded-full animate-ping opacity-30', dotColor)} />
         )}
-      />
+        <span
+          className={clsx(
+            'w-2 h-2 rounded-full relative',
+            dotColor,
+            isLive && 'animate-pulse',
+          )}
+        />
+      </span>
       {showLabel && (
-        <span className="text-[10px] font-bold tracking-wider uppercase text-gray-400">
+        <span className={clsx(
+          'text-[10px] font-bold tracking-wider uppercase',
+          isLive ? (labelColors[config.color] || 'text-gray-400') : 'text-gray-400',
+        )}>
           {config.label}
         </span>
       )}
