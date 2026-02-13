@@ -751,27 +751,34 @@ export function AgentNetworkGraph({ filter, minElo, onResetLayout }: AgentNetwor
           style={{
             left: Math.min(popup.x + 10, window.innerWidth - 220),
             top: Math.min(popup.y - 60, window.innerHeight - 160),
+            boxShadow: '0 0 16px rgba(168,85,247,0.15), 0 4px 20px rgba(0,0,0,0.4)',
           }}
         >
           <p className="text-xs font-mono text-white mb-1">{shortAddr(popupNode.id)}</p>
           <div className="flex items-center gap-3 text-[10px] text-gray-400 mb-2">
             <span>ELO {popupNode.elo}</span>
             <span>{popupNode.matchesPlayed} matches</span>
-            <span className="uppercase" style={{ color: TIER_COLORS[getEloTier(popupNode.elo).label] }}>
+            <span
+              className="uppercase font-bold px-1 py-0.5 rounded"
+              style={{
+                color: TIER_COLORS[getEloTier(popupNode.elo).label],
+                backgroundColor: `${TIER_COLORS[getEloTier(popupNode.elo).label]}15`,
+              }}
+            >
               {getEloTier(popupNode.elo).label}
             </span>
           </div>
           <div className="flex gap-1">
             <Link
               to={`/agent/${popupNode.id}`}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-arcade-cyan/10 text-arcade-cyan text-[10px] hover:bg-arcade-cyan/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded bg-arcade-cyan/10 text-arcade-cyan text-[10px] hover:bg-arcade-cyan/20 transition-all hover:scale-105 active:scale-95 hover:shadow-sm hover:shadow-arcade-cyan/20"
               onClick={() => setPopup(null)}
             >
               <Eye size={10} /> Profile
             </Link>
             <Link
               to={`/a2a?target=${popupNode.id}`}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-arcade-pink/10 text-arcade-pink text-[10px] hover:bg-arcade-pink/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded bg-arcade-pink/10 text-arcade-pink text-[10px] hover:bg-arcade-pink/20 transition-all hover:scale-105 active:scale-95 hover:shadow-sm hover:shadow-arcade-pink/20"
               onClick={() => setPopup(null)}
             >
               <Swords size={10} /> Challenge
@@ -779,7 +786,7 @@ export function AgentNetworkGraph({ filter, minElo, onResetLayout }: AgentNetwor
             {popupNeighbor && (
               <Link
                 to={`/h2h/${popupNode.id}/${popupNeighbor}`}
-                className="flex items-center gap-1 px-2 py-1 rounded bg-arcade-purple/10 text-arcade-purple text-[10px] hover:bg-arcade-purple/20 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded bg-arcade-purple/10 text-arcade-purple text-[10px] hover:bg-arcade-purple/20 transition-all hover:scale-105 active:scale-95 hover:shadow-sm hover:shadow-arcade-purple/20"
                 onClick={() => setPopup(null)}
               >
                 <GitCompareArrows size={10} /> H2H

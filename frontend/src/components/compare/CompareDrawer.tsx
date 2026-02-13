@@ -646,13 +646,15 @@ export function CompareButton({
         addToCompare(agentAddress);
       }}
       className={clsx(
-        'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider',
-        'bg-surface-2 border border-white/[0.06] text-gray-400 hover:text-arcade-purple hover:border-arcade-purple/30 transition-all',
+        'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider group/cmp',
+        'bg-surface-2 border border-white/[0.06] text-gray-400',
+        'hover:text-arcade-purple hover:border-arcade-purple/30 hover:scale-105 hover:shadow-sm hover:shadow-arcade-purple/20',
+        'active:scale-95 transition-all duration-200',
         className,
       )}
       title="Add to compare"
     >
-      <Swords size={10} />
+      <Swords size={10} className="group-hover/cmp:rotate-45 transition-transform duration-200" />
       Compare
     </button>
   );
@@ -673,9 +675,12 @@ export function CompareFloatingPill() {
     : '';
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 animate-fade-in">
-      <div className="flex items-center gap-2 bg-surface-1 border border-arcade-purple/30 rounded-full pl-4 pr-2 py-2 shadow-lg shadow-arcade-purple/10">
-        <Swords size={14} className="text-arcade-purple" />
+    <div className="fixed bottom-6 right-6 z-40 animate-fade-in-up">
+      <div
+        className="flex items-center gap-2 bg-surface-1 border border-arcade-purple/30 rounded-full pl-4 pr-2 py-2 shadow-lg group animate-border-glow"
+        style={{ boxShadow: '0 4px 20px rgba(168,85,247,0.15), 0 0 1px rgba(168,85,247,0.4)' }}
+      >
+        <Swords size={14} className="text-arcade-purple group-hover:rotate-45 transition-transform duration-300" />
         <span className="text-xs text-gray-300">
           {count === 1 ? (
             <>
@@ -687,13 +692,13 @@ export function CompareFloatingPill() {
         </span>
         <button
           onClick={openDrawer}
-          className="px-2.5 py-1 rounded-full bg-arcade-purple/20 text-arcade-purple text-[10px] font-bold uppercase hover:bg-arcade-purple/30 transition-colors"
+          className="px-2.5 py-1 rounded-full bg-arcade-purple/20 text-arcade-purple text-[10px] font-bold uppercase hover:bg-arcade-purple/30 hover:scale-105 transition-all duration-200"
         >
           {count === 2 ? 'Compare' : 'View'}
         </button>
         <button
           onClick={clearCompare}
-          className="p-1 rounded-full hover:bg-surface-3 text-gray-500 hover:text-white transition-colors"
+          className="p-1 rounded-full hover:bg-surface-3 text-gray-500 hover:text-white hover:rotate-90 transition-all duration-200"
         >
           <X size={12} />
         </button>

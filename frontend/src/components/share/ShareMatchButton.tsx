@@ -98,7 +98,8 @@ export function ShareMatchButton({ matchId, className, size = 'md' }: ShareMatch
         className={clsx(
           'inline-flex items-center rounded-md font-medium transition-all',
           'bg-surface-3 hover:bg-surface-4 text-text-secondary hover:text-text-primary',
-          'border border-white/10 hover:border-arcade-purple/50',
+          'border border-white/10 hover:border-arcade-purple/50 hover:shadow-sm hover:shadow-arcade-purple/10',
+          'active:scale-95 hover:scale-105',
           sizeClasses,
           className
         )}
@@ -150,9 +151,9 @@ export function ShareMatchButton({ matchId, className, size = 'md' }: ShareMatch
               const p1Pct = total > 0 ? (p1Agent.elo / total) * 100 : 50;
               return (
                 <div className="mt-2 flex items-center gap-1">
-                  <div className="flex-1 h-1 bg-surface-0 rounded-full overflow-hidden flex">
-                    <div className="h-full bg-arcade-cyan/60 rounded-l-full" style={{ width: `${p1Pct}%` }} />
-                    <div className="h-full bg-arcade-pink/60 rounded-r-full" style={{ width: `${100 - p1Pct}%` }} />
+                  <div className="flex-1 h-1 bg-surface-0 rounded-full overflow-hidden flex" style={{ boxShadow: '0 0 4px rgba(0,229,255,0.1)' }}>
+                    <div className="h-full bg-arcade-cyan/60 rounded-l-full transition-all duration-300" style={{ width: `${p1Pct}%` }} />
+                    <div className="h-full bg-arcade-pink/60 rounded-r-full transition-all duration-300" style={{ width: `${100 - p1Pct}%` }} />
                   </div>
                 </div>
               );
@@ -216,11 +217,12 @@ function ShareOption({
     <button
       onClick={onClick}
       className={clsx(
-        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors',
+        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-150',
         highlight
-          ? 'bg-arcade-green/10 text-arcade-green'
-          : 'hover:bg-surface-3 text-gray-300 hover:text-white'
+          ? 'bg-arcade-green/10 text-arcade-green scale-[1.02]'
+          : 'hover:bg-surface-3 text-gray-300 hover:text-white active:scale-[0.98]'
       )}
+      style={highlight ? { boxShadow: '0 0 8px rgba(105,240,174,0.15)' } : undefined}
     >
       <div className="shrink-0">{icon}</div>
       <div className="min-w-0 flex-1">
