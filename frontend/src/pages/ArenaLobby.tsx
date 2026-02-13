@@ -121,7 +121,7 @@ function ArenaTokenBanner({ token }: { token: TokenMetrics }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-arcade-gold/20 flex items-center justify-center">
-            <TrendingUp size={20} className="text-arcade-gold" />
+            <TrendingUp size={20} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -181,9 +181,9 @@ function StatCard({ icon: Icon, label, value, color }: {
 }) {
   const colors = statColorMap[color] ?? { bg: 'bg-white/10', text: 'text-white' };
   return (
-    <div className="arcade-card flex items-center gap-3 p-4">
+    <div className="arcade-card flex items-center gap-3 p-4 transition-all duration-200 hover:scale-[1.03]">
       <div className={clsx('w-10 h-10 rounded-lg flex items-center justify-center', colors.bg)}>
-        <Icon size={18} className={colors.text} />
+        <Icon size={18} className={colors.text} style={{ filter: 'drop-shadow(0 0 3px currentColor)' }} />
       </div>
       <div>
         <AnimatedScore value={value} className="text-xl text-white" />
@@ -270,7 +270,7 @@ function ArenaHeroDashboard({
       {/* Tournament Status Pie */}
       <div className="arcade-card p-4">
         <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
-          <Trophy size={12} /> Tournament Status
+          <Trophy size={12} style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} /> Tournament Status
         </h3>
         {statusData.length > 0 ? (
           <div className="flex flex-col items-center">
@@ -317,7 +317,7 @@ function ArenaHeroDashboard({
       {/* Game Type Distribution Bar */}
       <div className="arcade-card p-4">
         <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
-          <Swords size={12} /> Match Distribution
+          <Swords size={12} style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} /> Match Distribution
         </h3>
         {gameTypeData.length > 0 ? (
           <ResponsiveContainer width="100%" height={180}>
@@ -351,7 +351,7 @@ function ArenaHeroDashboard({
       <div className="arcade-card p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-            <Activity size={12} /> Last 24h Activity
+            <Activity size={12} style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} /> Last 24h Activity
           </h3>
           <span className="text-xs font-bold text-arcade-cyan">{hourlyData.total} matches</span>
         </div>
