@@ -173,13 +173,16 @@ export function BetSlip({ player1Handle, player2Handle, className, onClose }: Be
                   <TrendingUp size={12} className="text-arcade-green" />
                   <span className="text-xs text-gray-400">Profit</span>
                 </div>
-                <span className="font-mono text-sm text-arcade-green font-bold">
+                <span className="font-mono text-sm text-arcade-green font-bold" style={{ textShadow: profit > 0.1 ? '0 0 8px rgba(105,240,174,0.3)' : 'none' }}>
                   +{profit.toFixed(4)} ETH
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Multiplier</span>
-                <span className="font-mono text-sm text-arcade-purple font-bold">
+                <span
+                  className="font-mono text-sm text-arcade-purple font-bold px-1.5 py-0.5 rounded bg-arcade-purple/10"
+                  style={{ boxShadow: multiplier > 2 ? '0 0 8px rgba(168,85,247,0.25)' : 'none' }}
+                >
                   {multiplier.toFixed(2)}x
                 </span>
               </div>
@@ -191,10 +194,13 @@ export function BetSlip({ player1Handle, player2Handle, className, onClose }: Be
                     {riskLabel}
                   </span>
                 </div>
-                <div className="h-1.5 bg-surface-0 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-surface-0 rounded-full overflow-hidden" style={{ boxShadow: riskPct > 0.5 ? `0 0 6px ${riskBarColor}33` : 'none' }}>
                   <div
                     className="h-full rounded-full transition-all duration-300"
-                    style={{ width: `${riskPct * 100}%`, background: riskBarColor }}
+                    style={{
+                      width: `${riskPct * 100}%`,
+                      background: `linear-gradient(90deg, #69f0ae, ${riskBarColor})`,
+                    }}
                   />
                 </div>
               </div>

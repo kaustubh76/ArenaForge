@@ -80,13 +80,20 @@ export function BettingPanel({
               <Shield size={12} className="text-arcade-purple" />
               <span className="text-[9px] font-pixel text-gray-500 tracking-wider">ELO MATCHUP</span>
             </div>
-            <span className={clsx(
-              'text-[9px] font-pixel font-bold px-2 py-0.5 rounded',
-              eloInsight.advantage === 'EVEN' ? 'text-gray-400 bg-gray-400/10' :
-              eloInsight.advantage === 'SLIGHT' ? 'text-arcade-gold bg-arcade-gold/10' :
-              eloInsight.advantage === 'STRONG' ? 'text-arcade-orange bg-arcade-orange/10' :
-              'text-arcade-red bg-arcade-red/10',
-            )}>
+            <span
+              className={clsx(
+                'text-[9px] font-pixel font-bold px-2 py-0.5 rounded transition-all',
+                eloInsight.advantage === 'EVEN' ? 'text-gray-400 bg-gray-400/10' :
+                eloInsight.advantage === 'SLIGHT' ? 'text-arcade-gold bg-arcade-gold/10' :
+                eloInsight.advantage === 'STRONG' ? 'text-arcade-orange bg-arcade-orange/10' :
+                'text-arcade-red bg-arcade-red/10',
+                eloInsight.advantage === 'DOMINANT' && 'animate-pulse',
+              )}
+              style={{
+                boxShadow: eloInsight.advantage === 'STRONG' ? '0 0 6px rgba(255,171,64,0.2)' :
+                            eloInsight.advantage === 'DOMINANT' ? '0 0 8px rgba(255,82,82,0.25)' : 'none',
+              }}
+            >
               {eloInsight.advantage === 'EVEN' ? 'EVEN MATCH' : `${eloInsight.advantage} ADV`}
             </span>
           </div>
@@ -107,7 +114,10 @@ export function BettingPanel({
           </div>
           {eloInsight.absDiff > 0 && (
             <div className="flex items-center justify-center gap-1">
-              <Zap size={10} className={eloInsight.favoredPlayer === 1 ? 'text-arcade-cyan' : 'text-arcade-pink'} />
+              <Zap size={10} className={clsx(
+                eloInsight.favoredPlayer === 1 ? 'text-arcade-cyan' : 'text-arcade-pink',
+                eloInsight.absDiff > 200 && 'animate-pulse',
+              )} />
               <span className="text-[9px] text-gray-500">
                 {eloInsight.favoredPlayer === 1 ? (player1Handle || 'P1') : (player2Handle || 'P2')} favored by {eloInsight.absDiff} ELO
               </span>
@@ -122,11 +132,12 @@ export function BettingPanel({
           <button
             onClick={() => handleSelectPlayer(player1)}
             className={clsx(
-              'relative p-4 rounded-lg border-2 transition-all',
+              'relative p-4 rounded-lg border-2 transition-all duration-200',
               pendingPrediction === player1 && pendingBetMatchId === matchId
                 ? 'border-arcade-cyan bg-arcade-cyan/10'
-                : 'border-gray-600 hover:border-arcade-cyan/50 bg-surface-1',
+                : 'border-gray-600 hover:border-arcade-cyan/50 bg-surface-1 hover:bg-arcade-cyan/5',
             )}
+            style={pendingPrediction === player1 && pendingBetMatchId === matchId ? { boxShadow: '0 0 12px rgba(0,229,255,0.15)' } : undefined}
           >
             <div className="text-center">
               <div className="font-semibold text-white truncate">
@@ -153,11 +164,12 @@ export function BettingPanel({
           <button
             onClick={() => handleSelectPlayer(player2)}
             className={clsx(
-              'relative p-4 rounded-lg border-2 transition-all',
+              'relative p-4 rounded-lg border-2 transition-all duration-200',
               pendingPrediction === player2 && pendingBetMatchId === matchId
                 ? 'border-arcade-pink bg-arcade-pink/10'
-                : 'border-gray-600 hover:border-arcade-pink/50 bg-surface-1',
+                : 'border-gray-600 hover:border-arcade-pink/50 bg-surface-1 hover:bg-arcade-pink/5',
             )}
+            style={pendingPrediction === player2 && pendingBetMatchId === matchId ? { boxShadow: '0 0 12px rgba(255,64,129,0.15)' } : undefined}
           >
             <div className="text-center">
               <div className="font-semibold text-white truncate">

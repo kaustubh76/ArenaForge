@@ -80,10 +80,13 @@ function BetPLSparkline({ bets }: { bets: Array<{ status: BetStatus; amount: str
         <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
           <BarChart3 size={12} /> P/L Trend
         </h3>
-        <span className={clsx(
-          'text-xs font-mono font-bold',
-          chartData.isPositive ? 'text-arcade-green' : 'text-arcade-red',
-        )}>
+        <span
+          className={clsx(
+            'text-xs font-mono font-bold',
+            chartData.isPositive ? 'text-arcade-green' : 'text-arcade-red',
+          )}
+          style={{ textShadow: `0 0 6px ${chartData.isPositive ? 'rgba(105,240,174,0.3)' : 'rgba(255,82,82,0.3)'}` }}
+        >
           {chartData.isPositive ? '+' : ''}{chartData.finalVal.toFixed(4)}
         </span>
       </div>
@@ -106,6 +109,7 @@ function BetPLSparkline({ bets }: { bets: Array<{ status: BetStatus; amount: str
           stroke={chartData.isPositive ? CHART_COLORS.green : CHART_COLORS.red}
           strokeWidth={1.5}
           strokeLinejoin="round"
+          filter={`drop-shadow(0 0 3px ${chartData.isPositive ? 'rgba(105,240,174,0.4)' : 'rgba(255,82,82,0.4)'})`}
         />
       </svg>
     </div>
@@ -170,6 +174,7 @@ function BetOutcomeDonut({ bets }: { bets: Array<{ status: BetStatus }> }) {
                 strokeDasharray={arc.dashArray}
                 strokeDashoffset={arc.dashOffset}
                 strokeLinecap="butt"
+                filter={`drop-shadow(0 0 3px ${arc.color}40)`}
               />
             ))}
           </svg>
@@ -304,8 +309,9 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
               <div
                 key={bet.id}
                 className={clsx(
-                  'p-4 flex items-center gap-4',
+                  'p-4 flex items-center gap-4 transition-colors duration-150',
                   i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
+                  'hover:bg-surface-1',
                 )}
               >
                 {/* Status icon */}
@@ -354,10 +360,13 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
                     onClick={() => handleClaim(bet.id)}
                     disabled={claimingId === bet.id}
                     className={clsx(
-                      'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                      'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
                       'bg-arcade-green/20 text-arcade-green hover:bg-arcade-green/30',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
+                      'disabled:opacity-50 disabled:cursor-not-allowed',
+                      'hover:scale-105 active:scale-95',
+                      claimingId !== bet.id && 'animate-pulse',
                     )}
+                    style={{ boxShadow: '0 0 8px rgba(105,240,174,0.2)' }}
                   >
                     {claimingId === bet.id ? 'Claiming...' : 'Claim'}
                   </button>

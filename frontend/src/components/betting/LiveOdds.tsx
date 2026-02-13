@@ -104,10 +104,10 @@ export function LiveOdds({
           </h3>
           {Math.abs(shiftVelocity) > 2 && (
             <span className={clsx(
-              'text-[8px] font-pixel px-1.5 py-0.5 rounded',
+              'text-[8px] font-pixel px-1.5 py-0.5 rounded animate-pulse-soft',
               shiftVelocity > 0
-                ? 'bg-arcade-cyan/10 text-arcade-cyan'
-                : 'bg-arcade-pink/10 text-arcade-pink',
+                ? 'bg-arcade-cyan/10 text-arcade-cyan border border-arcade-cyan/20'
+                : 'bg-arcade-pink/10 text-arcade-pink border border-arcade-pink/20',
             )}>
               {shiftVelocity > 0 ? '→ P1' : '→ P2'} SHIFT
             </span>
@@ -151,7 +151,7 @@ export function LiveOdds({
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">{player1Percent.toFixed(1)}%</span>
             {total > 0 && (
-              <span className="text-[10px] font-mono font-bold text-arcade-gold bg-arcade-gold/10 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-bold text-arcade-gold bg-arcade-gold/10 px-1.5 py-0.5 rounded" style={{ boxShadow: p1Multiplier > 2 ? '0 0 6px rgba(255,215,0,0.2)' : 'none' }}>
                 {p1Multiplier.toFixed(2)}x
               </span>
             )}
@@ -163,7 +163,7 @@ export function LiveOdds({
           </div>
           <div className="flex items-center gap-2 justify-end">
             {total > 0 && (
-              <span className="text-[10px] font-mono font-bold text-arcade-gold bg-arcade-gold/10 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-bold text-arcade-gold bg-arcade-gold/10 px-1.5 py-0.5 rounded" style={{ boxShadow: p2Multiplier > 2 ? '0 0 6px rgba(255,215,0,0.2)' : 'none' }}>
                 {p2Multiplier.toFixed(2)}x
               </span>
             )}
@@ -195,9 +195,14 @@ export function LiveOdds({
         {sparklinePath && (
           <div className="mt-2 flex items-center justify-center">
             <svg width="80" height="20" className="overflow-visible">
-              <path d={sparklinePath} fill="none" stroke="#ffd740" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+              <path d={sparklinePath} fill="none" stroke="#ffd740" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" filter="drop-shadow(0 0 2px rgba(255,215,0,0.3))" />
             </svg>
             <span className="text-[8px] text-gray-600 ml-2">pool trend</span>
+            {trend !== 0 && (
+              <span className={clsx('text-[8px] font-mono ml-1', trend > 0 ? 'text-arcade-green' : 'text-arcade-red')}>
+                {trend > 0 ? '▲' : '▼'}
+              </span>
+            )}
           </div>
         )}
       </div>
