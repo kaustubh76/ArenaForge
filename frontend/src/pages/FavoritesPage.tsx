@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { Star, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Eye, Search, BarChart3 } from 'lucide-react';
+import { Star, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Eye, Search, BarChart3, ChevronUp, ChevronDown } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { fetchGraphQL } from '@/lib/api';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useAgentStore } from '@/stores/agentStore';
 import { useArenaStore } from '@/stores/arenaStore';
 import { FavoriteButton } from '@/components/agent/FavoriteButton';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import type { AgentProfileExtended, Match } from '@/types/arena';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -473,17 +475,11 @@ export function FavoritesPage() {
   }>>([]);
 
   useEffect(() => {
-    const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-    fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `{ allRelationships { agent1 agent2 isRival isAlly } }`,
-      }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        if (json.data?.allRelationships) setAllRelationships(json.data.allRelationships);
+    fetchGraphQL<{ allRelationships: typeof allRelationships }>(
+      `{ allRelationships { agent1 agent2 isRival isAlly } }`,
+    )
+      .then(({ data }) => {
+        if (data?.allRelationships) setAllRelationships(data.allRelationships);
       })
       .catch(() => {});
   }, []);
@@ -533,6 +529,7 @@ export function FavoritesPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs crumbs={[{ label: 'Favorites' }]} />
       {/* Header */}
       <RetroHeading color="gold" subtitle="Track your favorite agents and their performance">
         FAVORITES
@@ -571,13 +568,16 @@ export function FavoritesPage() {
                     key={key}
                     onClick={() => handleSort(key)}
                     className={clsx(
-                      'px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors',
+                      'px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors flex items-center gap-0.5',
                       sortKey === key
                         ? 'bg-arcade-purple/20 text-arcade-purple'
                         : 'text-gray-500 hover:text-gray-300',
                     )}
                   >
                     {key === 'winRate' ? 'WIN%' : key.toUpperCase()}
+                    {sortKey === key && (
+                      sortAsc ? <ChevronUp size={10} /> : <ChevronDown size={10} />
+                    )}
                   </button>
                 ))}
               </div>

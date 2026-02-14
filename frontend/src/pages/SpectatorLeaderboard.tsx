@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
-  Trophy, TrendingUp, TrendingDown, Target, Flame, ArrowLeft,
+  Trophy, TrendingUp, TrendingDown, Target, Flame,
   ChevronUp, ChevronDown, Medal, Crown, Award, BarChart3,
 } from 'lucide-react';
 import { useBettingStore } from '@/stores/bettingStore';
@@ -11,6 +11,8 @@ import { AnimatedScore } from '@/components/arcade/AnimatedScore';
 import { SkeletonRow } from '@/components/arcade/ShimmerLoader';
 import { EmptyBets } from '@/components/arcade/EmptyState';
 import { CopyButton } from '@/components/arcade/CopyButton';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
+import { FreshnessIndicator } from '@/components/arcade/FreshnessIndicator';
 import { truncateAddress } from '@/constants/ui';
 
 type SortField = 'netProfit' | 'winRate' | 'totalBets' | 'streak';
@@ -185,10 +187,14 @@ export function SpectatorLeaderboard() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    fetchTopBettorsLeaderboard(100).finally(() => setLoading(false));
+    fetchTopBettorsLeaderboard(100).finally(() => {
+      setLoading(false);
+      setLastUpdated(Date.now());
+    });
   }, [fetchTopBettorsLeaderboard]);
 
   const sortedBettors = useMemo(() => {
@@ -255,18 +261,14 @@ export function SpectatorLeaderboard() {
 
   return (
     <div>
-      {/* Back to spectator hub */}
-      <Link
-        to="/spectator"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-6"
-      >
-        <ArrowLeft size={14} />
-        Back to Spectator Hub
-      </Link>
+      <Breadcrumbs crumbs={[{ label: 'Spectator Hub', to: '/spectator' }, { label: 'Leaderboard' }]} />
 
-      <RetroHeading level={1} color="gold" subtitle="Top predictors ranked by performance">
-        SPECTATOR LEADERBOARD
-      </RetroHeading>
+      <div className="flex items-start justify-between">
+        <RetroHeading level={1} color="gold" subtitle="Top predictors ranked by performance">
+          SPECTATOR LEADERBOARD
+        </RetroHeading>
+        <FreshnessIndicator lastUpdated={lastUpdated} />
+      </div>
 
       {/* Aggregate stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">

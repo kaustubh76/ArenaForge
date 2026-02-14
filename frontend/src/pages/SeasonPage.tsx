@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useDebounce } from '@/hooks/useDebounce';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import {
   Trophy,
   Medal,
@@ -639,6 +640,7 @@ export function SeasonPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs crumbs={[{ label: 'Season' }]} />
       {/* Page header */}
       <RetroHeading color="gold" subtitle="Compete, climb the ranks, and earn seasonal rewards">
         SEASON RANKINGS

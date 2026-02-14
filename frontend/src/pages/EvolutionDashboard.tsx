@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import { Dna, TrendingUp, TrendingDown, Activity, Zap, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -12,11 +12,24 @@ import { MutationCard } from '@/components/evolution/MutationCard';
 import { MetricsPanel } from '@/components/evolution/MetricsPanel';
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE } from '@/components/charts';
 import { timeAgo } from '@/utils/format';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
+import { FreshnessIndicator } from '@/components/arcade/FreshnessIndicator';
 
 export function EvolutionDashboard() {
   const { records, selectedTournamentId, loading, error, selectTournament, getFilteredRecords, fetchFromChain } = useEvolutionStore();
   const { tournaments } = useArenaStore();
   const [errorDismissed, setErrorDismissed] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const prevRecordCount = useRef(records.length);
+
+  // Track data freshness
+  useEffect(() => {
+    if (records.length > 0 && records.length !== prevRecordCount.current) {
+      setLastUpdated(Date.now());
+    }
+    prevRecordCount.current = records.length;
+    if (records.length > 0 && !lastUpdated) setLastUpdated(Date.now());
+  }, [records.length]);
 
   // Auto-fetch on mount
   useEffect(() => {
@@ -36,9 +49,13 @@ export function EvolutionDashboard() {
 
   return (
     <div>
-      <RetroHeading level={1} color="cyan" subtitle="Parameter mutations">
-        EVOLUTION LAB
-      </RetroHeading>
+      <Breadcrumbs crumbs={[{ label: 'Evolution' }]} />
+      <div className="flex items-start justify-between">
+        <RetroHeading level={1} color="cyan" subtitle="Parameter mutations">
+          EVOLUTION LAB
+        </RetroHeading>
+        <FreshnessIndicator lastUpdated={lastUpdated} />
+      </div>
 
       {/* Error alert */}
       {error && !errorDismissed && (

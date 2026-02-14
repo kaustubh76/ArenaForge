@@ -13,6 +13,7 @@ import { ShareMatchButton } from '@/components/share/ShareMatchButton';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameType } from '@/types/arena';
 import { useToastStore } from '@/stores/toastStore';
+import { fetchGraphQL } from '@/lib/api';
 
 interface H2HData {
   agent1: string;
@@ -31,8 +32,6 @@ interface H2HData {
     timestamp: number;
   }>;
 }
-
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
 export function HeadToHead() {
   const { agent1: a1Param, agent2: a2Param } = useParams<{ agent1: string; agent2: string }>();
@@ -56,11 +55,8 @@ export function HeadToHead() {
     setError(null);
 
     try {
-      const response = await fetch(GRAPHQL_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `query H2H($agent1: String!, $agent2: String!) {
+      const { data } = await fetchGraphQL<{ headToHead: H2HData | null }>(
+        `query H2H($agent1: String!, $agent2: String!) {
             headToHead(agent1: $agent1, agent2: $agent2) {
               agent1 agent2
               agent1Wins agent2Wins draws totalMatches
@@ -69,12 +65,10 @@ export function HeadToHead() {
               }
             }
           }`,
-          variables: { agent1: a1Param, agent2: a2Param },
-        }),
-      });
+        { agent1: a1Param, agent2: a2Param },
+      );
 
-      const json = await response.json();
-      setData(json?.data?.headToHead ?? null);
+      setData(data?.headToHead ?? null);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -87,29 +81,22 @@ export function HeadToHead() {
   // Fetch A2A relationship data between these two agents
   useEffect(() => {
     if (!a1Param || !a2Param) return;
-    fetch(GRAPHQL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `query($a: String!) {
+    fetchGraphQL<{
+      agentRelationships: Array<{ agent1: string; agent2: string; matchCount: number; isRival: boolean; isAlly: boolean }>;
+      a2aChallenges: Array<{ challenger: string; challenged: string; status: string }>;
+      a2aMessages: Array<{ fromAgent: string; toAgent: string }>;
+    }>(
+      `query($a: String!) {
           agentRelationships(agent: $a) { agent1 agent2 matchCount isRival isAlly }
           a2aChallenges { id challenger challenged status }
           a2aMessages(agent: $a, limit: 100) { id fromAgent toAgent }
         }`,
-        variables: { a: a1Param },
-      }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        const rels = json?.data?.agentRelationships as Array<{
-          agent1: string; agent2: string; matchCount: number; isRival: boolean; isAlly: boolean;
-        }> | undefined;
-        const challenges = json?.data?.a2aChallenges as Array<{
-          challenger: string; challenged: string; status: string;
-        }> | undefined;
-        const messages = json?.data?.a2aMessages as Array<{
-          fromAgent: string; toAgent: string;
-        }> | undefined;
+      { a: a1Param },
+    )
+      .then(({ data }) => {
+        const rels = data?.agentRelationships;
+        const challenges = data?.a2aChallenges;
+        const messages = data?.a2aMessages;
 
         const a1 = a1Param.toLowerCase();
         const a2 = a2Param.toLowerCase();
