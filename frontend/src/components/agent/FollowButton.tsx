@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { UserPlus, UserCheck } from 'lucide-react';
 import { useFollowingStore } from '@/stores/followingStore';
+import { useToastStore } from '@/stores/toastStore';
 import clsx from 'clsx';
 
 interface FollowButtonProps {
@@ -34,10 +35,14 @@ export function FollowButton({
 
   const Icon = following ? UserCheck : UserPlus;
 
+  const addToast = useToastStore(s => s.addToast);
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    const wasFollowing = following;
     toggleFollow(agentAddress);
+    addToast(wasFollowing ? 'Unfollowed' : 'Following!');
     setJustToggled(true);
     setTimeout(() => setJustToggled(false), 600);
   };

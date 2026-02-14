@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useFavoritesStore } from '@/stores/favoritesStore';
+import { useToastStore } from '@/stores/toastStore';
 import clsx from 'clsx';
 
 interface FavoriteButtonProps {
@@ -31,10 +32,14 @@ export function FavoriteButton({
     lg: 'p-2',
   };
 
+  const addToast = useToastStore(s => s.addToast);
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    const wasFavorite = favorite;
     toggleFavorite(agentAddress);
+    addToast(wasFavorite ? 'Removed from favorites' : 'Added to favorites!');
     setJustToggled(true);
     setTimeout(() => setJustToggled(false), 500);
   };

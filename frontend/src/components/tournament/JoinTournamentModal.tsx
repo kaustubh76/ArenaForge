@@ -9,6 +9,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { ArcadeModal } from '@/components/arcade/ArcadeModal';
 import { NeonButton } from '@/components/arcade/NeonButton';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
+import { useToastStore } from '@/stores/toastStore';
 
 interface JoinTournamentModalProps {
   tournament: Tournament | null;
@@ -27,6 +28,7 @@ export function JoinTournamentModal({
 }: JoinTournamentModalProps) {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const addToast = useToastStore(s => s.addToast);
 
   // Wallet connection state
   const { isConnected, isCorrectChain } = useWallet();
@@ -47,6 +49,7 @@ export function JoinTournamentModal({
 
     try {
       await onConfirm(tournament);
+      addToast('Joined tournament!');
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join tournament');
