@@ -187,9 +187,9 @@ export function BetSlip({ player1Handle, player2Handle, className, onClose }: Be
                 </span>
               </div>
               {/* Risk gauge */}
-              <div>
+              <div title={`Risk is based on payout multiplier (${multiplier.toFixed(1)}x). Higher multipliers = higher risk, lower probability of winning.`}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[8px] text-gray-600 uppercase tracking-wider">RISK</span>
+                  <span className="text-[8px] text-gray-600 uppercase tracking-wider cursor-help">RISK</span>
                   <span className={clsx('text-[9px] font-pixel font-bold', riskColor)}>
                     {riskLabel}
                   </span>

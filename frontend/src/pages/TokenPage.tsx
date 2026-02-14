@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { TrendingUp, ExternalLink, Users, ArrowDownCircle, ArrowUpCircle, Loader2, Radio, Activity, Coins, BarChart3 } from 'lucide-react';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { NeonButton } from '@/components/arcade/NeonButton';
+import { ErrorAlert } from '@/components/arcade/ErrorAlert';
 
 import { useWallet } from '@/hooks/useWallet';
+import { fetchGraphQL } from '@/lib/api';
 
 // --- Types ---
 
@@ -31,34 +33,31 @@ interface DiscoveredAgent {
 
 // --- Hooks ---
 
-const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-
 function useArenaToken() {
   const [token, setToken] = useState<TokenMetrics | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const fetchToken = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ arenaToken { address name symbol price marketCap volume24h holders bondingCurveProgress graduated locked } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.arenaToken) {
-          setToken(json.data.arenaToken);
+        const { data } = await fetchGraphQL<any>(
+          `{ arenaToken { address name symbol price marketCap volume24h holders bondingCurveProgress graduated locked } }`,
+        );
+        if (mounted && data?.arenaToken) {
+          setToken(data.arenaToken);
+          setError(null);
         }
-      } catch { /* silent */ }
+      } catch {
+        if (mounted && !token) setError('Failed to fetch token data');
+      }
     };
     fetchToken();
     const interval = setInterval(fetchToken, 30_000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
-  return token;
+  return { token, error };
 }
 
 function useDiscoveredAgents() {
@@ -69,17 +68,12 @@ function useDiscoveredAgents() {
     let mounted = true;
     const fetchAgents = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ discoveredAgents { address discoveredAt fromTournament matchesPlayed elo } discoveredAgentCount }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data) {
-          setAgents(json.data.discoveredAgents || []);
-          setCount(json.data.discoveredAgentCount || 0);
+        const { data } = await fetchGraphQL<any>(
+          `{ discoveredAgents { address discoveredAt fromTournament matchesPlayed elo } discoveredAgentCount }`,
+        );
+        if (mounted && data) {
+          setAgents(data.discoveredAgents || []);
+          setCount(data.discoveredAgentCount || 0);
         }
       } catch { /* silent */ }
     };
@@ -133,19 +127,14 @@ function TradePanel({
     setTxHash(null);
 
     try {
-      const res = await fetch(gqlUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `mutation($amount: String!) { ${mutationName}(${paramName}: $amount) { txHash success } }`,
-          variables: { amount },
-        }),
-      });
-      const json = await res.json();
-      if (json.errors) {
-        throw new Error(json.errors[0]?.message || `${type} failed`);
+      const { data, errors } = await fetchGraphQL<any>(
+        `mutation($amount: String!) { ${mutationName}(${paramName}: $amount) { txHash success } }`,
+        { amount },
+      );
+      if (errors) {
+        throw new Error(errors[0]?.message || `${type} failed`);
       }
-      setTxHash(json.data[mutationName].txHash);
+      setTxHash(data[mutationName].txHash);
       setAmount('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -446,12 +435,16 @@ function DiscoveredAgentsPanel({ agents, count }: { agents: DiscoveredAgent[]; c
 // --- Main Page ---
 
 export function TokenPage() {
-  const token = useArenaToken();
+  const { token, error: tokenError } = useArenaToken();
   const { agents, count } = useDiscoveredAgents();
 
   return (
     <div className="max-w-4xl mx-auto">
       <RetroHeading>ARENA TOKEN</RetroHeading>
+
+      {tokenError && (
+        <ErrorAlert message={tokenError} className="mb-6" />
+      )}
 
       {!token ? (
         <div className="arcade-card p-8 text-center mb-6">

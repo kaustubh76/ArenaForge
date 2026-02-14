@@ -84,6 +84,7 @@ export function MatchAnalyticsPanel({ className }: { className?: string }) {
           onClick={() => setCollapsed(true)}
           className="p-1 rounded text-gray-500 hover:text-white hover:bg-surface-2 transition-colors"
           title="Collapse panel"
+          aria-label="Collapse analytics panel"
         >
           <ChevronRight size={14} />
         </button>

@@ -17,10 +17,10 @@ const barColors: Record<string, string> = {
 
 // Tier thresholds for marker display
 const TIER_THRESHOLDS = [
-  { elo: 1000, label: 'S' },
-  { elo: 1200, label: 'G' },
-  { elo: 1600, label: 'D' },
-  { elo: 2000, label: 'M' },
+  { elo: 1000, label: 'S', name: 'Silver (1000+)' },
+  { elo: 1200, label: 'G', name: 'Gold (1200+)' },
+  { elo: 1600, label: 'D', name: 'Diamond (1600+)' },
+  { elo: 2000, label: 'M', name: 'Master (2000+)' },
 ];
 
 const glowColors: Record<string, string> = {
@@ -43,7 +43,7 @@ export function EloBar({ elo, showLabel = true, className }: EloBarProps) {
           {elo}
         </span>
       )}
-      <div className="relative flex-1 h-1.5 bg-surface-1 rounded-full overflow-hidden min-w-[60px]">
+      <div className="relative flex-1 h-1.5 bg-surface-1 rounded-full overflow-hidden min-w-[60px]" title={`ELO ${elo} — ${tier.label} tier`}>
         <div
           className={clsx('h-full rounded-full transition-all duration-700', barColors[tier.cssClass])}
           style={{
@@ -62,7 +62,7 @@ export function EloBar({ elo, showLabel = true, className }: EloBarProps) {
                 elo >= t.elo ? 'bg-white/20' : 'bg-white/5',
               )}
               style={{ left: `${pos}%` }}
-              title={`${t.label} — ${t.elo}`}
+              title={t.name}
             />
           );
         })}

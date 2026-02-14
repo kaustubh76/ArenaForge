@@ -28,6 +28,7 @@ import {
   GAME_TYPE_COLORS, GAME_TYPE_LABELS,
   TOOLTIP_STYLE,
 } from '@/components/charts';
+import { fetchGraphQL } from '@/lib/api';
 
 interface TokenMetrics {
   address: string;
@@ -41,56 +42,48 @@ interface TokenMetrics {
 
 function useArenaToken() {
   const [token, setToken] = useState<TokenMetrics | null>(null);
-  const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const fetchToken = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ arenaToken { address name symbol price marketCap bondingCurveProgress graduated } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.arenaToken) {
-          setToken(json.data.arenaToken);
+        const { data } = await fetchGraphQL<any>(
+          `{ arenaToken { address name symbol price marketCap bondingCurveProgress graduated } }`,
+        );
+        if (mounted && data?.arenaToken) {
+          setToken(data.arenaToken);
+          setError(null);
         }
-      } catch { /* silent */ }
+      } catch {
+        if (mounted && !token) setError('Failed to load token data');
+      }
     };
     fetchToken();
     const interval = setInterval(fetchToken, 60_000);
     return () => { mounted = false; clearInterval(interval); };
-  }, [gqlUrl]);
+  }, []);
 
-  return token;
+  return { token, tokenError: error };
 }
 
 function useA2AQuickStats() {
   const [stats, setStats] = useState<{ activeChallenges: number; activeAlliances: number; totalAgents: number } | null>(null);
-  const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
   useEffect(() => {
     let mounted = true;
     const fetchStats = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aNetworkStats { totalAgents activeChallenges activeAlliances } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aNetworkStats) setStats(json.data.a2aNetworkStats);
-      } catch { /* silent */ }
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aNetworkStats { totalAgents activeChallenges activeAlliances } }`,
+        );
+        if (mounted && data?.a2aNetworkStats) setStats(data.a2aNetworkStats);
+      } catch { /* network error — stats are optional, degrade gracefully */ }
     };
     fetchStats();
     const interval = setInterval(fetchStats, 30_000);
     return () => { mounted = false; clearInterval(interval); };
-  }, [gqlUrl]);
+  }, []);
 
   return stats;
 }
@@ -443,7 +436,7 @@ export function ArenaLobby() {
   const { isConnected: wsConnected } = useConnectionStatus();
   const { events: recentEvents } = useActivityFeed();
 
-  const arenaToken = useArenaToken();
+  const { token: arenaToken, tokenError } = useArenaToken();
   const a2aStats = useA2AQuickStats();
 
   const filtered = getFilteredTournaments();
@@ -484,9 +477,6 @@ export function ArenaLobby() {
     resetJoinState();
   };
 
-  // GraphQL URL for create tournament mutation
-  const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-
   // Handle create tournament
   const handleCreateTournament = async (input: CreateTournamentInput): Promise<void> => {
     const gameTypeMap: Record<number, string> = {
@@ -497,29 +487,24 @@ export function ArenaLobby() {
       3: 'ROUND_ROBIN', 4: 'BEST_OF_N', 5: 'ROYAL_RUMBLE', 6: 'PENTATHLON',
     };
 
-    const res = await fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `mutation($input: CreateTournamentInput!) {
+    const { errors } = await fetchGraphQL<any>(
+      `mutation($input: CreateTournamentInput!) {
           createTournament(input: $input) { id name status }
         }`,
-        variables: {
-          input: {
-            name: input.name,
-            gameType: gameTypeMap[input.gameType] ?? 'STRATEGY_ARENA',
-            format: formatMap[input.format] ?? 'SINGLE_ELIMINATION',
-            entryStake: input.entryStake,
-            maxParticipants: input.maxParticipants,
-            roundCount: input.roundCount,
-          },
+      {
+        input: {
+          name: input.name,
+          gameType: gameTypeMap[input.gameType] ?? 'STRATEGY_ARENA',
+          format: formatMap[input.format] ?? 'SINGLE_ELIMINATION',
+          entryStake: input.entryStake,
+          maxParticipants: input.maxParticipants,
+          roundCount: input.roundCount,
         },
-      }),
-    });
+      },
+    );
 
-    const json = await res.json();
-    if (json.errors) {
-      throw new Error(json.errors[0]?.message || 'Failed to create tournament');
+    if (errors) {
+      throw new Error(errors[0]?.message || 'Failed to create tournament');
     }
 
     // Refresh tournament list
@@ -643,7 +628,7 @@ export function ArenaLobby() {
         </div>
       </Link>
 
-      {/* Error alert */}
+      {/* Error alerts */}
       {error && !errorDismissed && (
         <ErrorAlert
           message={error}
@@ -651,6 +636,9 @@ export function ArenaLobby() {
           onDismiss={() => setErrorDismissed(true)}
           className="mb-6"
         />
+      )}
+      {tokenError && (
+        <ErrorAlert message={tokenError} className="mb-6" />
       )}
 
       {/* Live match ticker */}

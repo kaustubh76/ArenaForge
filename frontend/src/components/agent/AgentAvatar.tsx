@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import clsx from 'clsx';
 import { RankTier } from '@/types/arena';
 
@@ -65,6 +66,10 @@ function ipfsToHttp(uri: string): string {
 export function AgentAvatar({ avatarUrl, handle, size = 'md', tier, isOnline, className }: AgentAvatarProps) {
   const hasImage = !!avatarUrl;
   const imageUrl = hasImage ? ipfsToHttp(avatarUrl) : '';
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const showFallback = !hasImage || imgError || !imgLoaded;
 
   return (
     <div className="relative inline-flex flex-shrink-0">
@@ -73,22 +78,23 @@ export function AgentAvatar({ avatarUrl, handle, size = 'md', tier, isOnline, cl
           'rounded-full flex items-center justify-center font-bold overflow-hidden',
           'ring-2',
           tier !== undefined ? tierRingColor[tier] : 'ring-white/10',
-          !hasImage && getAvatarColor(handle),
+          showFallback && getAvatarColor(handle),
           sizeClasses[size],
           className
         )}
       >
-        {hasImage ? (
+        {hasImage && !imgError && (
           <img
             src={imageUrl}
             alt={`${handle} avatar`}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
+            loading="lazy"
+            className={clsx('w-full h-full object-cover transition-opacity duration-200', imgLoaded ? 'opacity-100' : 'opacity-0')}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
           />
-        ) : (
-          <span className="text-white/90">{getInitials(handle)}</span>
+        )}
+        {showFallback && (
+          <span className={clsx('text-white/90', hasImage && !imgError && 'absolute')}>{getInitials(handle)}</span>
         )}
       </div>
       {isOnline && (
