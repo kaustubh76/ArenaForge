@@ -4,6 +4,7 @@ import { useArenaStore } from '@/stores/arenaStore';
 import { useAgentStore } from '@/stores/agentStore';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameType, MatchStatus } from '@/types/arena';
+import { useToastStore } from '@/stores/toastStore';
 
 interface ShareMatchButtonProps {
   matchId: number;
@@ -12,6 +13,7 @@ interface ShareMatchButtonProps {
 }
 
 export function ShareMatchButton({ matchId, className, size = 'md' }: ShareMatchButtonProps) {
+  const addToast = useToastStore(s => s.addToast);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -53,6 +55,7 @@ export function ShareMatchButton({ matchId, className, size = 'md' }: ShareMatch
     try {
       await navigator.clipboard.writeText(matchUrl);
       setCopied(true);
+      addToast('Match link copied to clipboard');
       setTimeout(() => { setCopied(false); setOpen(false); }, 1500);
     } catch {
       // Fallback for insecure contexts

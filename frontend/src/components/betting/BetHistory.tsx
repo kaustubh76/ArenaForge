@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import clsx from 'clsx';
-import { History, Trophy, X, Clock, DollarSign, TrendingUp, TrendingDown, BarChart3, Target } from 'lucide-react';
+import { History, Trophy, X, Clock, DollarSign, TrendingUp, TrendingDown, BarChart3, Target, ChevronDown } from 'lucide-react';
 import { useBettingStore } from '@/stores/bettingStore';
 import { BetStatus } from '@/types/arena';
 import { truncateAddress } from '@/constants/ui';
 import { useWallet } from '@/hooks/useWallet';
 import { CHART_COLORS } from '@/components/charts';
+import { CopyButton } from '@/components/arcade/CopyButton';
 import { timeAgo } from '@/utils/format';
 
 interface BetHistoryProps {
@@ -203,6 +204,7 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
   const { address } = useWallet();
   const { userBets, fetchMyBets, claimWinnings, loading } = useBettingStore();
   const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [visibleBets, setVisibleBets] = useState(maxItems);
 
   useEffect(() => {
     if (address) {
@@ -220,9 +222,9 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
   };
 
   // Sort by timestamp descending (most recent first)
-  const sortedBets = [...userBets]
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, maxItems);
+  const allSortedBets = [...userBets]
+    .sort((a, b) => b.timestamp - a.timestamp);
+  const sortedBets = allSortedBets.slice(0, visibleBets);
 
   // Calculate P/L stats
   const completedBets = userBets.filter(b => b.status !== BetStatus.Active);
@@ -324,6 +326,7 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-white">Match #{bet.matchId}</span>
+                    <CopyButton text={String(bet.matchId)} label="Match ID copied" size={10} />
                     <span className={clsx(
                       'text-[10px] px-2 py-0.5 rounded-full',
                       bet.status === BetStatus.Active && 'bg-arcade-cyan/20 text-arcade-cyan',
@@ -334,8 +337,10 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
                       {STATUS_LABELS[bet.status as BetStatus]}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    Bet on {truncateAddress(bet.predictedWinner)} @ {bet.odds}x
+                  <div className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                    Bet on {truncateAddress(bet.predictedWinner)}
+                    <CopyButton text={bet.predictedWinner} label="Address copied" size={10} />
+                    <span>@ {bet.odds}x</span>
                   </div>
                   <div className="text-[10px] text-gray-500 mt-1" title={new Date(bet.timestamp).toLocaleString()}>
                     {timeAgo(bet.timestamp)}
@@ -383,6 +388,17 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
             <p className="font-pixel text-xs text-gray-300 tracking-wider" style={{ textShadow: '0 0 6px rgba(0,229,255,0.2)' }}>NO BETS YET</p>
             <p className="text-xs text-gray-500 mt-1.5">Place your first bet on a live match</p>
           </div>
+        )}
+
+        {/* Show More button */}
+        {allSortedBets.length > visibleBets && (
+          <button
+            onClick={() => setVisibleBets(v => v + maxItems)}
+            className="w-full py-3 text-xs font-semibold text-gray-400 hover:text-white border-t border-white/[0.06] transition-colors flex items-center justify-center gap-1.5"
+          >
+            <ChevronDown size={14} />
+            Show More ({allSortedBets.length - visibleBets} remaining)
+          </button>
         )}
       </div>
     </div>

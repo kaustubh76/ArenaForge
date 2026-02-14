@@ -8,7 +8,9 @@ import {
 import { useBettingStore } from '@/stores/bettingStore';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { AnimatedScore } from '@/components/arcade/AnimatedScore';
-import { NeonButton } from '@/components/arcade/NeonButton';
+import { SkeletonRow } from '@/components/arcade/ShimmerLoader';
+import { EmptyBets } from '@/components/arcade/EmptyState';
+import { CopyButton } from '@/components/arcade/CopyButton';
 import { truncateAddress } from '@/constants/ui';
 
 type SortField = 'netProfit' | 'winRate' | 'totalBets' | 'streak';
@@ -316,37 +318,28 @@ export function SpectatorLeaderboard() {
       {/* Leaderboard table */}
       <div className="arcade-card p-0 overflow-hidden">
         {/* Table header */}
-        <div className="grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5rem_5rem] gap-2 px-4 py-3 border-b border-white/[0.06] bg-surface-3/50">
+        <div className="grid grid-cols-[2.5rem_1fr_5rem_5rem] sm:grid-cols-[3rem_1fr_5rem_5rem_5rem_5rem_5rem] gap-2 px-3 sm:px-4 py-3 border-b border-white/[0.06] bg-surface-3/50">
           <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">#</span>
           <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">BETTOR</span>
           <SortHeader field="netProfit" label="P/L" />
           <SortHeader field="winRate" label="WIN %" />
-          <SortHeader field="totalBets" label="BETS" />
-          <SortHeader field="streak" label="STREAK" />
-          <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold text-right">ACCURACY</span>
+          <span className="hidden sm:block"><SortHeader field="totalBets" label="BETS" /></span>
+          <span className="hidden sm:block"><SortHeader field="streak" label="STREAK" /></span>
+          <span className="hidden sm:block text-[10px] uppercase tracking-wider text-gray-500 font-bold text-right">ACCURACY</span>
         </div>
 
         {/* Loading state */}
         {loading && topBettors.length === 0 && (
           <div className="space-y-1">
-            {Array.from({ length: 10 }, (_, i) => (
-              <div key={i} className="px-4 py-4 animate-pulse">
-                <div className="h-4 bg-surface-1 rounded w-full" />
-              </div>
+            {Array.from({ length: 8 }, (_, i) => (
+              <SkeletonRow key={i} />
             ))}
           </div>
         )}
 
         {/* Empty state */}
         {!loading && sortedBettors.length === 0 && (
-          <div className="py-16 text-center">
-            <Trophy size={40} className="mx-auto text-gray-600 mb-4" />
-            <p className="font-pixel text-xs text-gray-500 mb-2">NO BETTORS YET</p>
-            <p className="text-sm text-gray-600">Be the first to place a bet</p>
-            <Link to="/spectator" className="mt-4 inline-block">
-              <NeonButton variant="neon" color="purple">GO TO SPECTATOR HUB</NeonButton>
-            </Link>
-          </div>
+          <EmptyBets />
         )}
 
         {/* Bettor rows */}
@@ -361,7 +354,7 @@ export function SpectatorLeaderboard() {
             <div
               key={bettor.address}
               className={clsx(
-                'grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5rem_5rem] gap-2 px-4 py-3 items-center transition-all duration-200',
+                'grid grid-cols-[2.5rem_1fr_5rem_5rem] sm:grid-cols-[3rem_1fr_5rem_5rem_5rem_5rem_5rem] gap-2 px-3 sm:px-4 py-3 items-center transition-all duration-200',
                 'hover:bg-white/[0.03] animate-fade-in-up opacity-0',
                 i % 2 === 0 ? 'bg-surface-2/50' : '',
                 getRankBg(rank)
@@ -375,9 +368,12 @@ export function SpectatorLeaderboard() {
 
               {/* Bettor info */}
               <div className="min-w-0">
-                <Link to={`/bettor/${bettor.address}`} className="text-sm text-white truncate block hover:text-arcade-cyan transition-colors">
-                  {truncateAddress(bettor.address)}
-                </Link>
+                <div className="flex items-center gap-1">
+                  <Link to={`/bettor/${bettor.address}`} className="text-sm text-white truncate hover:text-arcade-cyan transition-colors">
+                    {truncateAddress(bettor.address)}
+                  </Link>
+                  <CopyButton text={bettor.address} label="Address copied" size={10} />
+                </div>
                 <span className="text-[10px] text-gray-500">
                   {parseFloat(bettor.totalWagered).toFixed(2)} ETH wagered
                 </span>
@@ -397,15 +393,17 @@ export function SpectatorLeaderboard() {
               </div>
 
               {/* Total Bets */}
-              <div className="text-sm font-mono text-gray-400">
+              <div className="hidden sm:block text-sm font-mono text-gray-400">
                 {bettor.totalBets}
               </div>
 
               {/* Streak */}
-              <StreakBadge streak={bettor.currentStreak} />
+              <div className="hidden sm:block">
+                <StreakBadge streak={bettor.currentStreak} />
+              </div>
 
               {/* Accuracy */}
-              <div className="flex items-center justify-end gap-1">
+              <div className="hidden sm:flex items-center justify-end gap-1">
                 <Target size={10} className="text-arcade-cyan" />
                 <span className="text-sm font-mono text-arcade-cyan">{accuracy}%</span>
               </div>
