@@ -7,6 +7,9 @@ import { ActivityFeedPanel } from '@/components/activity/ActivityFeedPanel';
 import { GlobalNotifications } from '@/components/notifications/GlobalNotifications';
 import { CompareDrawer, CompareFloatingPill } from '@/components/compare/CompareDrawer';
 import { CommandPalette } from '@/components/search/CommandPalette';
+import { ToastContainer } from '@/components/arcade/ToastContainer';
+import { ScrollToTop } from '@/components/arcade/ScrollToTop';
+import { PageProgressBar } from '@/components/arcade/PageProgressBar';
 import { initializeActivityFeedWatcher } from '@/stores/activityFeedStore';
 
 // Start watching realtimeStore for new events
@@ -18,9 +21,10 @@ export function Layout() {
   const location = useLocation();
   const [pageKey, setPageKey] = useState(0);
 
-  // Re-trigger entrance animation on route change
+  // Re-trigger entrance animation + scroll to top on route change
   useEffect(() => {
     setPageKey(k => k + 1);
+    window.scrollTo(0, 0);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-surface-0 relative">
+      <PageProgressBar />
       {/* Background layers */}
       <div className="mesh-bg" aria-hidden="true" />
       <div className="grid-pattern" aria-hidden="true" />
@@ -60,6 +65,8 @@ export function Layout() {
       <CompareDrawer />
       <CompareFloatingPill />
       <CommandPalette open={paletteOpen} onClose={handleClosePalette} />
+      <ToastContainer />
+      <ScrollToTop />
     </div>
   );
 }
