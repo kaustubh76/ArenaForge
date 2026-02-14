@@ -75,7 +75,7 @@ export function MatchAnalyticsPanel({ className }: { className?: string }) {
       {/* Header */}
       <div className="arcade-card p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BarChart3 size={16} className="text-arcade-purple" />
+          <BarChart3 size={16} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           <span className="text-xs font-bold text-white tracking-wider uppercase">
             Match Analytics
           </span>
@@ -146,7 +146,7 @@ function WinProbabilityChart({
   return (
     <div className="arcade-card p-3">
       <div className="flex items-center gap-2 mb-3">
-        <TrendingUp size={14} className="text-arcade-cyan" />
+        <TrendingUp size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
         <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
           Win Probability
         </span>
@@ -219,7 +219,7 @@ function ScoreMomentumChart({
   return (
     <div className="arcade-card p-3">
       <div className="flex items-center gap-2 mb-3">
-        <Zap size={14} className="text-arcade-gold" />
+        <Zap size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
         <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
           Score Momentum
         </span>
@@ -288,7 +288,7 @@ function GameStrategySection({
   return (
     <div className="arcade-card p-3">
       <div className="flex items-center gap-2 mb-3">
-        <Target size={14} className="text-arcade-green" />
+        <Target size={14} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
         <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
           Strategy Breakdown
         </span>
@@ -528,7 +528,7 @@ function StatCard({
 }) {
   return (
     <div className={clsx(
-      'rounded-lg border p-2 text-center',
+      'rounded-lg border p-2 text-center transition-all duration-200 hover:scale-[1.03]',
       color === 'cyan'
         ? 'border-arcade-cyan/20 bg-arcade-cyan/5'
         : 'border-arcade-pink/20 bg-arcade-pink/5',
@@ -566,7 +566,7 @@ function KeyMomentsTimeline({
   return (
     <div className="arcade-card p-3">
       <div className="flex items-center gap-2 mb-3">
-        <Zap size={14} className="text-arcade-orange" />
+        <Zap size={14} className="text-arcade-orange" style={{ filter: 'drop-shadow(0 0 3px rgba(255,165,0,0.4))' }} />
         <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
           Key Moments
         </span>
@@ -621,7 +621,7 @@ function HeadToHeadSummary({
   return (
     <div className="arcade-card p-3">
       <div className="flex items-center gap-2 mb-3">
-        <BarChart3 size={14} className="text-arcade-purple" />
+        <BarChart3 size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
         <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
           Match Summary
         </span>
@@ -633,14 +633,14 @@ function HeadToHeadSummary({
           <div className={clsx('text-[10px] font-bold truncate w-16', p1Won ? 'text-arcade-green' : 'text-arcade-cyan')}>
             {p1Label}{p1Won ? ' W' : ''}
           </div>
-          <div className="text-2xl font-mono font-bold text-white">{summary.p1FinalScore}</div>
+          <div className="text-2xl font-mono font-bold text-white" style={p1Won ? { textShadow: '0 0 8px rgba(105,240,174,0.3)' } : undefined}>{summary.p1FinalScore}</div>
         </div>
         <div className="text-xs text-gray-500 font-bold">VS</div>
         <div className="text-center">
           <div className={clsx('text-[10px] font-bold truncate w-16', p2Won ? 'text-arcade-green' : 'text-arcade-pink')}>
             {p2Label}{p2Won ? ' W' : ''}
           </div>
-          <div className="text-2xl font-mono font-bold text-white">{summary.p2FinalScore}</div>
+          <div className="text-2xl font-mono font-bold text-white" style={p2Won ? { textShadow: '0 0 8px rgba(105,240,174,0.3)' } : undefined}>{summary.p2FinalScore}</div>
         </div>
       </div>
 

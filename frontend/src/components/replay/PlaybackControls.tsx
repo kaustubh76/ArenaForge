@@ -80,6 +80,7 @@ export function PlaybackControls({ className }: PlaybackControlsProps) {
             strokeDashoffset={offset}
             className="transition-all duration-200"
             opacity="0.7"
+            style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }}
           />
         </svg>
         <button
@@ -147,8 +148,8 @@ export function PlaybackControls({ className }: PlaybackControlsProps) {
               className={clsx(
                 'px-2 py-1 rounded text-xs font-bold transition-all',
                 playbackSpeed === speed
-                  ? 'bg-arcade-purple text-white shadow-sm shadow-arcade-purple/40'
-                  : 'text-gray-400 hover:text-white',
+                  ? 'bg-arcade-purple text-white shadow-sm shadow-arcade-purple/40 scale-105'
+                  : 'text-gray-400 hover:text-white hover:scale-105',
               )}
             >
               {speed}x

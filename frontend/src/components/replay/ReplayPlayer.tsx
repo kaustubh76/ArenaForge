@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 import { Crown } from 'lucide-react';
 import { useReplayStore } from '@/stores/replayStore';
 import { useAgentStore } from '@/stores/agentStore';
+import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
 import { TimelineScrubber } from './TimelineScrubber';
 import { PlaybackControls } from './PlaybackControls';
 import { GameType, type ReplayRound } from '@/types/arena';
@@ -22,6 +23,9 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
     loadReplay,
     unloadReplay,
     getCurrentRound,
+    togglePlayback,
+    prevRound,
+    nextRound,
   } = useReplayStore();
 
   const getAgentByAddress = useAgentStore(s => s.getAgentByAddress);
@@ -31,14 +35,50 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
     return () => unloadReplay();
   }, [matchId, loadReplay, unloadReplay]);
 
+  // Keyboard shortcuts: Space=play/pause, ←=prev, →=next
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip if user is typing in an input
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        togglePlayback();
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        prevRound();
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        nextRound();
+        break;
+    }
+  }, [togglePlayback, prevRound, nextRound]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   const currentRound = getCurrentRound();
 
   if (loading) {
     return (
       <div className={clsx('bg-surface-1 rounded-xl p-8', className)}>
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 border-4 border-arcade-purple border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400">Loading replay...</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <ShimmerLoader width="w-40" height="h-6" />
+            <ShimmerLoader width="w-24" height="h-4" />
+          </div>
+          <ShimmerLoader width="w-full" height="h-48" variant="card" />
+          <ShimmerLoader width="w-full" height="h-8" />
+          <div className="flex justify-center gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <ShimmerLoader key={i} variant="circle" width="w-10" height="h-10" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -87,7 +127,7 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-surface-2 border-b border-gray-700">
         <div className="flex items-center gap-3">
-          <span className="text-arcade-purple font-bold uppercase tracking-wider text-sm">
+          <span className="text-arcade-purple font-bold uppercase tracking-wider text-sm" style={{ textShadow: '0 0 6px rgba(168,85,247,0.3)' }}>
             Match Replay
           </span>
           <span className="text-xs text-gray-400">
@@ -111,10 +151,13 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
       <div className="grid grid-cols-3 gap-4 px-4 py-4 bg-surface-2/50">
         <div className="text-center">
           <div className="text-xs text-gray-400 mb-1">{p1Name}</div>
-          <div className={clsx(
-            'text-3xl font-mono font-bold',
-            currentReplay.winner === currentReplay.player1 ? 'text-arcade-green' : 'text-arcade-cyan'
-          )}>
+          <div
+            className={clsx(
+              'text-3xl font-mono font-bold',
+              currentReplay.winner === currentReplay.player1 ? 'text-arcade-green' : 'text-arcade-cyan'
+            )}
+            style={{ textShadow: currentReplay.winner === currentReplay.player1 ? '0 0 8px rgba(105,240,174,0.3)' : '0 0 8px rgba(0,229,255,0.3)' }}
+          >
             {currentRound?.player1Score ?? 0}
           </div>
         </div>
@@ -126,10 +169,13 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
         </div>
         <div className="text-center">
           <div className="text-xs text-gray-400 mb-1">{p2Name}</div>
-          <div className={clsx(
-            'text-3xl font-mono font-bold',
-            currentReplay.winner === currentReplay.player2 ? 'text-arcade-green' : 'text-arcade-pink'
-          )}>
+          <div
+            className={clsx(
+              'text-3xl font-mono font-bold',
+              currentReplay.winner === currentReplay.player2 ? 'text-arcade-green' : 'text-arcade-pink'
+            )}
+            style={{ textShadow: currentReplay.winner === currentReplay.player2 ? '0 0 8px rgba(105,240,174,0.3)' : '0 0 8px rgba(236,72,153,0.3)' }}
+          >
             {currentRound?.player2Score ?? 0}
           </div>
         </div>
@@ -194,6 +240,11 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
       {/* Playback controls */}
       <div className="px-6 py-4 bg-surface-2/50 border-t border-gray-700">
         <PlaybackControls />
+        <div className="flex justify-center gap-4 mt-2 text-[9px] text-gray-600">
+          <span><kbd className="px-1 py-0.5 bg-surface-3 rounded text-[8px]">Space</kbd> Play/Pause</span>
+          <span><kbd className="px-1 py-0.5 bg-surface-3 rounded text-[8px]">&larr;</kbd> Prev</span>
+          <span><kbd className="px-1 py-0.5 bg-surface-3 rounded text-[8px]">&rarr;</kbd> Next</span>
+        </div>
       </div>
 
       {/* Match result */}
@@ -204,14 +255,14 @@ export function ReplayPlayer({ matchId, className, onClose }: ReplayPlayerProps)
         return (
           <div className="px-4 py-3 bg-arcade-gold/10 border-t border-arcade-gold/30">
             <div className="flex items-center justify-center gap-2">
-              <Crown size={16} className="text-arcade-gold" />
-              <span className="font-pixel text-sm text-arcade-gold uppercase tracking-wider">
+              <Crown size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.4))' }} />
+              <span className="font-pixel text-sm text-arcade-gold uppercase tracking-wider" style={{ textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>
                 {winnerName}
               </span>
               <span className="font-mono text-xs text-gray-400">
                 {p1Score}–{p2Score}
               </span>
-              <Crown size={16} className="text-arcade-gold" />
+              <Crown size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.4))' }} />
             </div>
           </div>
         );
@@ -413,7 +464,7 @@ function MoveCard({
 }) {
   return (
     <div className={clsx(
-      'rounded-lg border p-4 text-center transition-all',
+      'rounded-lg border p-4 text-center transition-all duration-200 hover:scale-[1.03]',
       side === 'cyan' ? 'border-arcade-cyan/30 bg-arcade-cyan/5' : 'border-arcade-pink/30 bg-arcade-pink/5',
     )}>
       <div className="text-xs text-gray-400 mb-2 truncate">{name}</div>
@@ -492,7 +543,7 @@ function BidCard({
 
   return (
     <div className={clsx(
-      'rounded-lg border p-4 text-center',
+      'rounded-lg border p-4 text-center transition-all duration-200 hover:scale-[1.03]',
       side === 'cyan' ? 'border-arcade-cyan/30 bg-arcade-cyan/5' : 'border-arcade-pink/30 bg-arcade-pink/5',
     )}>
       <div className="text-xs text-gray-400 mb-2 truncate">{name}</div>
@@ -592,7 +643,7 @@ function AnswerCard({
 
   return (
     <div className={clsx(
-      'rounded-lg border p-4 text-center',
+      'rounded-lg border p-4 text-center transition-all duration-200 hover:scale-[1.03]',
       side === 'cyan' ? 'border-arcade-cyan/30 bg-arcade-cyan/5' : 'border-arcade-pink/30 bg-arcade-pink/5',
     )}>
       <div className="text-xs text-gray-400 mb-2 truncate">{name}</div>
