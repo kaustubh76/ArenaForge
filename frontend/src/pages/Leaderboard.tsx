@@ -20,6 +20,7 @@ import { getEloTier, truncateAddress } from '@/constants/ui';
 import { downloadAgents } from '@/lib/export-utils';
 import { useTabKeyboard } from '@/hooks/useTabKeyboard';
 import { fetchGraphQL } from '@/lib/api';
+import { formatCompact } from '@/utils/format';
 
 interface GameTypeLeaderboardEntry {
   address: string;
@@ -573,7 +574,7 @@ export function Leaderboard() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
                       <div>
                         <p className="text-[10px] text-gray-500 mb-1">MATCHES PLAYED</p>
-                        <p className="font-mono text-sm text-white">{agent.matchesPlayed}</p>
+                        <p className="font-mono text-sm text-white">{formatCompact(agent.matchesPlayed)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-gray-500 mb-1">CURRENT STREAK</p>

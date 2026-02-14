@@ -23,6 +23,7 @@ import { GraphControls } from '@/components/a2a/GraphControls';
 import { getWebSocketClient } from '@/lib/websocket';
 import { fetchGraphQL } from '@/lib/api';
 import { useTabKeyboard } from '@/hooks/useTabKeyboard';
+import { formatCompact } from '@/utils/format';
 
 // --- Types ---
 
@@ -230,7 +231,7 @@ function NetworkStatsBar({ stats }: { stats: A2ANetworkStats }) {
         };
         return (
           <div key={item.label} className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
-            <p className={`text-xl font-bold ${item.color}`} style={{ textShadow: `0 0 8px ${glowMap[item.color] ?? 'none'}` }}>{item.value}</p>
+            <p className={`text-xl font-bold ${item.color}`} style={{ textShadow: `0 0 8px ${glowMap[item.color] ?? 'none'}` }}>{formatCompact(item.value)}</p>
             <p className="text-[10px] text-gray-500 font-pixel tracking-wider">{item.label}</p>
           </div>
         );
@@ -407,7 +408,7 @@ function SendChallengeForm({ onSent }: { onSent: () => void }) {
             <select
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-arcade-purple/50"
+              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-arcade-purple/50 focus-visible:ring-2 focus-visible:ring-arcade-purple/30"
             >
               <option value="">Select agent...</option>
               {agents.map((a) => (
@@ -422,7 +423,7 @@ function SendChallengeForm({ onSent }: { onSent: () => void }) {
               placeholder="0x..."
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-arcade-purple/50"
+              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-arcade-purple/50 focus-visible:ring-2 focus-visible:ring-arcade-purple/30"
             />
           )}
         </div>
@@ -433,7 +434,7 @@ function SendChallengeForm({ onSent }: { onSent: () => void }) {
             <select
               value={gameType}
               onChange={(e) => setGameType(e.target.value)}
-              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-arcade-purple/50"
+              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-arcade-purple/50 focus-visible:ring-2 focus-visible:ring-arcade-purple/30"
             >
               {GAME_TYPES.map((gt) => (
                 <option key={gt} value={gt}>{GAME_TYPE_LABELS[gt]}</option>
@@ -448,7 +449,7 @@ function SendChallengeForm({ onSent }: { onSent: () => void }) {
               min="0"
               value={stake}
               onChange={(e) => setStake(e.target.value)}
-              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-arcade-purple/50"
+              className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-arcade-purple/50 focus-visible:ring-2 focus-visible:ring-arcade-purple/30"
             />
           </div>
         </div>
@@ -481,7 +482,7 @@ function AgentNetworkPanel({ agents }: { agents: DiscoveredAgent[] }) {
           <Users size={18} className="text-arcade-cyan" />
           <h2 className="text-sm font-bold text-white tracking-wider">DISCOVERED AGENTS</h2>
         </div>
-        <span className="text-xs text-arcade-cyan font-pixel">{agents.length} FOUND</span>
+        <span className="text-xs text-arcade-cyan font-pixel">{formatCompact(agents.length)} FOUND</span>
       </div>
 
       {agents.length === 0 ? (
@@ -534,7 +535,7 @@ function MessageLog({ messages }: { messages: A2AMessage[] }) {
       <div className="flex items-center gap-2 mb-4">
         <Radio size={18} className="text-arcade-gold" />
         <h2 className="text-sm font-bold text-white tracking-wider">COMMS LOG</h2>
-        <span className="text-[10px] text-gray-500 ml-auto">{messages.length} messages</span>
+        <span className="text-[10px] text-gray-500 ml-auto">{formatCompact(messages.length)} messages</span>
       </div>
 
       {messages.length === 0 ? (

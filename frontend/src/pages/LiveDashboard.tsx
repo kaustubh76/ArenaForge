@@ -53,6 +53,7 @@ import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE, GAME_TYPE_COLORS }
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { fetchGraphQL } from '@/lib/api';
+import { formatCompact } from '@/utils/format';
 
 // ---------------------------------------------------------------------------
 // A2A Types & Helpers
@@ -835,7 +836,7 @@ function LiveActivityWidget({ events }: { events: RealtimeEvent[] }) {
         <Activity size={16} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
         <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Live Activity</span>
         {events.length > 0 && (
-          <span className="ml-auto text-[10px] font-mono text-arcade-green">{events.length} events</span>
+          <span className="ml-auto text-[10px] font-mono text-arcade-green">{formatCompact(events.length)} events</span>
         )}
       </div>
       {recent.length === 0 ? (
@@ -1065,7 +1066,7 @@ function A2AStatsBar({ stats }: { stats: A2ANetworkStats }) {
               <Icon size={18} className={c.text} style={{ filter: 'drop-shadow(0 0 3px currentColor)' }} />
               <div>
                 <div className={clsx('text-lg font-mono font-bold', c.text)}>
-                  {item.value}
+                  {formatCompact(item.value)}
                 </div>
                 <div className="text-[9px] text-gray-500 uppercase tracking-wider">
                   {item.label}
@@ -1264,7 +1265,7 @@ function A2ACommsWidget({ messages }: { messages: A2AMessage[] }) {
           )}
         </div>
         {messages.length > 0 && (
-          <span className="text-[10px] font-mono text-arcade-gold">{messages.length} msgs</span>
+          <span className="text-[10px] font-mono text-arcade-gold">{formatCompact(messages.length)} msgs</span>
         )}
       </div>
       {recent.length === 0 ? (
@@ -1360,7 +1361,7 @@ function ArenaPulse({ allMatches }: { allMatches: Match[] }) {
               {currentLive} live
             </span>
           )}
-          <span className="text-[10px] text-gray-500">{totalToday} matches / 24h</span>
+          <span className="text-[10px] text-gray-500">{formatCompact(totalToday)} matches / 24h</span>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={120}>
