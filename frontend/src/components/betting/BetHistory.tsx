@@ -6,6 +6,7 @@ import { BetStatus } from '@/types/arena';
 import { truncateAddress } from '@/constants/ui';
 import { useWallet } from '@/hooks/useWallet';
 import { CHART_COLORS } from '@/components/charts';
+import { timeAgo } from '@/utils/format';
 
 interface BetHistoryProps {
   className?: string;
@@ -336,8 +337,8 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
                   <div className="text-xs text-gray-400 mt-1">
                     Bet on {truncateAddress(bet.predictedWinner)} @ {bet.odds}x
                   </div>
-                  <div className="text-[10px] text-gray-500 mt-1">
-                    {new Date(bet.timestamp).toLocaleString()}
+                  <div className="text-[10px] text-gray-500 mt-1" title={new Date(bet.timestamp).toLocaleString()}>
+                    {timeAgo(bet.timestamp)}
                   </div>
                 </div>
 
@@ -375,10 +376,12 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
             );
           })
         ) : (
-          <div className="p-8 text-center">
-            <History size={32} className="mx-auto text-gray-600 mb-3" />
-            <p className="text-gray-400">No bets yet</p>
-            <p className="text-xs text-gray-500 mt-1">Place your first bet on a live match</p>
+          <div className="flex flex-col items-center py-10">
+            <div className="w-12 h-12 rounded-full bg-surface-1 border border-white/[0.06] flex items-center justify-center animate-float mb-4">
+              <History size={20} className="text-gray-500" style={{ filter: 'drop-shadow(0 0 4px rgba(0,229,255,0.3))' }} />
+            </div>
+            <p className="font-pixel text-xs text-gray-300 tracking-wider" style={{ textShadow: '0 0 6px rgba(0,229,255,0.2)' }}>NO BETS YET</p>
+            <p className="text-xs text-gray-500 mt-1.5">Place your first bet on a live match</p>
           </div>
         )}
       </div>

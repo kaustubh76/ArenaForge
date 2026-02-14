@@ -388,6 +388,7 @@ function ArenaHeroDashboard({
             fill="none"
             stroke="#00e5ff"
             strokeWidth={1.5}
+            style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }}
           />
           {/* Dots for peaks */}
           {hourlyData.buckets.map((v, i) => {
@@ -423,22 +424,9 @@ const statusFilters: Array<{ value: TournamentStatus | null; label: string }> = 
   { value: TournamentStatus.Completed, label: 'COMPLETED' },
 ];
 
-function SkeletonCard() {
-  return (
-    <div className="arcade-card p-5 animate-pulse">
-      <div className="h-4 bg-surface-2 rounded w-2/3 mb-3" />
-      <div className="h-3 bg-surface-2 rounded w-1/3 mb-4" />
-      <div className="space-y-2">
-        <div className="h-3 bg-surface-1 rounded w-full" />
-        <div className="h-3 bg-surface-1 rounded w-4/5" />
-      </div>
-      <div className="flex justify-between mt-4 pt-3 border-t border-white/[0.04]">
-        <div className="h-3 bg-surface-2 rounded w-16" />
-        <div className="h-3 bg-surface-2 rounded w-12" />
-      </div>
-    </div>
-  );
-}
+// Shimmer skeleton imported from arcade components
+import { SkeletonTournamentCard } from '@/components/arcade/ShimmerLoader';
+import { EmptyTournaments } from '@/components/arcade/EmptyState';
 
 export function ArenaLobby() {
   const { tournaments, allMatches, loading, error, gameTypeFilter, statusFilter, prizePoolMin, prizePoolMax, setGameTypeFilter, setStatusFilter, setPrizePoolFilter, getFilteredTournaments, getLiveMatches, fetchFromChain } = useArenaStore();
@@ -587,7 +575,7 @@ export function ArenaLobby() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-arcade-purple/20 flex items-center justify-center">
-              <Plus size={20} className="text-arcade-purple" />
+              <Plus size={20} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
             </div>
             <div>
               <h3 className="font-bold text-white group-hover:text-arcade-purple transition-colors">
@@ -608,7 +596,7 @@ export function ArenaLobby() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-arcade-cyan/20 flex items-center justify-center">
-              <Eye size={20} className="text-arcade-cyan" />
+              <Eye size={20} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
             </div>
             <div>
               <h3 className="font-bold text-white group-hover:text-arcade-cyan transition-colors">
@@ -629,7 +617,7 @@ export function ArenaLobby() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-arcade-pink/20 flex items-center justify-center">
-              <Radio size={20} className="text-arcade-pink" />
+              <Radio size={20} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(236,72,153,0.4))' }} />
             </div>
             <div>
               <h3 className="font-bold text-white group-hover:text-arcade-pink transition-colors">
@@ -756,7 +744,7 @@ export function ArenaLobby() {
       {/* Tournament grid */}
       {loading && tournaments.length === 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }, (_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 4 }, (_, i) => <SkeletonTournamentCard key={i} />)}
         </div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -770,10 +758,7 @@ export function ArenaLobby() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16">
-          <p className="font-pixel text-sm text-gray-600 mb-2">NO BATTLES AVAILABLE</p>
-          <p className="text-sm text-gray-500">INSERT COIN TO CREATE</p>
-        </div>
+        <EmptyTournaments onAction={() => setCreateModalOpen(true)} />
       )}
 
       {/* Join tournament modal */}

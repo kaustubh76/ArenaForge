@@ -8,6 +8,7 @@ import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { ShareMatchButton } from '@/components/share/ShareMatchButton';
 import { ReplayPlayer, MatchAnalyticsPanel } from '@/components/replay';
 import { MATCH_STATUS_CONFIG } from '@/constants/game';
+import { timeAgo } from '@/utils/format';
 
 export function ReplayPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +62,7 @@ export function ReplayPage() {
       {/* Match stats header */}
       <div className="flex items-center gap-3 mb-4 p-3 bg-surface-1 rounded-lg overflow-x-auto">
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Swords size={14} className="text-gray-500" />
+          <Swords size={14} className="text-gray-500" style={{ filter: 'drop-shadow(0 0 2px rgba(168,85,247,0.3))' }} />
           <span className="text-[10px] text-gray-500 uppercase">Round {match.round}</span>
         </div>
         <div className="w-px h-6 bg-gray-700/50 flex-shrink-0" />
@@ -78,7 +79,7 @@ export function ReplayPage() {
           <>
             <div className="w-px h-6 bg-gray-700/50 flex-shrink-0" />
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <Clock size={12} className="text-gray-500" />
+              <Clock size={12} className="text-gray-500" style={{ filter: 'drop-shadow(0 0 2px rgba(168,85,247,0.3))' }} />
               <span className="text-xs font-mono text-gray-400">
                 {match.duration < 60 ? `${match.duration}s` : `${Math.floor(match.duration / 60)}m ${match.duration % 60}s`}
               </span>
@@ -89,8 +90,8 @@ export function ReplayPage() {
           <>
             <div className="w-px h-6 bg-gray-700/50 flex-shrink-0" />
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <Trophy size={12} className="text-arcade-gold" />
-              <span className="text-xs font-mono text-arcade-gold">
+              <Trophy size={12} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.5))' }} />
+              <span className="text-xs font-mono text-arcade-gold" style={{ textShadow: '0 0 6px rgba(255,215,0,0.3)' }}>
                 {match.winner === match.player1
                   ? (player1?.moltbookHandle ?? match.player1.slice(0, 8))
                   : (player2?.moltbookHandle ?? match.player2.slice(0, 8))}
@@ -101,8 +102,8 @@ export function ReplayPage() {
         {match.timestamp > 0 && (
           <>
             <div className="w-px h-6 bg-gray-700/50 flex-shrink-0" />
-            <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">
-              {new Date(match.timestamp * 1000).toLocaleDateString()}
+            <span className="text-[10px] text-gray-600 font-mono flex-shrink-0" title={new Date(match.timestamp * 1000).toLocaleString()}>
+              {timeAgo(match.timestamp * 1000)}
             </span>
           </>
         )}

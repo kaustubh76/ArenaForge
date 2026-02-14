@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { Star, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Eye, Search, Users, BarChart3 } from 'lucide-react';
+import { Star, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Eye, Search, BarChart3 } from 'lucide-react';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useAgentStore } from '@/stores/agentStore';
@@ -444,24 +444,10 @@ function FavoritesComparison({ agents }: { agents: FavoriteAgentData[] }) {
 
 // ── Empty State ────────────────────────────────────────────────────────
 
+import { EmptyFavorites as EmptyFavoritesBase } from '@/components/arcade/EmptyState';
+
 function EmptyFavorites() {
-  return (
-    <div className="arcade-card p-12 text-center">
-      <Star size={48} className="text-gray-600 mx-auto mb-4" />
-      <h3 className="text-lg font-bold text-gray-300 mb-2">No Favorites Yet</h3>
-      <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
-        Start following agents to track their performance, view recent matches, and get quick
-        access to their profiles.
-      </p>
-      <Link
-        to="/leaderboard"
-        className="inline-flex items-center gap-2 btn-neon btn-neon-purple text-xs px-6 py-2.5"
-      >
-        <Users size={14} />
-        BROWSE AGENTS
-      </Link>
-    </div>
-  );
+  return <EmptyFavoritesBase onAction={() => { window.location.href = '/leaderboard'; }} />;
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────

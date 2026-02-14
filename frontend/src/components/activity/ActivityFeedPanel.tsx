@@ -156,12 +156,12 @@ export function ActivityFeedPanel() {
               {/* Rate indicator */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <Activity size={10} className="text-arcade-cyan" />
+                  <Activity size={10} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.4))' }} />
                   <span className="text-[9px] text-gray-500">{total} events</span>
                 </div>
                 {recent5m > 0 && (
                   <div className="flex items-center gap-1">
-                    <Zap size={9} className="text-arcade-gold" />
+                    <Zap size={9} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 2px rgba(255,215,0,0.5))' }} />
                     <span className="text-[9px] font-mono text-arcade-gold">{recent5m} in 5m</span>
                   </div>
                 )}
@@ -199,12 +199,14 @@ export function ActivityFeedPanel() {
         {/* Event list */}
         <div className="flex-1 overflow-y-auto">
           {displayEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-600">
-              <Bell size={32} className="mb-3 opacity-30" />
-              <p className="text-xs">
-                {showFollowingOnly ? "No events from followed agents" : "No recent activity"}
+            <div className="flex flex-col items-center justify-center h-full text-gray-600 py-8">
+              <div className="w-12 h-12 rounded-full bg-surface-1 border border-white/[0.06] flex items-center justify-center animate-float mb-4">
+                <Bell size={20} className="opacity-40" style={{ filter: 'drop-shadow(0 0 4px rgba(168,85,247,0.3))' }} />
+              </div>
+              <p className="text-xs font-pixel tracking-wider" style={{ textShadow: '0 0 6px rgba(168,85,247,0.2)' }}>
+                {showFollowingOnly ? "NO FOLLOWED EVENTS" : "NO RECENT ACTIVITY"}
               </p>
-              <p className="text-[10px] mt-1 text-gray-700">
+              <p className="text-[10px] mt-1.5 text-gray-700">
                 {showFollowingOnly ? "Follow agents to see their events here" : "Events will appear here in real-time"}
               </p>
             </div>

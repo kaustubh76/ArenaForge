@@ -36,6 +36,7 @@ import {
   Radar as RechartsRadar,
 } from 'recharts';
 import { useBettingStore } from '@/stores/bettingStore';
+import { timeAgo } from '@/utils/format';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE } from '@/components/charts';
 import { truncateAddress } from '@/constants/ui';
@@ -109,7 +110,7 @@ function ProfileHero({ profile, address }: { profile: BettorProfile | null; addr
         <div>
           <h2 className="font-mono text-lg text-white">{truncateAddress(address)}</h2>
           <div className="flex items-center gap-3 mt-1">
-            <span className={clsx('font-pixel text-xs', tierColor)}>{tierLabel}</span>
+            <span className={clsx('font-pixel text-xs', tierColor)} style={{ textShadow: tierLabel === 'SHARK' ? '0 0 6px rgba(255,215,0,0.3)' : undefined }}>{tierLabel}</span>
             {profile.currentStreak !== 0 && (
               <span
                 className={clsx(
@@ -133,7 +134,10 @@ function ProfileHero({ profile, address }: { profile: BettorProfile | null; addr
             profit >= 0 ? 'text-arcade-green' : 'text-red-400',
           )}
         >
-          <div className="flex items-center gap-1 text-2xl font-mono font-bold">
+          <div
+            className="flex items-center gap-1 text-2xl font-mono font-bold"
+            style={{ textShadow: profit >= 0 ? '0 0 8px rgba(105,240,174,0.3)' : '0 0 8px rgba(248,113,113,0.3)' }}
+          >
             {profit >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
             {profit >= 0 ? '+' : ''}
             {profit.toFixed(4)} ETH
@@ -176,8 +180,8 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-surface-1 rounded-lg p-3 text-center">
-      <Icon size={14} className={clsx(color, 'mx-auto mb-1.5')} />
+    <div className="bg-surface-1 rounded-lg p-3 text-center transition-all duration-200 hover:scale-[1.03]">
+      <Icon size={14} className={clsx(color, 'mx-auto mb-1.5')} style={{ filter: 'drop-shadow(0 0 3px currentColor)' }} />
       <div className="text-lg font-bold font-mono text-white">{value}</div>
       <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</div>
     </div>
@@ -216,7 +220,7 @@ function PLChart({ bets }: { bets: Bet[] }) {
   return (
     <div className="arcade-card p-5">
       <h3 className="text-sm font-bold text-gray-300 tracking-wider uppercase mb-4 flex items-center gap-2">
-        <TrendingUp size={14} className="text-arcade-cyan" />
+        <TrendingUp size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
         Cumulative P/L
       </h3>
       <ResponsiveContainer width="100%" height={220}>
@@ -265,7 +269,7 @@ function OutcomeDistribution({ bets }: { bets: Bet[] }) {
   return (
     <div className="arcade-card p-5">
       <h3 className="text-sm font-bold text-gray-300 tracking-wider uppercase mb-4 flex items-center gap-2">
-        <Target size={14} className="text-arcade-purple" />
+        <Target size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
         Outcome Distribution
       </h3>
       <ResponsiveContainer width="100%" height={180}>
@@ -320,7 +324,7 @@ function BettorBetHistory({ bets }: { bets: Bet[] }) {
     <div className="arcade-card overflow-hidden">
       <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
         <h3 className="text-sm font-bold text-gray-300 tracking-wider uppercase flex items-center gap-2">
-          <History size={14} className="text-arcade-purple" />
+          <History size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           Bet History
         </h3>
         <div className="flex items-center gap-1">
@@ -390,8 +394,8 @@ function BettorBetHistory({ bets }: { bets: Bet[] }) {
                     </div>
                   )}
                 </div>
-                <div className="text-[10px] text-gray-600 flex-shrink-0 w-20 text-right">
-                  {new Date(bet.timestamp).toLocaleDateString()}
+                <div className="text-[10px] text-gray-600 flex-shrink-0 w-20 text-right" title={new Date(bet.timestamp).toLocaleString()}>
+                  {timeAgo(bet.timestamp)}
                 </div>
               </div>
             );
@@ -478,7 +482,7 @@ function BettorRadar({ profile, bets }: { profile: BettorProfile; bets: Bet[] })
     <div className="arcade-card p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-300 tracking-wider uppercase flex items-center gap-2">
-          <Radar size={14} className="text-arcade-purple" />
+          <Radar size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
           Bettor Skill Profile
         </h3>
         <div className="flex items-center gap-2">
@@ -563,7 +567,7 @@ function ROITrendChart({ bets }: { bets: Bet[] }) {
     <div className="arcade-card p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-300 tracking-wider uppercase flex items-center gap-2">
-          <Percent size={14} className="text-arcade-gold" />
+          <Percent size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
           ROI Trend
         </h3>
         <span className={clsx(
@@ -733,9 +737,9 @@ function HighlightCard({
   const pl = getBetPL(bet);
 
   return (
-    <div className="arcade-card p-4">
+    <div className="arcade-card p-4 transition-all duration-200 hover:scale-[1.02]">
       <div className="flex items-center gap-2 mb-3">
-        <Icon size={14} className={`text-${color}`} />
+        <Icon size={14} className={`text-${color}`} style={{ filter: 'drop-shadow(0 0 3px currentColor)' }} />
         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</span>
       </div>
       <div className="flex items-center justify-between">
@@ -755,6 +759,7 @@ function HighlightCard({
             'font-mono text-lg font-bold',
             pl >= 0 ? 'text-arcade-green' : 'text-red-400',
           )}
+          style={{ textShadow: pl >= 0 ? '0 0 6px rgba(105,240,174,0.3)' : '0 0 6px rgba(248,113,113,0.3)' }}
         >
           {pl >= 0 ? '+' : ''}
           {pl.toFixed(4)}
