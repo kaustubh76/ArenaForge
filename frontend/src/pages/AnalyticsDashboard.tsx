@@ -20,8 +20,9 @@ import {
   TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE,
   formatDuration,
 } from '@/components/charts';
-
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
+import { fetchGraphQL } from '@/lib/api';
+import { useTabKeyboard } from '@/hooks/useTabKeyboard';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 
 type Tab = 'overview' | 'agents' | 'gameTypes' | 'trends';
 
@@ -72,13 +73,8 @@ interface EloDistBucket {
 
 async function gqlFetch<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
   try {
-    const res = await fetch(GRAPHQL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables }),
-    });
-    const json = await res.json();
-    return json?.data ?? null;
+    const { data } = await fetchGraphQL<T>(query, variables);
+    return data ?? null;
   } catch {
     return null;
   }
@@ -96,6 +92,7 @@ export function AnalyticsDashboard() {
     _setTab(t);
     setSearchParams(t === 'overview' ? {} : { tab: t }, { replace: true });
   };
+  useTabKeyboard(VALID_TABS, tab, setTab);
   const { allMatches } = useArenaStore();
   const { agents } = useAgentStore();
 
@@ -185,6 +182,7 @@ export function AnalyticsDashboard() {
 
   return (
     <div>
+      <Breadcrumbs crumbs={[{ label: 'Analytics' }]} />
       <RetroHeading level={1} color="purple" subtitle="Performance metrics & insights">
         ARENA ANALYTICS
       </RetroHeading>

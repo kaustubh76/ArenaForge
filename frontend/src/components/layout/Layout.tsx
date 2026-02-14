@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { ScanlineOverlay } from '@/components/arcade/ScanlineOverlay';
 import { ArcadeHeader } from './ArcadeHeader';
 import { ArcadeFooter } from './ArcadeFooter';
@@ -10,6 +10,7 @@ import { CommandPalette } from '@/components/search/CommandPalette';
 import { ToastContainer } from '@/components/arcade/ToastContainer';
 import { ScrollToTop } from '@/components/arcade/ScrollToTop';
 import { PageProgressBar } from '@/components/arcade/PageProgressBar';
+import { useScrollRestore } from '@/hooks/useScrollRestore';
 import { initializeActivityFeedWatcher } from '@/stores/activityFeedStore';
 
 // Start watching realtimeStore for new events
@@ -19,13 +20,17 @@ export function Layout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const handleClosePalette = useCallback(() => setPaletteOpen(false), []);
   const location = useLocation();
+  const navType = useNavigationType();
   const [pageKey, setPageKey] = useState(0);
+  useScrollRestore();
 
-  // Re-trigger entrance animation + scroll to top on route change
+  // Re-trigger entrance animation + scroll to top on PUSH/REPLACE (not back/forward)
   useEffect(() => {
     setPageKey(k => k + 1);
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    if (navType !== 'POP') {
+      window.scrollTo(0, 0);
+    }
+  }, [location.pathname, navType]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

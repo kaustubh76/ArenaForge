@@ -27,6 +27,8 @@ import { BettingPanel } from '@/components/betting';
 import { truncateAddress } from '@/constants/ui';
 import { useTournamentLive, useConnectionStatus } from '@/hooks';
 import { useBettingStore } from '@/stores/bettingStore';
+import { fetchGraphQL } from '@/lib/api';
+import { ConfirmDialog } from '@/components/arcade/ConfirmDialog';
 
 export function TournamentBoard() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +36,7 @@ export function TournamentBoard() {
   const getAgentByAddress = useAgentStore(s => s.getAgentByAddress);
   const [exportOpen, setExportOpen] = useState(false);
   const [expandedBetMatch, setExpandedBetMatch] = useState<number | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'pause' | 'resume' | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
   const tournamentId = Number(id);
@@ -75,17 +78,9 @@ export function TournamentBoard() {
   const displayParticipants = liveParticipantCount ?? tournament?.currentParticipants ?? 0;
   const displayRound = liveCurrentRound ?? tournament?.currentRound ?? 0;
 
-  const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-
   const handlePause = async (id: number) => {
     try {
-      await fetch(gqlUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `mutation { pauseTournament(id: ${id}) { id status } }`,
-        }),
-      });
+      await fetchGraphQL(`mutation { pauseTournament(id: ${id}) { id status } }`);
       getTournamentDetail(id);
     } catch (err) {
       console.error('Failed to pause tournament:', err);
@@ -94,13 +89,7 @@ export function TournamentBoard() {
 
   const handleResume = async (id: number) => {
     try {
-      await fetch(gqlUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `mutation { resumeTournament(id: ${id}) { id status } }`,
-        }),
-      });
+      await fetchGraphQL(`mutation { resumeTournament(id: ${id}) { id status } }`);
       getTournamentDetail(id);
     } catch (err) {
       console.error('Failed to resume tournament:', err);
@@ -241,7 +230,7 @@ export function TournamentBoard() {
           {/* Admin controls */}
           {tournament.status === TournamentStatus.Active && (
             <button
-              onClick={() => handlePause(tournamentId)}
+              onClick={() => setConfirmAction('pause')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-arcade-red/10 border border-arcade-red/30 text-arcade-red hover:bg-arcade-red/20 transition-colors"
             >
               <Pause size={12} />
@@ -250,7 +239,7 @@ export function TournamentBoard() {
           )}
           {tournament.status === TournamentStatus.Paused && (
             <button
-              onClick={() => handleResume(tournamentId)}
+              onClick={() => setConfirmAction('resume')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-arcade-green/10 border border-arcade-green/30 text-arcade-green hover:bg-arcade-green/20 transition-colors"
             >
               <Play size={12} />
@@ -476,6 +465,25 @@ export function TournamentBoard() {
           <p className="text-center text-[10px] text-gray-600 mt-3">5% arena fee applied</p>
         </div>
       </div>
+
+      {/* Confirm pause/resume dialog */}
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction === 'pause' ? 'PAUSE TOURNAMENT' : 'RESUME TOURNAMENT'}
+        message={
+          confirmAction === 'pause'
+            ? 'This will pause all active matches in this tournament. Participants will not be able to play until resumed.'
+            : 'This will resume the tournament and allow matches to continue.'
+        }
+        confirmLabel={confirmAction === 'pause' ? 'Pause' : 'Resume'}
+        confirmColor={confirmAction === 'pause' ? 'pink' : 'green'}
+        onConfirm={() => {
+          if (confirmAction === 'pause') handlePause(tournamentId);
+          else handleResume(tournamentId);
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

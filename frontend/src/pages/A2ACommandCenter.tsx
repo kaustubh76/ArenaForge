@@ -21,6 +21,8 @@ import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { AgentNetworkGraph } from '@/components/a2a/AgentNetworkGraph';
 import { GraphControls } from '@/components/a2a/GraphControls';
 import { getWebSocketClient } from '@/lib/websocket';
+import { fetchGraphQL } from '@/lib/api';
+import { useTabKeyboard } from '@/hooks/useTabKeyboard';
 
 // --- Types ---
 
@@ -61,8 +63,6 @@ interface A2ANetworkStats {
 }
 
 // --- Constants ---
-
-const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
 const GAME_TYPES = ['STRATEGY_ARENA', 'ORACLE_DUEL', 'AUCTION_WARS', 'QUIZ_BOWL'];
 
@@ -124,16 +124,11 @@ function useA2ANetworkStats(realtimeTrigger: number) {
     let mounted = true;
     const fetch_ = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aNetworkStats { totalAgents totalMessages activeChallenges activeAlliances } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aNetworkStats) {
-          setStats(json.data.a2aNetworkStats);
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aNetworkStats { totalAgents totalMessages activeChallenges activeAlliances } }`,
+        );
+        if (mounted && data?.a2aNetworkStats) {
+          setStats(data.a2aNetworkStats);
         }
       } catch { /* silent */ }
     };
@@ -152,16 +147,11 @@ function useA2AChallenges(realtimeTrigger: number) {
     let mounted = true;
     const fetch_ = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aChallenges { id challenger challenged gameType stake status createdAt expiresAt resultTournamentId } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aChallenges) {
-          setChallenges(json.data.a2aChallenges);
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aChallenges { id challenger challenged gameType stake status createdAt expiresAt resultTournamentId } }`,
+        );
+        if (mounted && data?.a2aChallenges) {
+          setChallenges(data.a2aChallenges);
         }
       } catch { /* silent */ }
     };
@@ -180,16 +170,11 @@ function useA2AMessages(realtimeTrigger: number) {
     let mounted = true;
     const fetch_ = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aMessages(limit: 50) { id fromAgent toAgent messageType payload timestamp } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aMessages) {
-          setMessages(json.data.a2aMessages);
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aMessages(limit: 50) { id fromAgent toAgent messageType payload timestamp } }`,
+        );
+        if (mounted && data?.a2aMessages) {
+          setMessages(data.a2aMessages);
         }
       } catch { /* silent */ }
     };
@@ -208,16 +193,11 @@ function useDiscoveredAgents() {
     let mounted = true;
     const fetch_ = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ discoveredAgents { address discoveredAt fromTournament matchesPlayed elo } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.discoveredAgents) {
-          setAgents(json.data.discoveredAgents);
+        const { data } = await fetchGraphQL<any>(
+          `{ discoveredAgents { address discoveredAt fromTournament matchesPlayed elo } }`,
+        );
+        if (mounted && data?.discoveredAgents) {
+          setAgents(data.discoveredAgents);
         }
       } catch { /* silent */ }
     };
@@ -274,14 +254,10 @@ function ChallengeCard({ challenge }: { challenge: A2AChallenge }) {
   const handleRespond = async (accept: boolean) => {
     setResponding(true);
     try {
-      await fetch(gqlUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `mutation($id: Int!, $accept: Boolean!) { respondToChallenge(challengeId: $id, accept: $accept) { id status } }`,
-          variables: { id: challenge.id, accept },
-        }),
-      });
+      await fetchGraphQL<any>(
+        `mutation($id: Int!, $accept: Boolean!) { respondToChallenge(challengeId: $id, accept: $accept) { id status } }`,
+        { id: challenge.id, accept },
+      );
     } catch { /* silent */ }
     setResponding(false);
   };
@@ -407,18 +383,13 @@ function SendChallengeForm({ onSent }: { onSent: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(gqlUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `mutation($target: String!, $gameType: GameType!, $stake: String!) {
+      const { errors } = await fetchGraphQL<any>(
+        `mutation($target: String!, $gameType: GameType!, $stake: String!) {
             sendA2AChallenge(targetAgent: $target, gameType: $gameType, stake: $stake) { id status }
           }`,
-          variables: { target, gameType, stake },
-        }),
-      });
-      const json = await res.json();
-      if (json.errors) throw new Error(json.errors[0]?.message);
+        { target, gameType, stake },
+      );
+      if (errors) throw new Error(errors[0]?.message);
       onSent();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -642,6 +613,7 @@ export function A2ACommandCenter() {
     _setActiveTab(t);
     setSearchParams(t === 'dashboard' ? {} : { tab: t }, { replace: true });
   };
+  useTabKeyboard(['dashboard', 'network'] as const, activeTab, setActiveTab);
 
   // Graph controls state
   const [graphFilter, setGraphFilter] = useState<'all' | 'rivals' | 'allies'>('all');

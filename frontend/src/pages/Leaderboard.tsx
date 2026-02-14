@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, ArrowUpDown, Crown, Flame, Snowflake, ChevronDown, ChevronUp, Download, FileJson, FileSpreadsheet, Star, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, Crown, Flame, Snowflake, ChevronDown, ChevronUp, Download, FileJson, FileSpreadsheet, Star, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
 import clsx from 'clsx';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useAgentStore } from '@/stores/agentStore';
@@ -18,6 +18,8 @@ import { SeasonBanner, RankBadge } from '@/components/season';
 import { GameType } from '@/types/arena';
 import { getEloTier, truncateAddress } from '@/constants/ui';
 import { downloadAgents } from '@/lib/export-utils';
+import { useTabKeyboard } from '@/hooks/useTabKeyboard';
+import { fetchGraphQL } from '@/lib/api';
 
 interface GameTypeLeaderboardEntry {
   address: string;
@@ -148,7 +150,7 @@ function StreakBadge({ streak }: { streak: number }) {
 
 export function Leaderboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { sortBy, searchQuery, error, setSortBy, toggleSortOrder, setSearchQuery, getSortedAgents, fetchFromChain, getAgentByAddress } = useAgentStore();
+  const { sortBy, sortOrder, searchQuery, error, setSortBy, toggleSortOrder, setSearchQuery, getSortedAgents, fetchFromChain, getAgentByAddress } = useAgentStore();
   const { favoriteAgents, isFavorite } = useFavoritesStore();
   const { currentSeason, seasonLeaderboard, fetchSeason, fetchLeaderboard } = useSeasonStore();
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -186,11 +188,13 @@ export function Leaderboard() {
   );
   const setView = (v: LeaderboardView) => {
     _setView(v);
+    setVisibleCount(25);
     const p: Record<string, string> = {};
     if (v !== 'allTime') p.view = v;
     if (gameTypeFilter !== null) p.game = String(gameTypeFilter);
     setSearchParams(p, { replace: true });
   };
+  useTabKeyboard(['allTime', 'seasonal'] as const, view, setView);
   const setGameTypeFilter = (g: GameType | null) => {
     _setGameTypeFilter(g);
     const p: Record<string, string> = {};
@@ -204,19 +208,13 @@ export function Leaderboard() {
   // Fetch game-type leaderboard when filter changes
   useEffect(() => {
     if (gameTypeFilter === null) { setGameTypeAgents([]); return; }
-    const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
     const gtEnum = GAME_TYPE_ENUM_STRINGS[gameTypeFilter];
     setGameTypeLoading(true);
-    fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `query($gt: GameType!) { gameTypeLeaderboard(gameType: $gt, limit: 50) { address wins losses draws total winRate avgDuration } }`,
-        variables: { gt: gtEnum },
-      }),
-    })
-      .then(r => r.json())
-      .then(json => setGameTypeAgents(json?.data?.gameTypeLeaderboard ?? []))
+    fetchGraphQL<{ gameTypeLeaderboard: GameTypeLeaderboardEntry[] }>(
+      `query($gt: GameType!) { gameTypeLeaderboard(gameType: $gt, limit: 50) { address wins losses draws total winRate avgDuration } }`,
+      { gt: gtEnum },
+    )
+      .then(({ data }) => setGameTypeAgents(data?.gameTypeLeaderboard ?? []))
       .catch(() => setGameTypeAgents([]))
       .finally(() => setGameTypeLoading(false));
   }, [gameTypeFilter]);
@@ -371,10 +369,11 @@ export function Leaderboard() {
           ))}
           <button
             onClick={toggleSortOrder}
-            aria-label="Toggle sort order"
+            aria-label={`Sort ${sortOrder === 'desc' ? 'ascending' : 'descending'}`}
+            title={sortOrder === 'desc' ? 'Descending — click to flip' : 'Ascending — click to flip'}
             className="px-2 py-2 rounded-lg text-gray-500 border border-white/[0.06] hover:text-gray-300 transition-colors"
           >
-            <ArrowUpDown size={14} />
+            {sortOrder === 'desc' ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
 
           {/* Favorites filter */}
