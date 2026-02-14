@@ -8,6 +8,7 @@ import { AgentAvatar } from '@/components/agent/AgentAvatar';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameType } from '@/types/arena';
 import type { AgentProfileExtended } from '@/types/arena';
+import { fetchGraphQL } from '@/lib/api';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -26,8 +27,6 @@ interface H2HData {
     timestamp: number;
   }>;
 }
-
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
 function gameTypeStringToNumber(gt: string): GameType {
   const map: Record<string, GameType> = {
@@ -61,11 +60,8 @@ export function CompareDrawer() {
     }
     setLoading(true);
     try {
-      const response = await fetch(GRAPHQL_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `query H2H($agent1: String!, $agent2: String!) {
+      const { data } = await fetchGraphQL<{ headToHead: H2HData | null }>(
+        `query H2H($agent1: String!, $agent2: String!) {
             headToHead(agent1: $agent1, agent2: $agent2) {
               agent1 agent2
               agent1Wins agent2Wins draws totalMatches
@@ -74,11 +70,9 @@ export function CompareDrawer() {
               }
             }
           }`,
-          variables: { agent1, agent2 },
-        }),
-      });
-      const json = await response.json();
-      setH2hData(json?.data?.headToHead ?? null);
+        { agent1, agent2 },
+      );
+      setH2hData(data?.headToHead ?? null);
     } catch {
       setH2hData(null);
     } finally {

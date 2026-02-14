@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { MessageSquare, Loader2, Sparkles, TrendingUp, Target, Zap, Shield } from "lucide-react";
+import { fetchGraphQL } from "@/lib/api";
 
 interface CommentaryEntry {
   text: string;
@@ -29,27 +30,19 @@ export function MatchCommentary({
   const fetchedPre = useRef(false);
   const fetchedPost = useRef(false);
 
-  const gqlUrl =
-    import.meta.env.VITE_GRAPHQL_URL || "http://localhost:4000/graphql";
-
   const fetchCommentary = async (
     context: "PRE_MATCH" | "POST_MATCH"
   ): Promise<CommentaryEntry | null> => {
     try {
-      const res = await fetch(gqlUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `query($matchId: Int!, $context: CommentaryContext!) {
-            matchCommentary(matchId: $matchId, context: $context) {
-              text context matchId generatedAt fromCache
-            }
-          }`,
-          variables: { matchId, context },
-        }),
-      });
-      const json = await res.json();
-      return json?.data?.matchCommentary ?? null;
+      const { data } = await fetchGraphQL<any>(
+        `query($matchId: Int!, $context: CommentaryContext!) {
+          matchCommentary(matchId: $matchId, context: $context) {
+            text context matchId generatedAt fromCache
+          }
+        }`,
+        { matchId, context }
+      );
+      return data?.matchCommentary ?? null;
     } catch {
       return null;
     }

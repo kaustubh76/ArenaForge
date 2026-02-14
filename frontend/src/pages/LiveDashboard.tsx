@@ -52,6 +52,7 @@ import {
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE, GAME_TYPE_COLORS } from '@/components/charts';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
+import { fetchGraphQL } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // A2A Types & Helpers
@@ -96,8 +97,6 @@ interface A2ARelationship {
   lastInteraction: number;
 }
 
-const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-
 const GAME_TYPE_LABELS: Record<string, string> = {
   STRATEGY_ARENA: 'Strategy Arena',
   ORACLE_DUEL: 'Oracle Duel',
@@ -130,15 +129,10 @@ function useA2ANetworkStats() {
     let mounted = true;
     const fetchStats = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aNetworkStats { totalAgents totalMessages activeChallenges activeAlliances } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aNetworkStats) setStats(json.data.a2aNetworkStats);
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aNetworkStats { totalAgents totalMessages activeChallenges activeAlliances } }`,
+        );
+        if (mounted && data?.a2aNetworkStats) setStats(data.a2aNetworkStats);
       } catch { /* silent */ }
     };
     fetchStats();
@@ -156,15 +150,10 @@ function useA2AChallenges() {
     let mounted = true;
     const fetchChallenges = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aChallenges { id challenger challenged gameType stake status createdAt expiresAt resultTournamentId } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aChallenges) setChallenges(json.data.a2aChallenges);
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aChallenges { id challenger challenged gameType stake status createdAt expiresAt resultTournamentId } }`,
+        );
+        if (mounted && data?.a2aChallenges) setChallenges(data.a2aChallenges);
       } catch { /* silent */ }
     };
     fetchChallenges();
@@ -182,15 +171,10 @@ function useA2AMessages() {
     let mounted = true;
     const fetchMessages = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ a2aMessages(limit: 20) { id fromAgent toAgent messageType payload timestamp } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.a2aMessages) setMessages(json.data.a2aMessages);
+        const { data } = await fetchGraphQL<any>(
+          `{ a2aMessages(limit: 20) { id fromAgent toAgent messageType payload timestamp } }`,
+        );
+        if (mounted && data?.a2aMessages) setMessages(data.a2aMessages);
       } catch { /* silent */ }
     };
     fetchMessages();
@@ -208,15 +192,10 @@ function useA2ARelationships() {
     let mounted = true;
     const fetchRelationships = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{ allRelationships { agent1 agent2 matchCount agent1Wins agent2Wins isRival isAlly lastInteraction } }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data?.allRelationships) setRelationships(json.data.allRelationships);
+        const { data } = await fetchGraphQL<any>(
+          `{ allRelationships { agent1 agent2 matchCount agent1Wins agent2Wins isRival isAlly lastInteraction } }`,
+        );
+        if (mounted && data?.allRelationships) setRelationships(data.allRelationships);
       } catch { /* silent */ }
     };
     fetchRelationships();

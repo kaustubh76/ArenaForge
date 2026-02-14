@@ -10,6 +10,7 @@ import {
   type Bet, type MatchPool, type BettorProfile,
   type ReplayMetadata, type MatchReplay, type ReplayRound,
 } from '@/types/arena';
+import { fetchGraphQL } from '@/lib/api';
 
 // Contract addresses from environment
 const ARENA_CORE = (import.meta.env.VITE_ARENA_CORE_ADDRESS || '') as `0x${string}`;
@@ -1167,45 +1168,37 @@ export async function fetchReplayMetadata(matchId: number): Promise<ReplayMetada
 export async function fetchReplayData(matchId: number): Promise<MatchReplay | null> {
   // Try GraphQL API first (has full round data from SQLite)
   try {
-    const response = await fetch(
-      import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `query MatchReplay($matchId: Int!) {
-            matchReplay(matchId: $matchId) {
-              matchId
-              gameType
-              player1
-              player2
-              winner
-              totalDuration
-              rawStats
-              rounds {
-                roundNumber
-                player1Action
-                player2Action
-                player1Score
-                player2Score
-                timestamp
-                stateHash
-              }
-              metadata {
-                matchId
-                roundCount
-                available
-                roundHashes
-              }
-            }
-          }`,
-          variables: { matchId },
-        }),
-      }
+    const { data } = await fetchGraphQL<any>(
+      `query MatchReplay($matchId: Int!) {
+        matchReplay(matchId: $matchId) {
+          matchId
+          gameType
+          player1
+          player2
+          winner
+          totalDuration
+          rawStats
+          rounds {
+            roundNumber
+            player1Action
+            player2Action
+            player1Score
+            player2Score
+            timestamp
+            stateHash
+          }
+          metadata {
+            matchId
+            roundCount
+            available
+            roundHashes
+          }
+        }
+      }`,
+      { matchId }
     );
 
-    const json = await response.json();
-    const replay = json?.data?.matchReplay;
+    const replay = data?.matchReplay;
 
     if (replay && replay.rounds.length > 0) {
       const gameTypeMap: Record<string, GameType> = {

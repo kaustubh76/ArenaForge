@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Eye, Swords, GitCompareArrows } from 'lucide-react';
 import { getEloTier } from '@/constants/ui';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { fetchGraphQL } from '@/lib/api';
 
 // --- Types ---
 
@@ -61,8 +62,6 @@ interface NodePopup {
 
 // --- Constants ---
 
-const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-
 const TIER_COLORS: Record<string, string> = {
   Bronze: '#d97706',
   Silver: '#9ca3af',
@@ -96,20 +95,18 @@ function useNetworkGraphData() {
     let mounted = true;
     const fetchData = async () => {
       try {
-        const res = await fetch(gqlUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `{
+        const { data } = await fetchGraphQL<{
+          discoveredAgents: DiscoveredAgent[];
+          allRelationships: AgentRelationship[];
+        }>(
+          `{
               discoveredAgents { address discoveredAt fromTournament matchesPlayed elo }
               allRelationships { agent1 agent2 matchCount agent1Wins agent2Wins isRival isAlly lastInteraction }
             }`,
-          }),
-        });
-        const json = await res.json();
-        if (mounted && json.data) {
-          setAgents(json.data.discoveredAgents || []);
-          setRelationships(json.data.allRelationships || []);
+        );
+        if (mounted && data) {
+          setAgents(data.discoveredAgents || []);
+          setRelationships(data.allRelationships || []);
         }
       } catch { /* silent */ }
     };
