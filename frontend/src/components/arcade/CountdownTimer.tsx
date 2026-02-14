@@ -47,6 +47,7 @@ export function CountdownTimer({ targetTime, className, compact = false, totalDu
           isWarning ? 'text-arcade-red animate-pulse' : 'text-arcade-cyan',
           className,
         )}
+        style={{ textShadow: isWarning ? '0 0 6px rgba(255,82,82,0.3)' : '0 0 6px rgba(0,229,255,0.3)' }}
       >
         {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
       </span>
@@ -75,6 +76,7 @@ export function CountdownTimer({ targetTime, className, compact = false, totalDu
               strokeDasharray={ringCircumference}
               strokeDashoffset={ringOffset}
               className="transition-all duration-1000"
+              style={{ filter: `drop-shadow(0 0 3px ${isWarning ? 'rgba(255,82,82,0.4)' : 'rgba(0,229,255,0.4)'})` }}
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">

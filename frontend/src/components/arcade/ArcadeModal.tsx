@@ -39,6 +39,7 @@ export function ArcadeModal({ open, title, onClose, className, children }: Arcad
       <div
         className={clsx(
           'relative bg-surface-2 border border-arcade-purple/30 rounded-lg shadow-arcade-card-hover max-w-2xl w-full max-h-[85vh] overflow-hidden animate-scale-in',
+          'shadow-[0_0_20px_rgba(168,85,247,0.1)]',
           className,
         )}
       >
@@ -50,8 +51,8 @@ export function ArcadeModal({ open, title, onClose, className, children }: Arcad
 
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-arcade-purple animate-pulse" />
-            <h3 className="font-pixel text-xs text-arcade-purple tracking-wide">{title}</h3>
+            <span className="w-1.5 h-1.5 rounded-full bg-arcade-purple animate-pulse" style={{ boxShadow: '0 0 4px rgba(168,85,247,0.6)' }} />
+            <h3 className="font-pixel text-xs text-arcade-purple tracking-wide" style={{ textShadow: '0 0 8px rgba(168,85,247,0.3)' }}>{title}</h3>
           </div>
           <button
             onClick={onClose}

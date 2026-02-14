@@ -61,18 +61,18 @@ export function NetworkStatus() {
     >
       {isOffline ? (
         <>
-          <WifiOff size={14} className="animate-pulse" />
-          <span>OFFLINE</span>
+          <WifiOff size={14} className="animate-pulse" style={{ filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.5))' }} />
+          <span style={{ textShadow: '0 0 6px rgba(255,82,82,0.3)' }}>OFFLINE</span>
         </>
       ) : usingCachedData ? (
         <>
-          <Database size={14} />
-          <span>CACHED</span>
+          <Database size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
+          <span style={{ textShadow: '0 0 6px rgba(255,215,0,0.3)' }}>CACHED</span>
         </>
       ) : (
         <>
-          <Wifi size={14} />
-          <span>ONLINE</span>
+          <Wifi size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.5))' }} />
+          <span style={{ textShadow: '0 0 6px rgba(0,229,255,0.3)' }}>ONLINE</span>
         </>
       )}
       {/* Signal strength dots */}

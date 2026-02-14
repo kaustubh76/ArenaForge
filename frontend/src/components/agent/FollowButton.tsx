@@ -69,6 +69,7 @@ export function FollowButton({
             : 'text-text-tertiary hover:text-arcade-cyan/70',
           justToggled && 'scale-125',
         )}
+        style={following ? { filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.5))' } : undefined}
       />
       {showLabel && (
         <span className={clsx(

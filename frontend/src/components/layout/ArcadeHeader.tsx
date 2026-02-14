@@ -66,7 +66,7 @@ export function ArcadeHeader() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 group">
-              <Trophy size={22} className="text-arcade-purple group-hover:animate-bounce-subtle" />
+              <Trophy size={22} className="text-arcade-purple group-hover:animate-bounce-subtle" style={{ filter: 'drop-shadow(0 0 4px rgba(168,85,247,0.5))' }} />
               <span className="font-pixel text-sm neon-text-purple tracking-wider">
                 ARENAFORGE
               </span>
@@ -92,7 +92,7 @@ export function ArcadeHeader() {
                     <item.icon size={14} />
                     {item.label}
                     {isActive && (
-                      <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-arcade-purple rounded-full" />
+                      <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-arcade-purple rounded-full" style={{ boxShadow: '0 0 4px rgba(168,85,247,0.5)' }} />
                     )}
                   </Link>
                 );
@@ -165,7 +165,7 @@ export function ArcadeHeader() {
                             onClick={openAccountModal}
                             className="btn-neon btn-neon-green text-xs px-4 py-2 flex items-center gap-2"
                           >
-                            <span className="w-2 h-2 rounded-full bg-arcade-green animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-arcade-green animate-pulse" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
                             {account.displayName}
                           </button>
                         );
@@ -268,7 +268,7 @@ export function ArcadeHeader() {
                               onClick={openAccountModal}
                               className="w-full btn-neon btn-neon-green text-xs px-4 py-3 flex items-center justify-center gap-2"
                             >
-                              <span className="w-2 h-2 rounded-full bg-arcade-green animate-pulse" />
+                              <span className="w-2 h-2 rounded-full bg-arcade-green animate-pulse" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
                               {account.displayName}
                             </button>
                           );

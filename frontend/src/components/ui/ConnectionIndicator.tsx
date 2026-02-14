@@ -65,6 +65,15 @@ export function ConnectionIndicator({ className, showLabel = false }: Connection
           status === 'connecting' && 'animate-spin',
           status === 'error' && 'animate-pulse',
         )}
+        style={{
+          filter: status === 'connected'
+            ? 'drop-shadow(0 0 3px rgba(105,240,174,0.5))'
+            : status === 'error'
+              ? 'drop-shadow(0 0 3px rgba(255,82,82,0.5))'
+              : status === 'connecting'
+                ? 'drop-shadow(0 0 3px rgba(255,215,0,0.4))'
+                : undefined
+        }}
       />
       {showLabel && (
         <span className={clsx('text-[10px] font-pixel', config.color)}>

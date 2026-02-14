@@ -65,6 +65,7 @@ export function FavoriteButton({
             : 'fill-transparent text-text-tertiary hover:text-arcade-gold/70',
           justToggled && 'scale-125',
         )}
+        style={favorite ? { filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.5))' } : undefined}
       />
       {showLabel && (
         <span className={clsx(
@@ -78,10 +79,11 @@ export function FavoriteButton({
   );
 }
 
-function StarIcon({ className }: { className?: string }) {
+function StarIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg
       className={className}
+      style={style}
       viewBox="0 0 24 24"
       stroke="currentColor"
       strokeWidth={1.5}

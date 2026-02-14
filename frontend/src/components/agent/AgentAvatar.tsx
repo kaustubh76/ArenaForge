@@ -92,7 +92,7 @@ export function AgentAvatar({ avatarUrl, handle, size = 'md', tier, isOnline, cl
         )}
       </div>
       {isOnline && (
-        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-arcade-green rounded-full ring-2 ring-surface-0 animate-pulse" />
+        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-arcade-green rounded-full ring-2 ring-surface-0 animate-pulse" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
       )}
     </div>
   );

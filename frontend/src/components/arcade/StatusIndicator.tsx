@@ -46,13 +46,27 @@ export function StatusIndicator({ status, type = 'tournament', showLabel = true,
             dotColor,
             isLive && 'animate-pulse',
           )}
+          style={isLive ? {
+            boxShadow: config.color === 'green' ? '0 0 4px rgba(105,240,174,0.6)'
+              : config.color === 'cyan' ? '0 0 4px rgba(0,229,255,0.6)'
+              : config.color === 'purple' ? '0 0 4px rgba(168,85,247,0.6)'
+              : config.color === 'red' ? '0 0 4px rgba(255,82,82,0.6)'
+              : '0 0 4px rgba(255,152,0,0.6)'
+          } : undefined}
         />
       </span>
       {showLabel && (
-        <span className={clsx(
-          'text-[10px] font-bold tracking-wider uppercase',
-          isLive ? (labelColors[config.color] || 'text-gray-400') : 'text-gray-400',
-        )}>
+        <span
+          className={clsx(
+            'text-[10px] font-bold tracking-wider uppercase',
+            isLive ? (labelColors[config.color] || 'text-gray-400') : 'text-gray-400',
+          )}
+          style={isLive ? {
+            textShadow: config.color === 'green' ? '0 0 6px rgba(105,240,174,0.3)'
+              : config.color === 'cyan' ? '0 0 6px rgba(0,229,255,0.3)'
+              : '0 0 6px rgba(168,85,247,0.3)'
+          } : undefined}
+        >
           {config.label}
         </span>
       )}

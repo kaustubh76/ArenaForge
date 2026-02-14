@@ -27,7 +27,7 @@ export function ChainStatus() {
         <span className="relative w-3.5 h-3.5 flex items-center justify-center">
           <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 14 14">
             <circle cx="7" cy="7" r="5.5" fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1.5" />
-            <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px rgba(34,211,238,0.5))' }} />
           </svg>
         </span>
         <span className="text-[9px] font-pixel text-arcade-cyan/60 tracking-wider">SYNCING</span>
@@ -49,8 +49,8 @@ export function ChainStatus() {
 
   return (
     <span className="inline-flex items-center gap-1.5" title="Connected to chain">
-      <span className="w-1.5 h-1.5 rounded-full bg-arcade-green shadow-sm shadow-arcade-green/50" />
-      <span className="text-[9px] font-pixel text-arcade-green/60 tracking-wider">ONCHAIN</span>
+      <span className="w-1.5 h-1.5 rounded-full bg-arcade-green" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
+      <span className="text-[9px] font-pixel text-arcade-green/60 tracking-wider" style={{ textShadow: '0 0 4px rgba(105,240,174,0.3)' }}>ONCHAIN</span>
     </span>
   );
 }

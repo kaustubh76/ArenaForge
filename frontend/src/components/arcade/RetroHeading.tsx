@@ -11,6 +11,15 @@ interface RetroHeadingProps {
   children: React.ReactNode;
 }
 
+const glowShadow: Record<string, string> = {
+  purple: '0 0 10px rgba(168,85,247,0.3)',
+  cyan: '0 0 10px rgba(0,229,255,0.3)',
+  pink: '0 0 10px rgba(236,72,153,0.3)',
+  green: '0 0 10px rgba(105,240,174,0.3)',
+  gold: '0 0 10px rgba(255,215,0,0.3)',
+  white: '0 0 10px rgba(255,255,255,0.15)',
+};
+
 const accentGradients: Record<string, string> = {
   purple: 'from-arcade-purple/60 via-arcade-purple/20 to-transparent',
   cyan: 'from-arcade-cyan/60 via-arcade-cyan/20 to-transparent',
@@ -65,6 +74,7 @@ export function RetroHeading({
           sizeMap[level],
           glow ? neonMap[color] : textMap[color],
         )}
+        style={glow ? { textShadow: glowShadow[color] } : undefined}
       >
         {children}
         {cursor && (
@@ -72,7 +82,7 @@ export function RetroHeading({
         )}
       </Tag>
       {accent && (
-        <div className={clsx('mt-2 h-px w-16 bg-gradient-to-r rounded-full', accentGradients[color])} />
+        <div className={clsx('mt-2 h-px w-16 bg-gradient-to-r rounded-full', accentGradients[color])} style={{ boxShadow: glowShadow[color] }} />
       )}
       {subtitle && (
         <p className={clsx('text-sm text-gray-400 font-sans', accent ? 'mt-2' : 'mt-2')}>{subtitle}</p>
