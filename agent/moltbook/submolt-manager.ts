@@ -1,3 +1,6 @@
+import type { TokenBucketRateLimiter } from "../utils/rate-limiter";
+import { throttledFetch } from "../utils/throttled-fetch";
+
 interface SubmoltConfig {
   moltbookApiUrl: string;
   bearerToken: string;
@@ -21,9 +24,19 @@ interface SearchResult {
 export class SubmoltManager {
   private config: SubmoltConfig;
   private submoltId: string | null = null;
+  private rateLimiter: TokenBucketRateLimiter;
 
-  constructor(config: SubmoltConfig) {
+  constructor(config: SubmoltConfig, rateLimiter: TokenBucketRateLimiter) {
     this.config = config;
+    this.rateLimiter = rateLimiter;
+  }
+
+  private get fetchConfig() {
+    return { rateLimiter: this.rateLimiter, serviceName: "Moltbook" };
+  }
+
+  private get authHeaders(): Record<string, string> {
+    return { Authorization: `Bearer ${this.config.bearerToken}` };
   }
 
   /**
@@ -85,16 +98,17 @@ export class SubmoltManager {
     }
 
     try {
-      const response = await fetch(
+      const response = await throttledFetch(
         `${this.config.moltbookApiUrl}/api/v1/submolts/${this.submoltId}/threads`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${this.config.bearerToken}`,
+            ...this.authHeaders,
           },
           body: JSON.stringify({ title, body, flair }),
-        }
+        },
+        this.fetchConfig
       );
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -111,16 +125,17 @@ export class SubmoltManager {
    */
   async commentOnThread(threadId: string, body: string): Promise<boolean> {
     try {
-      const response = await fetch(
+      const response = await throttledFetch(
         `${this.config.moltbookApiUrl}/api/v1/threads/${threadId}/comments`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${this.config.bearerToken}`,
+            ...this.authHeaders,
           },
           body: JSON.stringify({ body }),
-        }
+        },
+        this.fetchConfig
       );
 
       return response.ok;
@@ -137,13 +152,10 @@ export class SubmoltManager {
     if (!this.submoltId) return [];
 
     try {
-      const response = await fetch(
+      const response = await throttledFetch(
         `${this.config.moltbookApiUrl}/api/v1/submolts/${this.submoltId}/threads?sort=trending&limit=${limit}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.config.bearerToken}`,
-          },
-        }
+        { headers: this.authHeaders },
+        this.fetchConfig
       );
 
       if (!response.ok) return [];
@@ -165,13 +177,10 @@ export class SubmoltManager {
    */
   async search(query: string, limit: number = 20): Promise<SearchResult[]> {
     try {
-      const response = await fetch(
+      const response = await throttledFetch(
         `${this.config.moltbookApiUrl}/api/v1/search?q=${encodeURIComponent(query)}&limit=${limit}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.config.bearerToken}`,
-          },
-        }
+        { headers: this.authHeaders },
+        this.fetchConfig
       );
 
       if (!response.ok) return [];
@@ -223,13 +232,10 @@ export class SubmoltManager {
 
   private async findSubmolt(name: string): Promise<SubmoltInfo | null> {
     try {
-      const response = await fetch(
+      const response = await throttledFetch(
         `${this.config.moltbookApiUrl}/api/v1/submolts?name=${encodeURIComponent(name)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.config.bearerToken}`,
-          },
-        }
+        { headers: this.authHeaders },
+        this.fetchConfig
       );
 
       if (!response.ok) return null;
@@ -253,16 +259,17 @@ export class SubmoltManager {
   }
 
   private async createSubmolt(name: string, description: string): Promise<string> {
-    const response = await fetch(
+    const response = await throttledFetch(
       `${this.config.moltbookApiUrl}/api/v1/submolts`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.bearerToken}`,
+          ...this.authHeaders,
         },
         body: JSON.stringify({ name, description }),
-      }
+      },
+      this.fetchConfig
     );
 
     if (!response.ok) {

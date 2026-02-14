@@ -1,17 +1,33 @@
 import type { TokenInfo } from "../game-engine/game-mode.interface";
+import { TokenBucketRateLimiter } from "../utils/rate-limiter";
+import { throttledFetch } from "../utils/throttled-fetch";
 
 export class NadFunClient {
   private baseUrl: string;
+  private rateLimiter: TokenBucketRateLimiter;
 
   constructor(isTestnet: boolean = false) {
     this.baseUrl = isTestnet
       ? "https://dev-api.nad.fun"
       : (process.env.NADFUN_API_URL || "https://api.nadapp.net");
+
+    this.rateLimiter = new TokenBucketRateLimiter({
+      maxTokens: 3,
+      refillRate: 1,
+    });
+  }
+
+  private get fetchConfig() {
+    return { rateLimiter: this.rateLimiter, serviceName: "NadFun" };
   }
 
   async getTokenPrice(tokenAddress: string): Promise<bigint> {
     try {
-      const response = await fetch(`${this.baseUrl}/tokens/${tokenAddress}`);
+      const response = await throttledFetch(
+        `${this.baseUrl}/tokens/${tokenAddress}`,
+        undefined,
+        this.fetchConfig
+      );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json() as Record<string, unknown>;
       return BigInt((data.price as string) || "0");
@@ -23,7 +39,11 @@ export class NadFunClient {
 
   async getActiveTokens(): Promise<TokenInfo[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/tokens?status=active&limit=100`);
+      const response = await throttledFetch(
+        `${this.baseUrl}/tokens?status=active&limit=100`,
+        undefined,
+        this.fetchConfig
+      );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json() as Record<string, unknown>;
       return ((data.tokens || []) as Record<string, unknown>[]).map(this.mapToken);
@@ -53,7 +73,11 @@ export class NadFunClient {
 
   async getTokensByVolume(limit: number = 20): Promise<TokenInfo[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/tokens?sort=volume&limit=${limit}`);
+      const response = await throttledFetch(
+        `${this.baseUrl}/tokens?sort=volume&limit=${limit}`,
+        undefined,
+        this.fetchConfig
+      );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json() as Record<string, unknown>;
       return ((data.tokens || []) as Record<string, unknown>[]).map(this.mapToken);

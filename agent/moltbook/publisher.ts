@@ -1,5 +1,7 @@
 import type { QueuedPost, MatchResult, Tournament } from "../game-engine/game-mode.interface";
 import type { ClaudeAnalysisService } from "../claude";
+import type { TokenBucketRateLimiter } from "../utils/rate-limiter";
+import { throttledFetch } from "../utils/throttled-fetch";
 
 // Rate limits
 const POST_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between posts
@@ -20,10 +22,12 @@ export class MoltbookPublisher {
   private dailyPostCount = 0;
   private dailyResetTime = 0;
   private claudeService: ClaudeAnalysisService | null = null;
+  private rateLimiter: TokenBucketRateLimiter | null = null;
 
-  constructor(config: PublisherConfig, claudeService?: ClaudeAnalysisService) {
+  constructor(config: PublisherConfig, claudeService?: ClaudeAnalysisService, rateLimiter?: TokenBucketRateLimiter) {
     this.config = config;
     this.claudeService = claudeService || null;
+    this.rateLimiter = rateLimiter || null;
   }
 
   /**
@@ -164,17 +168,19 @@ export class MoltbookPublisher {
     if (now - this.lastCommentTime < COMMENT_COOLDOWN_MS) return false;
 
     try {
-      const response = await fetch(
-        `${this.config.moltbookApiUrl}/api/v1/threads/${threadId}/comments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.config.bearerToken}`,
-          },
-          body: JSON.stringify({ body }),
-        }
-      );
+      const url = `${this.config.moltbookApiUrl}/api/v1/threads/${threadId}/comments`;
+      const init: RequestInit = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.config.bearerToken}`,
+        },
+        body: JSON.stringify({ body }),
+      };
+
+      const response = this.rateLimiter
+        ? await throttledFetch(url, init, { rateLimiter: this.rateLimiter, serviceName: "Moltbook" })
+        : await fetch(url, init);
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       this.lastCommentTime = now;
@@ -331,21 +337,23 @@ export class MoltbookPublisher {
   // --- Internal ---
 
   private async submitPost(post: QueuedPost): Promise<void> {
-    const response = await fetch(
-      `${this.config.moltbookApiUrl}/api/v1/threads`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.bearerToken}`,
-        },
-        body: JSON.stringify({
-          title: post.title,
-          body: post.body,
-          flair: post.flair,
-        }),
-      }
-    );
+    const url = `${this.config.moltbookApiUrl}/api/v1/threads`;
+    const init: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.config.bearerToken}`,
+      },
+      body: JSON.stringify({
+        title: post.title,
+        body: post.body,
+        flair: post.flair,
+      }),
+    };
+
+    const response = this.rateLimiter
+      ? await throttledFetch(url, init, { rateLimiter: this.rateLimiter, serviceName: "Moltbook" })
+      : await fetch(url, init);
 
     if (!response.ok) {
       throw new Error(`Post submission failed: HTTP ${response.status}`);
