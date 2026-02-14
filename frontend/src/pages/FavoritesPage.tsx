@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { Star, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Eye, Search, BarChart3 } from 'lucide-react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useAgentStore } from '@/stores/agentStore';
@@ -460,6 +461,7 @@ export function FavoritesPage() {
   const allMatches = useArenaStore((s) => s.allMatches) as Match[];
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 250);
   const [sortKey, setSortKey] = useState<SortKey>('elo');
   const [sortAsc, setSortAsc] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -507,8 +509,8 @@ export function FavoritesPage() {
   // Filter and sort
   const displayData = useMemo(() => {
     let list = favoriteData;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (d) =>
           d.address.toLowerCase().includes(q) ||
@@ -518,7 +520,7 @@ export function FavoritesPage() {
     if (relFilter === 'allies') list = list.filter(d => d.relationshipType === 'ALLY');
     else if (relFilter === 'rivals') list = list.filter(d => d.relationshipType === 'RIVAL');
     return sortFavorites(list, sortKey, sortAsc);
-  }, [favoriteData, searchQuery, sortKey, sortAsc, relFilter]);
+  }, [favoriteData, debouncedSearch, sortKey, sortAsc, relFilter]);
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {

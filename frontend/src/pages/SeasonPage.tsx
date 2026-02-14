@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
   Trophy,
   Medal,
@@ -627,6 +628,7 @@ export function SeasonPage() {
   } = useSeasonStore();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 250);
 
   // Fetch season + leaderboard on mount
   useEffect(() => {
@@ -703,7 +705,7 @@ export function SeasonPage() {
               </div>
 
               {/* Leaderboard table */}
-              <LeaderboardTable profiles={seasonLeaderboard} searchQuery={searchQuery} />
+              <LeaderboardTable profiles={seasonLeaderboard} searchQuery={debouncedSearch} />
             </div>
           </div>
         </>
