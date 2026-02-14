@@ -494,10 +494,10 @@ function LeaderboardTable({
                 <tr
                   key={p.address}
                   className={clsx(
-                    'border-b border-white/[0.03] hover:bg-surface-2 transition-all duration-150',
+                    'border-b border-white/[0.03] hover:bg-surface-2 transition-all duration-150 animate-fade-in-up opacity-0',
                     rank <= 3 && 'hover:bg-surface-1',
                   )}
-                  style={rank === 1 ? { boxShadow: 'inset 0 0 20px rgba(255,215,0,0.04)' } : undefined}
+                  style={{ animationDelay: `${idx * 0.03}s`, animationFillMode: 'forwards', ...(rank === 1 ? { boxShadow: 'inset 0 0 20px rgba(255,215,0,0.04)' } : {}) }}
                 >
                   <td className="px-4 py-3">
                     <span
@@ -567,7 +567,7 @@ function LeaderboardTable({
           const rank = idx + 1;
           const winRate = getWinRate(p);
           return (
-            <div key={p.address} className="px-4 py-3 hover:bg-surface-2 transition-colors">
+            <div key={p.address} className="px-4 py-3 hover:bg-surface-2 transition-colors animate-fade-in-up opacity-0" style={{ animationDelay: `${idx * 0.03}s`, animationFillMode: 'forwards' }}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <span

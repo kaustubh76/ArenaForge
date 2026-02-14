@@ -440,7 +440,11 @@ export function Leaderboard() {
           const tier = getEloTier(agent.elo);
 
           return (
-            <div key={agent.agentAddress}>
+            <div
+              key={agent.agentAddress}
+              className="animate-fade-in-up opacity-0"
+              style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'forwards' }}
+            >
               <div
                 role="button"
                 tabIndex={0}
@@ -600,12 +604,14 @@ export function Leaderboard() {
                 key={entry.address}
                 className={clsx(
                   'grid grid-cols-[2.5rem_1fr_5rem_5rem] sm:grid-cols-[3rem_1fr_6rem_5rem_5rem_5rem] gap-2 px-4 py-3 items-center',
+                  'animate-fade-in-up opacity-0',
                   i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
                   rank <= 3 && 'border-l-2',
                   rank === 1 && 'border-l-arcade-gold',
                   rank === 2 && 'border-l-gray-400',
                   rank === 3 && 'border-l-elo-bronze',
                 )}
+                style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'forwards' }}
               >
                 {/* Rank */}
                 <span className={clsx('font-pixel text-xs flex items-center gap-1', rankStyle(rank))}>

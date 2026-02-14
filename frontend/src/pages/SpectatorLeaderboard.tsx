@@ -16,9 +16,9 @@ type SortDir = 'asc' | 'desc';
 type TimeFilter = 'all' | 'season' | 'month' | 'week';
 
 function getRankIcon(rank: number) {
-  if (rank === 1) return <Crown size={16} className="text-arcade-gold" />;
-  if (rank === 2) return <Medal size={16} className="text-gray-300" />;
-  if (rank === 3) return <Award size={16} className="text-amber-600" />;
+  if (rank === 1) return <Crown size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.5))' }} />;
+  if (rank === 2) return <Medal size={16} className="text-gray-300" style={{ filter: 'drop-shadow(0 0 3px rgba(200,200,200,0.3))' }} />;
+  if (rank === 3) return <Award size={16} className="text-amber-600" style={{ filter: 'drop-shadow(0 0 3px rgba(217,119,6,0.4))' }} />;
   return <span className="text-xs text-gray-500 w-4 text-center">{rank}</span>;
 }
 
@@ -32,10 +32,13 @@ function getRankBg(rank: number) {
 function ProfitDisplay({ value }: { value: number }) {
   const isPositive = value >= 0;
   return (
-    <div className={clsx(
-      'flex items-center gap-1 font-mono text-sm',
-      isPositive ? 'text-arcade-green' : 'text-arcade-red'
-    )}>
+    <div
+      className={clsx(
+        'flex items-center gap-1 font-mono text-sm',
+        isPositive ? 'text-arcade-green' : 'text-arcade-red'
+      )}
+      style={{ textShadow: Math.abs(value) > 1 ? `0 0 6px ${isPositive ? 'rgba(105,240,174,0.3)' : 'rgba(255,82,82,0.3)'}` : undefined }}
+    >
       {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
       {isPositive ? '+' : ''}{value.toFixed(4)}
     </div>
@@ -97,7 +100,7 @@ function BettorDistributionCharts({ bettors }: { bettors: Array<{ winRate: numbe
       {/* Win Rate Distribution */}
       <div className="arcade-card p-4">
         <div className="flex items-center gap-2 mb-3">
-          <BarChart3 size={12} className="text-arcade-cyan" />
+          <BarChart3 size={12} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">WIN RATE DISTRIBUTION</span>
         </div>
         <div className="flex items-end gap-1 h-16">
@@ -125,7 +128,7 @@ function BettorDistributionCharts({ bettors }: { bettors: Array<{ winRate: numbe
       {/* P/L Spread */}
       <div className="arcade-card p-4">
         <div className="flex items-center gap-2 mb-3">
-          <TrendingUp size={12} className="text-arcade-green" />
+          <TrendingUp size={12} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">P/L BREAKDOWN</span>
         </div>
         <div className="space-y-2">
@@ -265,24 +268,24 @@ export function SpectatorLeaderboard() {
 
       {/* Aggregate stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <div className="arcade-card p-4 text-center">
+        <div className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.03]">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <Trophy size={16} className="text-arcade-gold" />
+            <Trophy size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
             <AnimatedScore value={topBettors.length} className="text-xl text-white" />
           </div>
           <p className="text-[10px] text-gray-500 uppercase tracking-wider">ACTIVE BETTORS</p>
         </div>
-        <div className="arcade-card p-4 text-center">
+        <div className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.03]">
           <div className="text-xl font-mono text-arcade-purple">{totalBetsCount}</div>
           <p className="text-[10px] text-gray-500 uppercase tracking-wider">TOTAL BETS PLACED</p>
         </div>
-        <div className="arcade-card p-4 text-center">
-          <div className="text-xl font-mono text-arcade-gold">{totalVolume.toFixed(2)}</div>
+        <div className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.03]">
+          <div className="text-xl font-mono text-arcade-gold" style={{ textShadow: '0 0 6px rgba(255,215,0,0.25)' }}>{totalVolume.toFixed(2)}</div>
           <p className="text-[10px] text-gray-500 uppercase tracking-wider">VOLUME (ETH)</p>
         </div>
-        <div className="arcade-card p-4 text-center">
+        <div className="arcade-card p-4 text-center transition-all duration-200 hover:scale-[1.03]">
           <div className="flex items-center justify-center gap-1">
-            <Flame size={16} className="text-arcade-orange" />
+            <Flame size={16} className="text-arcade-orange" style={{ filter: 'drop-shadow(0 0 3px rgba(255,152,0,0.4))' }} />
             <span className="text-xl font-mono text-arcade-orange">{topStreak}</span>
           </div>
           <p className="text-[10px] text-gray-500 uppercase tracking-wider">BEST WIN STREAK</p>
@@ -358,11 +361,12 @@ export function SpectatorLeaderboard() {
             <div
               key={bettor.address}
               className={clsx(
-                'grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5rem_5rem] gap-2 px-4 py-3 items-center transition-colors',
-                'hover:bg-white/[0.02]',
+                'grid grid-cols-[3rem_1fr_5rem_5rem_5rem_5rem_5rem] gap-2 px-4 py-3 items-center transition-all duration-200',
+                'hover:bg-white/[0.03] animate-fade-in-up opacity-0',
                 i % 2 === 0 ? 'bg-surface-2/50' : '',
                 getRankBg(rank)
               )}
+              style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'forwards', ...(rank === 1 ? { boxShadow: 'inset 0 0 20px rgba(255,215,0,0.04)' } : {}) }}
             >
               {/* Rank */}
               <div className="flex items-center justify-center">
@@ -446,7 +450,7 @@ function TierCard({ title, description, color, count }: {
 }) {
   return (
     <div className={clsx(
-      'arcade-card p-4 border-l-2',
+      'arcade-card p-4 border-l-2 transition-all duration-200 hover:scale-[1.02]',
       `border-${color}/40`
     )}>
       <div className="flex items-center justify-between mb-2">

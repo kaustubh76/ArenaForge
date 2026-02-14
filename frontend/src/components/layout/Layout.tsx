@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { ScanlineOverlay } from '@/components/arcade/ScanlineOverlay';
 import { ArcadeHeader } from './ArcadeHeader';
 import { ArcadeFooter } from './ArcadeFooter';
@@ -15,6 +15,13 @@ initializeActivityFeedWatcher();
 export function Layout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const handleClosePalette = useCallback(() => setPaletteOpen(false), []);
+  const location = useLocation();
+  const [pageKey, setPageKey] = useState(0);
+
+  // Re-trigger entrance animation on route change
+  useEffect(() => {
+    setPageKey(k => k + 1);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,7 +46,11 @@ export function Layout() {
       <div className="relative z-10 flex flex-col min-h-screen">
         <ArcadeHeader />
         <div className="divider-glow" />
-        <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+        <main
+          key={pageKey}
+          className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 animate-fade-in-up opacity-0"
+          style={{ animationDuration: '0.35s', animationFillMode: 'forwards' }}
+        >
           <Outlet />
         </main>
         <ArcadeFooter />
