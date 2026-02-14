@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -86,8 +86,16 @@ async function gqlFetch<T>(query: string, variables?: Record<string, unknown>): 
 
 // ---------- Main component ----------
 
+const VALID_TABS: Tab[] = ['overview', 'agents', 'gameTypes', 'trends'];
+
 export function AnalyticsDashboard() {
-  const [tab, setTab] = useState<Tab>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as Tab | null;
+  const [tab, _setTab] = useState<Tab>(tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'overview');
+  const setTab = (t: Tab) => {
+    _setTab(t);
+    setSearchParams(t === 'overview' ? {} : { tab: t }, { replace: true });
+  };
   const { allMatches } = useArenaStore();
   const { agents } = useAgentStore();
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Radio,
   Swords,
@@ -635,7 +635,13 @@ export function A2ACommandCenter() {
   const challenges = useA2AChallenges(realtimeTrigger);
   const messages = useA2AMessages(realtimeTrigger);
   const agents = useDiscoveredAgents();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'network'>('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, _setActiveTab] = useState<'dashboard' | 'network'>(tabParam === 'network' ? 'network' : 'dashboard');
+  const setActiveTab = (t: 'dashboard' | 'network') => {
+    _setActiveTab(t);
+    setSearchParams(t === 'dashboard' ? {} : { tab: t }, { replace: true });
+  };
 
   // Graph controls state
   const [graphFilter, setGraphFilter] = useState<'all' | 'rivals' | 'allies'>('all');

@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, ArrowUpDown, Crown, Flame, Snowflake, ChevronDown, ChevronUp, Download, FileJson, FileSpreadsheet, Star, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
 import clsx from 'clsx';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useAgentStore } from '@/stores/agentStore';
+import { FreshnessIndicator } from '@/components/arcade/FreshnessIndicator';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useSeasonStore } from '@/stores/seasonStore';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
@@ -145,15 +147,57 @@ function StreakBadge({ streak }: { streak: number }) {
 }
 
 export function Leaderboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { sortBy, searchQuery, error, setSortBy, toggleSortOrder, setSearchQuery, getSortedAgents, fetchFromChain, getAgentByAddress } = useAgentStore();
   const { favoriteAgents, isFavorite } = useFavoritesStore();
   const { currentSeason, seasonLeaderboard, fetchSeason, fetchLeaderboard } = useSeasonStore();
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  const debouncedSearch = useDebounce(searchInput, 250);
   const [expandedAddress, setExpandedAddress] = useState<string | null>(null);
   const [errorDismissed, setErrorDismissed] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [view, setView] = useState<LeaderboardView>('allTime');
-  const [gameTypeFilter, setGameTypeFilter] = useState<GameType | null>(null);
+  const [visibleCount, setVisibleCount] = useState(25);
+  const agentCount = useAgentStore(s => s.agents.length);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const prevCountRef = useRef(agentCount);
+
+  // Sync debounced search to store
+  useEffect(() => {
+    setSearchQuery(debouncedSearch);
+    setVisibleCount(25);
+  }, [debouncedSearch, setSearchQuery]);
+
+  // Track data freshness — stamp when agent data changes
+  useEffect(() => {
+    if (agentCount > 0 && agentCount !== prevCountRef.current) {
+      setLastUpdated(Date.now());
+    }
+    prevCountRef.current = agentCount;
+    if (agentCount > 0 && !lastUpdated) setLastUpdated(Date.now());
+  }, [agentCount]);
+
+  // URL-synced view + game type filter
+  const viewParam = searchParams.get('view');
+  const gameParam = searchParams.get('game');
+  const [view, _setView] = useState<LeaderboardView>(viewParam === 'seasonal' ? 'seasonal' : 'allTime');
+  const [gameTypeFilter, _setGameTypeFilter] = useState<GameType | null>(
+    gameParam !== null && !isNaN(Number(gameParam)) ? Number(gameParam) as GameType : null,
+  );
+  const setView = (v: LeaderboardView) => {
+    _setView(v);
+    const p: Record<string, string> = {};
+    if (v !== 'allTime') p.view = v;
+    if (gameTypeFilter !== null) p.game = String(gameTypeFilter);
+    setSearchParams(p, { replace: true });
+  };
+  const setGameTypeFilter = (g: GameType | null) => {
+    _setGameTypeFilter(g);
+    const p: Record<string, string> = {};
+    if (view !== 'allTime') p.view = view;
+    if (g !== null) p.game = String(g);
+    setSearchParams(p, { replace: true });
+  };
   const [gameTypeAgents, setGameTypeAgents] = useState<GameTypeLeaderboardEntry[]>([]);
   const [gameTypeLoading, setGameTypeLoading] = useState(false);
 
@@ -210,9 +254,12 @@ export function Leaderboard() {
 
   return (
     <div>
-      <RetroHeading level={1} color="gold" subtitle="Arena rankings">
-        HIGH SCORES
-      </RetroHeading>
+      <div className="flex items-center justify-between mb-2">
+        <RetroHeading level={1} color="gold" subtitle="Arena rankings" className="mb-0">
+          HIGH SCORES
+        </RetroHeading>
+        <FreshnessIndicator lastUpdated={lastUpdated} />
+      </div>
 
       {/* View toggle */}
       <div className="flex items-center gap-2 mb-6">
@@ -300,8 +347,8 @@ export function Leaderboard() {
             type="text"
             placeholder="Search agents..."
             aria-label="Search agents by name or address"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
             className="input-arcade pl-9"
           />
         </div>
@@ -434,7 +481,7 @@ export function Leaderboard() {
         </div>
 
         {/* Rows */}
-        {agents.map((agent, i) => {
+        {agents.slice(0, visibleCount).map((agent, i) => {
           const rank = i + 1;
           const isExpanded = expandedAddress === agent.agentAddress;
           const tier = getEloTier(agent.elo);
@@ -570,6 +617,17 @@ export function Leaderboard() {
             <p className="font-pixel text-xs text-gray-600">NO HIGH SCORES YET</p>
             <p className="text-sm text-gray-500 mt-2">Be the first to compete</p>
           </div>
+        )}
+
+        {/* Show More button */}
+        {agents.length > visibleCount && (
+          <button
+            onClick={() => setVisibleCount(c => c + 25)}
+            className="w-full py-3 text-xs font-semibold text-gray-400 hover:text-white border-t border-white/[0.06] transition-colors flex items-center justify-center gap-1.5"
+          >
+            <ChevronDown size={14} />
+            Show More ({agents.length - visibleCount} remaining)
+          </button>
         )}
       </div>
       )}
