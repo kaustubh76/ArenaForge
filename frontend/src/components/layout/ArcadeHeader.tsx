@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Gamepad2, Trophy, Crown, Dna, Eye, BarChart3, Award, Coins, Radio, Menu, X, Activity, Medal, Star, Search } from 'lucide-react';
+import { Gamepad2, Trophy, Crown, Dna, Eye, BarChart3, Award, Coins, Radio, Menu, X, Activity, Medal, Star, Search, Target, Flame } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import clsx from 'clsx';
 import { ChainStatus } from '@/components/arcade/ChainStatus';
@@ -20,6 +20,8 @@ const navItems = [
   { path: '/season', label: 'SEASON', icon: Medal },
   { path: '/favorites', label: 'FAVORITES', icon: Star },
   { path: '/achievements', label: 'ACHIEVEMENTS', icon: Award },
+  { path: '/predictions', label: 'PREDICTIONS', icon: Target },
+  { path: '/quests', label: 'QUESTS', icon: Flame },
 ];
 
 export function ArcadeHeader() {

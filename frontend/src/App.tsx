@@ -26,6 +26,10 @@ const LiveDashboard = lazy(() => import('@/pages/LiveDashboard').then(m => ({ de
 const SeasonPage = lazy(() => import('@/pages/SeasonPage').then(m => ({ default: m.SeasonPage })));
 const FavoritesPage = lazy(() => import('@/pages/FavoritesPage').then(m => ({ default: m.FavoritesPage })));
 const BettorProfilePage = lazy(() => import('@/pages/BettorProfilePage').then(m => ({ default: m.BettorProfilePage })));
+const PredictionsPage = lazy(() => import('@/pages/PredictionsPage').then(m => ({ default: m.PredictionsPage })));
+const QuestsPage = lazy(() => import('@/pages/QuestsPage').then(m => ({ default: m.QuestsPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const OBSOverlay = lazy(() => import('@/pages/OBSOverlay').then(m => ({ default: m.OBSOverlay })));
 const NotFound = lazy(() => import('@/pages/NotFound').then(m => ({ default: m.NotFound })));
 
 function PageFallback() {
@@ -91,8 +95,13 @@ export function App() {
             <Route path="/season" element={<SeasonPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/bettor/:address" element={<BettorProfilePage />} />
+            <Route path="/predictions" element={<PredictionsPage />} />
+            <Route path="/quests" element={<QuestsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
+          {/* OBS Overlay — outside Layout (no header/footer) */}
+          <Route path="/overlay/:id" element={<OBSOverlay />} />
         </Routes>
       </Suspense>
       <NetworkStatus />
