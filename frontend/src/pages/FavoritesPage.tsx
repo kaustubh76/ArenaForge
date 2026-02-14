@@ -555,7 +555,7 @@ export function FavoritesPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by address or handle..."
-                className="w-full bg-surface-1 border border-white/[0.06] rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-arcade-cyan/40 transition-colors"
+                className="w-full bg-surface-1 border border-white/[0.06] rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-arcade-cyan/40 focus-visible:ring-2 focus-visible:ring-arcade-cyan/30 transition-colors"
               />
             </div>
 

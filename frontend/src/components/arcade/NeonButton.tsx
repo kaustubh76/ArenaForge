@@ -51,6 +51,7 @@ export function NeonButton({
         disabled && 'opacity-40 pointer-events-none',
         'relative overflow-hidden group',
         'hover:scale-[1.03] active:scale-[0.97] transition-all duration-100',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-arcade-purple/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0',
         className,
       )}
       onClick={onClick}

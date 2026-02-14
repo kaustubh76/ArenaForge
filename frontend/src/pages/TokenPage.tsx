@@ -167,7 +167,7 @@ function TradePanel({
           placeholder={isBuy ? '0.1' : '100'}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-arcade-gold/50"
+          className="w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-arcade-gold/50 focus-visible:ring-2 focus-visible:ring-arcade-gold/30"
           disabled={loading}
         />
         {isBuy && isConnected && (
