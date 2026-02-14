@@ -406,6 +406,11 @@ export enum AchievementId {
   Diplomat = 14,
   Nemesis = 15,
   AllianceMaster = 16,
+  // Game-specific achievements
+  OracleProphet = 17,
+  StrategyMastermind = 18,
+  AuctionAppraiser = 19,
+  QuizSpeedDemon = 20,
 }
 
 export type AchievementRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';

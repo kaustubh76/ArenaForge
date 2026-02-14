@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { Award, Lock, Trophy, Swords, Star, Target, ArrowRight, Sparkles, Radio } from 'lucide-react';
+import { Award, Lock, Trophy, Swords, Star, Target, ArrowRight, Sparkles, Radio, Gamepad2 } from 'lucide-react';
 import { useAgentStore } from '@/stores/agentStore';
 import { useAccount } from 'wagmi';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { ProgressBar } from '@/components/arcade/ProgressBar';
 import { NeonButton } from '@/components/arcade/NeonButton';
 import { AchievementId, type Achievement, type AchievementRarity } from '@/types/arena';
+import { fetchGraphQL } from '@/lib/api';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 
 // Full achievement definitions with progress thresholds
 const ACHIEVEMENTS: (Achievement & { threshold: number; category: string })[] = [
@@ -24,6 +26,11 @@ const ACHIEVEMENTS: (Achievement & { threshold: number; category: string })[] = 
   { id: AchievementId.Diplomat, name: 'Diplomat', description: 'Form your first alliance with another agent', icon: '🤝', rarity: 'uncommon', requirement: '1 alliance', threshold: 1, category: 'A2A' },
   { id: AchievementId.Nemesis, name: 'Nemesis', description: 'Play 5+ matches against a single rival', icon: '💀', rarity: 'rare', requirement: '5 rivalry matches', threshold: 5, category: 'A2A' },
   { id: AchievementId.AllianceMaster, name: 'Alliance Master', description: 'Form 3 alliances with different agents', icon: '🌐', rarity: 'epic', requirement: '3 alliances', threshold: 3, category: 'A2A' },
+  // Game-specific achievements
+  { id: AchievementId.OracleProphet, name: 'Oracle Prophet', description: 'Win 10 Oracle Duel matches', icon: '🔮', rarity: 'rare', requirement: '10 Oracle Duel wins', threshold: 10, category: 'Game Mastery' },
+  { id: AchievementId.StrategyMastermind, name: 'Strategy Mastermind', description: 'Win 10 Strategy Arena matches', icon: '🧠', rarity: 'rare', requirement: '10 Strategy Arena wins', threshold: 10, category: 'Game Mastery' },
+  { id: AchievementId.AuctionAppraiser, name: 'Auction Appraiser', description: 'Win 10 Auction Wars matches', icon: '💰', rarity: 'rare', requirement: '10 Auction Wars wins', threshold: 10, category: 'Game Mastery' },
+  { id: AchievementId.QuizSpeedDemon, name: 'Speed Demon', description: 'Win 10 Quiz Bowl matches', icon: '⚡', rarity: 'rare', requirement: '10 Quiz Bowl wins', threshold: 10, category: 'Game Mastery' },
 ];
 
 const rarityColors: Record<AchievementRarity, { bg: string; border: string; text: string; glow: string }> = {
@@ -40,7 +47,15 @@ const categoryIcons: Record<string, React.ElementType> = {
   Rating: Star,
   Experience: Target,
   A2A: Radio,
+  'Game Mastery': Gamepad2,
 };
+
+interface GameTypeWins {
+  oracleDuel: number;
+  strategyArena: number;
+  auctionWars: number;
+  quizBowl: number;
+}
 
 interface A2AProgressData {
   allianceCount: number;
@@ -58,6 +73,7 @@ function getProgress(
   },
   achievement: (typeof ACHIEVEMENTS)[number],
   a2aData?: A2AProgressData,
+  gameTypeWins?: GameTypeWins,
 ): { current: number; max: number; unlocked: boolean } {
   const peak = agent.peakElo ?? agent.elo;
   const streak = agent.longestWinStreak ?? 0;
@@ -96,6 +112,22 @@ function getProgress(
       const c = a2aData?.allianceCount ?? 0;
       return { current: Math.min(c, 3), max: 3, unlocked: c >= 3 };
     }
+    case AchievementId.OracleProphet: {
+      const w = gameTypeWins?.oracleDuel ?? 0;
+      return { current: Math.min(w, 10), max: 10, unlocked: w >= 10 };
+    }
+    case AchievementId.StrategyMastermind: {
+      const w = gameTypeWins?.strategyArena ?? 0;
+      return { current: Math.min(w, 10), max: 10, unlocked: w >= 10 };
+    }
+    case AchievementId.AuctionAppraiser: {
+      const w = gameTypeWins?.auctionWars ?? 0;
+      return { current: Math.min(w, 10), max: 10, unlocked: w >= 10 };
+    }
+    case AchievementId.QuizSpeedDemon: {
+      const w = gameTypeWins?.quizBowl ?? 0;
+      return { current: Math.min(w, 10), max: 10, unlocked: w >= 10 };
+    }
     default:
       return { current: 0, max: 1, unlocked: false };
   }
@@ -118,6 +150,7 @@ function CategoryDonut({ label, unlocked, total, icon: Icon }: {
     Rating: '#ffd700',    // arcade-gold
     Experience: '#22c55e', // arcade-green
     A2A: '#ff4081',       // arcade-pink
+    'Game Mastery': '#f97316', // orange
   };
   const strokeColor = colorMap[label] ?? '#888';
 
@@ -150,15 +183,16 @@ function CategoryDonut({ label, unlocked, total, icon: Icon }: {
 }
 
 // ── Next-to-unlock callout ─────────────────────────────────────────────
-function NextToUnlock({ agent, achievements, a2aData }: {
+function NextToUnlock({ agent, achievements, a2aData, gameTypeWins }: {
   agent: { wins: number; matchesPlayed: number; elo: number; longestWinStreak?: number; tournamentsWon?: number; peakElo?: number };
   achievements: (Achievement & { threshold: number; category: string })[];
   a2aData: A2AProgressData;
+  gameTypeWins: GameTypeWins;
 }) {
   // Find the closest-to-completion locked achievement
   const candidates = achievements
     .map(a => {
-      const prog = getProgress(agent, a, a2aData);
+      const prog = getProgress(agent, a, a2aData, gameTypeWins);
       if (prog.unlocked) return null;
       return { ...a, progress: prog, pct: prog.max > 0 ? prog.current / prog.max : 0 };
     })
@@ -206,14 +240,15 @@ function NextToUnlock({ agent, achievements, a2aData }: {
 }
 
 // ── Rarity Showcase Bar ────────────────────────────────────────────────
-function RarityShowcase({ agent, a2aData }: {
+function RarityShowcase({ agent, a2aData, gameTypeWins }: {
   agent: { wins: number; matchesPlayed: number; elo: number; longestWinStreak?: number; tournamentsWon?: number; peakElo?: number };
   a2aData: A2AProgressData;
+  gameTypeWins: GameTypeWins;
 }) {
   const rarities: AchievementRarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   const totalByRarity = rarities.map(r => {
     const total = ACHIEVEMENTS.filter(a => a.rarity === r).length;
-    const unlocked = ACHIEVEMENTS.filter(a => a.rarity === r && getProgress(agent, a, a2aData).unlocked).length;
+    const unlocked = ACHIEVEMENTS.filter(a => a.rarity === r && getProgress(agent, a, a2aData, gameTypeWins).unlocked).length;
     return { rarity: r, total, unlocked };
   });
 
@@ -279,29 +314,50 @@ export function AchievementsPage() {
 
   // A2A achievement progress data
   const [a2aData, setA2aData] = useState<A2AProgressData>({ allianceCount: 0, maxRivalryMatches: 0 });
+  // Game-type wins for game-specific achievements
+  const [gameTypeWins, setGameTypeWins] = useState<GameTypeWins>({ oracleDuel: 0, strategyArena: 0, auctionWars: 0, quizBowl: 0 });
 
   useEffect(() => {
     if (!agent) return;
-    const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-    fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `query($a: String!) {
-          agentRelationships(agent: $a) { matchCount isAlly isRival }
-        }`,
-        variables: { a: agent.agentAddress },
-      }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        const rels = json?.data?.agentRelationships as Array<{
-          matchCount: number; isAlly: boolean; isRival: boolean;
-        }> | undefined;
+    // Fetch A2A relationships + game type stats in parallel
+    Promise.all([
+      fetchGraphQL<{ agentRelationships: Array<{ matchCount: number; isAlly: boolean; isRival: boolean }> }>(
+        `query($a: String!) {
+            agentRelationships(agent: $a) { matchCount isAlly isRival }
+          }`,
+        { a: agent.agentAddress },
+      ),
+      fetchGraphQL<{ agentGameTypeStats: Array<{ gameType: string; wins: number }> }>(
+        `query($a: String!) {
+            agentGameTypeStats(address: $a) { gameType wins }
+          }`,
+        { a: agent.agentAddress },
+      ),
+    ])
+      .then(([relResult, statsResult]) => {
+        // A2A data
+        const rels = relResult.data?.agentRelationships;
         const allianceCount = rels?.filter(r => r.isAlly).length ?? 0;
         const rivalMatches = rels?.filter(r => r.isRival).map(r => r.matchCount) ?? [0];
         const maxRivalryMatches = Math.max(0, ...rivalMatches);
         setA2aData({ allianceCount, maxRivalryMatches });
+
+        // Game type wins
+        const stats = statsResult.data?.agentGameTypeStats;
+        if (stats) {
+          const gtMap: Record<string, keyof GameTypeWins> = {
+            ORACLE_DUEL: 'oracleDuel',
+            STRATEGY_ARENA: 'strategyArena',
+            AUCTION_WARS: 'auctionWars',
+            QUIZ_BOWL: 'quizBowl',
+          };
+          const wins: GameTypeWins = { oracleDuel: 0, strategyArena: 0, auctionWars: 0, quizBowl: 0 };
+          for (const s of stats) {
+            const key = gtMap[s.gameType];
+            if (key) wins[key] = s.wins;
+          }
+          setGameTypeWins(wins);
+        }
       })
       .catch(() => {});
   }, [agent]);
@@ -318,8 +374,8 @@ export function AchievementsPage() {
 
   const unlockedCount = useMemo(() => {
     if (!agent) return 0;
-    return ACHIEVEMENTS.filter(a => getProgress(agent, a, a2aData).unlocked).length;
-  }, [agent, a2aData]);
+    return ACHIEVEMENTS.filter(a => getProgress(agent, a, a2aData, gameTypeWins).unlocked).length;
+  }, [agent, a2aData, gameTypeWins]);
 
   if (!address) {
     return (
@@ -353,6 +409,7 @@ export function AchievementsPage() {
 
   return (
     <div>
+      <Breadcrumbs crumbs={[{ label: 'Achievements' }]} />
       <RetroHeading level={1} color="purple" subtitle="Track your progress">
         ACHIEVEMENTS
       </RetroHeading>
@@ -380,10 +437,10 @@ export function AchievementsPage() {
       </div>
 
       {/* Category radial donuts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
         {categories.map(([category, achievements]) => {
           const CategoryIcon = categoryIcons[category] ?? Award;
-          const unlockedInCat = achievements.filter(a => getProgress(agent, a, a2aData).unlocked).length;
+          const unlockedInCat = achievements.filter(a => getProgress(agent, a, a2aData, gameTypeWins).unlocked).length;
           return (
             <CategoryDonut
               key={category}
@@ -398,8 +455,8 @@ export function AchievementsPage() {
 
       {/* Next to unlock callout + rarity showcase */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <NextToUnlock agent={agent} achievements={ACHIEVEMENTS} a2aData={a2aData} />
-        <RarityShowcase agent={agent} a2aData={a2aData} />
+        <NextToUnlock agent={agent} achievements={ACHIEVEMENTS} a2aData={a2aData} gameTypeWins={gameTypeWins} />
+        <RarityShowcase agent={agent} a2aData={a2aData} gameTypeWins={gameTypeWins} />
       </div>
 
       {/* Achievement categories */}
@@ -414,7 +471,7 @@ export function AchievementsPage() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {achievements.map(achievement => {
-                  const progress = getProgress(agent, achievement, a2aData);
+                  const progress = getProgress(agent, achievement, a2aData, gameTypeWins);
                   const colors = rarityColors[achievement.rarity];
                   const pct = progress.max > 0 ? (progress.current / progress.max) * 100 : 0;
 

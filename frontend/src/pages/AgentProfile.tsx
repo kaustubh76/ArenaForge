@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   Trophy, Swords, TrendingUp, TrendingDown, Award, Copy, ExternalLink,
-  Target, Zap, Shield, Star, Clock, Gamepad2, Play, Radar, Radio, CalendarDays,
+  Target, Zap, Shield, Star, Clock, Gamepad2, Play, Radar, Radio, CalendarDays, Download,
 } from 'lucide-react';
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -18,6 +18,7 @@ import { FavoriteButton } from '@/components/agent/FavoriteButton';
 import { CompareButton } from '@/components/compare/CompareDrawer';
 import { FollowButton } from '@/components/agent/FollowButton';
 import { AvatarUpload } from '@/components/agent/AvatarUpload';
+import { ShareAgentCard } from '@/components/agent/ShareAgentCard';
 import { RankBadge } from '@/components/season/RankBadge';
 import { AnimatedScore } from '@/components/arcade/AnimatedScore';
 import { NeonButton } from '@/components/arcade/NeonButton';
@@ -30,7 +31,9 @@ import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { truncateAddress } from '@/constants/ui';
 import { timeAgo } from '@/utils/format';
 import { useToastStore } from '@/stores/toastStore';
+import { downloadMatches } from '@/lib/export-utils';
 import { useAccount } from 'wagmi';
+import { fetchGraphQL } from '@/lib/api';
 
 interface GameTypeStat {
   gameType: string;
@@ -63,6 +66,10 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: AchievementId.Veteran, name: 'Veteran', description: 'Play 100 matches', icon: '🎖️', rarity: 'uncommon', requirement: '100 matches' },
   { id: AchievementId.Legend, name: 'Legend', description: 'Play 1000 matches', icon: '🏅', rarity: 'epic', requirement: '1000 matches' },
   { id: AchievementId.Perfectionist, name: 'Perfectionist', description: 'Win a match without losing a round', icon: '✨', rarity: 'rare', requirement: 'Flawless victory' },
+  { id: AchievementId.OracleProphet, name: 'Oracle Prophet', description: 'Win 10 Oracle Duel matches', icon: '🔮', rarity: 'rare', requirement: '10 Oracle Duel wins' },
+  { id: AchievementId.StrategyMastermind, name: 'Strategy Mastermind', description: 'Win 10 Strategy Arena matches', icon: '🧠', rarity: 'rare', requirement: '10 Strategy Arena wins' },
+  { id: AchievementId.AuctionAppraiser, name: 'Auction Appraiser', description: 'Win 10 Auction Wars matches', icon: '💰', rarity: 'rare', requirement: '10 Auction Wars wins' },
+  { id: AchievementId.QuizSpeedDemon, name: 'Speed Demon', description: 'Win 10 Quiz Bowl matches', icon: '⚡', rarity: 'rare', requirement: '10 Quiz Bowl wins' },
 ];
 
 const rarityColors: Record<AchievementRarity, { bg: string; border: string; text: string }> = {
@@ -73,14 +80,17 @@ const rarityColors: Record<AchievementRarity, { bg: string; border: string; text
   legendary: { bg: 'bg-arcade-gold/10', border: 'border-arcade-gold/30', text: 'text-arcade-gold' },
 };
 
-function computeAchievements(agent: {
-  wins: number;
-  matchesPlayed: number;
-  elo: number;
-  longestWinStreak?: number;
-  tournamentsWon?: number;
-  peakElo?: number;
-}): Achievement[] {
+function computeAchievements(
+  agent: {
+    wins: number;
+    matchesPlayed: number;
+    elo: number;
+    longestWinStreak?: number;
+    tournamentsWon?: number;
+    peakElo?: number;
+  },
+  gameTypeStats?: GameTypeStat[],
+): Achievement[] {
   const unlocked: Achievement[] = [];
   const peak = agent.peakElo ?? agent.elo;
   const streak = agent.longestWinStreak ?? 0;
@@ -95,6 +105,20 @@ function computeAchievements(agent: {
   if (peak >= 2000) unlocked.push({ ...ACHIEVEMENTS[6], unlockedAt: Date.now() });
   if (agent.matchesPlayed >= 100) unlocked.push({ ...ACHIEVEMENTS[7], unlockedAt: Date.now() });
   if (agent.matchesPlayed >= 1000) unlocked.push({ ...ACHIEVEMENTS[8], unlockedAt: Date.now() });
+
+  // Game-specific achievements (IDs 10-13 in the array, indices for the new 4)
+  if (gameTypeStats) {
+    const gtWins: Record<string, number> = {};
+    for (const s of gameTypeStats) gtWins[s.gameType] = s.wins;
+    if ((gtWins['ORACLE_DUEL'] ?? 0) >= 10)
+      unlocked.push({ ...ACHIEVEMENTS.find(a => a.id === AchievementId.OracleProphet)!, unlockedAt: Date.now() });
+    if ((gtWins['STRATEGY_ARENA'] ?? 0) >= 10)
+      unlocked.push({ ...ACHIEVEMENTS.find(a => a.id === AchievementId.StrategyMastermind)!, unlockedAt: Date.now() });
+    if ((gtWins['AUCTION_WARS'] ?? 0) >= 10)
+      unlocked.push({ ...ACHIEVEMENTS.find(a => a.id === AchievementId.AuctionAppraiser)!, unlockedAt: Date.now() });
+    if ((gtWins['QUIZ_BOWL'] ?? 0) >= 10)
+      unlocked.push({ ...ACHIEVEMENTS.find(a => a.id === AchievementId.QuizSpeedDemon)!, unlockedAt: Date.now() });
+  }
 
   return unlocked;
 }
@@ -152,34 +176,28 @@ export function AgentProfile() {
     return agent.eloHistory ?? [1200, agent.elo];
   }, [agent]);
 
-  const achievements = useMemo(() => {
-    if (!agent) return [];
-    return computeAchievements(agent);
-  }, [agent]);
-
   // Fetch agent bio + game type stats
   const [bio, setBio] = useState<string | null>(null);
   const [avgDuration, setAvgDuration] = useState<number | null>(null);
   const [gameTypeStats, setGameTypeStats] = useState<GameTypeStat[]>([]);
 
+  const achievements = useMemo(() => {
+    if (!agent) return [];
+    return computeAchievements(agent, gameTypeStats);
+  }, [agent, gameTypeStats]);
+
   useEffect(() => {
     if (!address) return;
-    const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-    fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `query($a: String!) {
+    fetchGraphQL<any>(
+      `query($a: String!) {
           agentBio(address: $a)
           agentGameTypeStats(address: $a) { gameType wins losses draws averageDuration winRate }
         }`,
-        variables: { a: address },
-      }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        setBio(json?.data?.agentBio ?? null);
-        const stats = json?.data?.agentGameTypeStats as GameTypeStat[] | undefined;
+      { a: address },
+    )
+      .then(({ data }) => {
+        setBio(data?.agentBio ?? null);
+        const stats = data?.agentGameTypeStats as GameTypeStat[] | undefined;
         if (stats && stats.length > 0) {
           setGameTypeStats(stats);
           const total = stats.reduce((s, x) => s + x.averageDuration, 0);
@@ -199,24 +217,18 @@ export function AgentProfile() {
 
   useEffect(() => {
     if (!address) return;
-    const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-    fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `query($a: String!) {
+    fetchGraphQL<any>(
+      `query($a: String!) {
           agentRelationships(agent: $a) { agent1 agent2 matchCount isRival isAlly }
           a2aChallenges { id challenger challenged status }
         }`,
-        variables: { a: address },
-      }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        const rels = json?.data?.agentRelationships as Array<{
+      { a: address },
+    )
+      .then(({ data }) => {
+        const rels = data?.agentRelationships as Array<{
           agent1: string; agent2: string; matchCount: number; isRival: boolean; isAlly: boolean;
         }> | undefined;
-        const challenges = json?.data?.a2aChallenges as Array<{
+        const challenges = data?.a2aChallenges as Array<{
           id: number; challenger: string; challenged: string; status: string;
         }> | undefined;
 
@@ -259,19 +271,14 @@ export function AgentProfile() {
     : '0.0';
 
   const isOwnProfile = connectedAddress?.toLowerCase() === agent.agentAddress.toLowerCase();
-  const gqlUrl = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
   const handleAvatarUpload = async (avatarUrl: string) => {
-    await fetch(gqlUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `mutation($addr: String!, $url: String!) {
+    await fetchGraphQL<any>(
+      `mutation($addr: String!, $url: String!) {
           updateAgentAvatar(address: $addr, avatarUrl: $url)
         }`,
-        variables: { addr: agent.agentAddress, url: avatarUrl },
-      }),
-    });
+      { addr: agent.agentAddress, url: avatarUrl },
+    );
   };
 
   const copyAddress = () => {
@@ -622,6 +629,65 @@ export function AgentProfile() {
               <p className="text-sm text-gray-400">No match history yet</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Agent Card + Export */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ShareAgentCard
+          data={{
+            handle: agent.moltbookHandle,
+            address: agent.agentAddress,
+            elo: agent.elo,
+            wins: agent.wins,
+            losses: agent.losses,
+            matchesPlayed: agent.matchesPlayed,
+            winRate: parseFloat(winRate),
+            streak: agent.streak,
+            peakElo: agent.peakElo,
+            longestWinStreak: agent.longestWinStreak,
+            tournamentsWon: agent.tournamentsWon,
+            gameTypeStats: gameTypeStats.map(s => ({
+              gameType: s.gameType,
+              wins: s.wins,
+              winRate: s.winRate,
+            })),
+          }}
+        />
+
+        {/* Export Match History */}
+        <div className="arcade-card p-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+            <Download size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
+            Export Data
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Download your match history for analysis or record keeping.
+          </p>
+          <div className="space-y-2">
+            <button
+              onClick={() => downloadMatches(matchHistory, 'csv')}
+              disabled={matchHistory.length === 0}
+              className="w-full flex items-center gap-2 p-3 rounded-lg bg-surface-1 border border-white/[0.06] hover:border-arcade-cyan/30 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Download size={14} className="text-arcade-cyan" />
+              <div>
+                <div className="text-xs font-bold text-white">Download CSV</div>
+                <div className="text-[10px] text-gray-500">{matchHistory.length} matches</div>
+              </div>
+            </button>
+            <button
+              onClick={() => downloadMatches(matchHistory, 'json')}
+              disabled={matchHistory.length === 0}
+              className="w-full flex items-center gap-2 p-3 rounded-lg bg-surface-1 border border-white/[0.06] hover:border-arcade-purple/30 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Download size={14} className="text-arcade-purple" />
+              <div>
+                <div className="text-xs font-bold text-white">Download JSON</div>
+                <div className="text-[10px] text-gray-500">{matchHistory.length} matches</div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
