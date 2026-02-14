@@ -10,6 +10,7 @@ import { CommandPalette } from '@/components/search/CommandPalette';
 import { ToastContainer } from '@/components/arcade/ToastContainer';
 import { ScrollToTop } from '@/components/arcade/ScrollToTop';
 import { PageProgressBar } from '@/components/arcade/PageProgressBar';
+import { KeyboardShortcutsHelp } from '@/components/arcade/KeyboardShortcutsHelp';
 import { useScrollRestore } from '@/hooks/useScrollRestore';
 import { initializeActivityFeedWatcher } from '@/stores/activityFeedStore';
 
@@ -72,6 +73,7 @@ export function Layout() {
       <CommandPalette open={paletteOpen} onClose={handleClosePalette} />
       <ToastContainer />
       <ScrollToTop />
+      <KeyboardShortcutsHelp />
     </div>
   );
 }
