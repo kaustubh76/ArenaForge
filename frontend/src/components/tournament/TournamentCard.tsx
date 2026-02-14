@@ -59,14 +59,14 @@ export function TournamentCard({ tournament: t, index, onJoin }: TournamentCardP
         {/* Prize pool + entry stake */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Coins size={14} className="text-arcade-gold" />
-            <span className="font-mono text-sm font-bold text-arcade-gold">
+            <Coins size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 2px rgba(255,215,0,0.5))' }} />
+            <span className="font-mono text-sm font-bold text-arcade-gold" style={{ textShadow: '0 0 6px rgba(255,215,0,0.3)' }}>
               {formatMON(t.prizePool)}
             </span>
           </div>
           {/* Entry stake pill */}
           <div className="flex items-center gap-1 px-2 py-0.5 bg-surface-2 rounded-full">
-            <Shield size={9} className="text-arcade-cyan" />
+            <Shield size={9} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.4))' }} />
             <span className="text-[9px] font-mono text-arcade-cyan">{formatMON(t.entryStake)}</span>
           </div>
         </div>
@@ -129,6 +129,7 @@ export function TournamentCard({ tournament: t, index, onJoin }: TournamentCardP
                   r.hasWinner ? 'bg-arcade-green' : 'bg-gray-600',
                   i === 0 && 'animate-pulse',
                 )}
+                style={r.hasWinner && i === 0 ? { boxShadow: '0 0 4px rgba(105,240,174,0.5)' } : undefined}
                 title={`Match #${r.id}: ${r.hasWinner ? 'Decided' : 'Draw'}`}
               />
             ))}

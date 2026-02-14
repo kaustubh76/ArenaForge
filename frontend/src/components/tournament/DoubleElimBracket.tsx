@@ -37,23 +37,24 @@ function PlayerSlot({
   return (
     <div
       className={clsx(
-        'h-9 flex items-center justify-between px-3 rounded border transition-all text-sm',
+        'h-9 flex items-center justify-between px-3 rounded border transition-all text-sm hover:scale-[1.02]',
         isWinner
           ? 'bg-arcade-green/10 border-arcade-green/30 text-white'
           : isLoser
             ? 'bg-arcade-red/10 border-arcade-red/30 text-gray-500 line-through'
             : 'bg-surface-2 border-white/[0.06] text-gray-400'
       )}
+      style={isWinner ? { boxShadow: '0 0 8px rgba(105,240,174,0.15)' } : undefined}
     >
       <span className="font-semibold truncate">{name}</span>
       <div className="flex items-center gap-1 flex-shrink-0 ml-1">
         {agent && (
           <span className="text-[8px] font-mono text-gray-500 flex items-center gap-0.5">
-            <Shield size={8} className="text-gray-600" />
+            <Shield size={8} className="text-gray-600" style={{ filter: 'drop-shadow(0 0 2px rgba(150,150,150,0.3))' }} />
             {agent.elo}
           </span>
         )}
-        {isWinner && <Crown size={12} className="text-arcade-gold" />}
+        {isWinner && <Crown size={12} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.5))' }} />}
       </div>
     </div>
   );
@@ -67,10 +68,13 @@ function BracketMatchCard({
   isLive?: boolean;
 }) {
   const content = (
-    <div className={clsx(
-      'w-44 arcade-card p-2 relative',
-      isLive && 'ring-1 ring-arcade-green/50 animate-pulse',
-    )}>
+    <div
+      className={clsx(
+        'w-44 arcade-card p-2 relative transition-all duration-200 hover:scale-[1.02]',
+        isLive && 'ring-1 ring-arcade-green/50 animate-pulse',
+      )}
+      style={isLive ? { boxShadow: '0 0 12px rgba(105,240,174,0.2)' } : undefined}
+    >
       {isLive && (
         <div className="absolute -top-2 -right-2 z-10">
           <GlowBadge color="green" label="LIVE" pulsing />
@@ -99,7 +103,7 @@ function BracketMatchCard({
             title="Watch Replay"
             onClick={(e) => e.stopPropagation()}
           >
-            <Play size={10} />
+            <Play size={10} style={{ filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.4))' }} />
             Replay
           </Link>
         </div>
@@ -259,7 +263,7 @@ export function DoubleElimBracket({ bracket, activeMatchId }: DoubleElimBracketP
       {currentPhase === 'finals' && (
         <div className="flex items-center gap-4">
           <h3 className="font-pixel text-xs text-arcade-gold flex items-center gap-2">
-            <Crown size={14} className="text-arcade-gold" />
+            <Crown size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.5))' }} />
             GRAND FINALS
           </h3>
           <ArrowRight size={16} className="text-gray-500" />

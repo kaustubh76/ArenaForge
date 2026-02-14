@@ -115,9 +115,10 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
             <div key={label} className="flex-1">
               <div
                 className={clsx(
-                  'h-1 rounded-full transition-colors',
+                  'h-1 rounded-full transition-all duration-300',
                   i <= step ? 'bg-arcade-purple' : 'bg-surface-1'
                 )}
+                style={i === step ? { boxShadow: '0 0 6px rgba(168,85,247,0.4)' } : undefined}
               />
               <span className={clsx(
                 'text-[8px] mt-1 block text-center',
@@ -159,11 +160,12 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
                     key={gt}
                     onClick={() => setGameType(gt)}
                     className={clsx(
-                      'p-4 rounded-lg border-2 transition-all text-left',
+                      'p-4 rounded-lg border-2 transition-all text-left duration-200 hover:scale-[1.03]',
                       selected
                         ? 'border-arcade-purple bg-arcade-purple/10'
                         : 'border-white/[0.08] bg-surface-1 hover:border-white/[0.16]'
                     )}
+                    style={selected ? { boxShadow: '0 0 12px rgba(168,85,247,0.15)' } : undefined}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <GameTypeIcon gameType={gt} size={16} />
@@ -189,11 +191,12 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
                     key={f}
                     onClick={() => setFormat(f)}
                     className={clsx(
-                      'p-3 rounded-lg border-2 transition-all text-left',
+                      'p-3 rounded-lg border-2 transition-all text-left duration-200 hover:scale-[1.03]',
                       selected
                         ? 'border-arcade-cyan bg-arcade-cyan/10'
                         : 'border-white/[0.08] bg-surface-1 hover:border-white/[0.16]'
                     )}
+                    style={selected ? { boxShadow: '0 0 12px rgba(0,229,255,0.15)' } : undefined}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <Layers size={12} className={selected ? 'text-arcade-cyan' : 'text-gray-400'} />
@@ -216,7 +219,7 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
             {/* Entry Stake */}
             <div>
               <label className="text-xs text-gray-400 mb-2 block flex items-center gap-1">
-                <Coins size={12} className="text-arcade-gold" />
+                <Coins size={12} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
                 Entry Stake (MON)
               </label>
               <div className="flex flex-wrap gap-2">
@@ -249,7 +252,7 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
             {/* Max Participants */}
             <div>
               <label className="text-xs text-gray-400 mb-2 block flex items-center gap-1">
-                <Users size={12} className="text-arcade-cyan" />
+                <Users size={12} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
                 Max Participants
               </label>
               <div className="flex gap-2">
@@ -273,7 +276,7 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
             {/* Round Count */}
             <div>
               <label className="text-xs text-gray-400 mb-2 block flex items-center gap-1">
-                <Swords size={12} className="text-arcade-purple" />
+                <Swords size={12} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
                 Rounds
               </label>
               <div className="flex gap-2">
@@ -300,7 +303,7 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
                 <span className="text-xs text-gray-400">Estimated Prize Pool</span>
                 <div className="flex items-center gap-1">
                   <Trophy size={12} className="text-arcade-gold" />
-                  <span className="font-mono text-sm font-bold text-arcade-gold">{prizePool} MON</span>
+                  <span className="font-mono text-sm font-bold text-arcade-gold" style={{ textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>{prizePool} MON</span>
                 </div>
               </div>
               <p className="text-[9px] text-gray-600 mt-1">
@@ -467,6 +470,12 @@ function TournamentBlueprint({ format, maxParticipants, roundCount, prizePool }:
       <div className="rounded-lg bg-surface-1 border border-white/[0.04] p-3">
         <span className="text-[9px] font-pixel text-gray-500 tracking-wider block mb-2">BRACKET FLOW</span>
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full">
+          <defs>
+            <filter id="nodeGlow">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
           {blueprint.flow.map((count, i) => {
             const x = padX + (i / Math.max(blueprint.flow.length - 1, 1)) * (svgW - padX * 2);
             const y = svgH / 2;
@@ -493,6 +502,7 @@ function TournamentBlueprint({ format, maxParticipants, roundCount, prizePool }:
                   fill={isLast ? 'rgba(255,215,64,0.15)' : 'rgba(0,229,255,0.1)'}
                   stroke={isLast ? '#ffd740' : '#00e5ff'}
                   strokeWidth={1.5}
+                  filter="url(#nodeGlow)"
                 />
                 {/* Count text */}
                 <text
@@ -544,19 +554,19 @@ function TournamentBlueprint({ format, maxParticipants, roundCount, prizePool }:
           <span className="text-[9px] font-pixel text-gray-500 tracking-wider block mb-2">STATS</span>
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
-              <Swords size={10} className="text-arcade-cyan" />
+              <Swords size={10} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.4))' }} />
               <span className="text-[10px] text-gray-400">Matches</span>
               <span className="text-[10px] font-mono font-bold text-white ml-auto">{blueprint.totalMatches}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Clock size={10} className="text-arcade-purple" />
+              <Clock size={10} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
               <span className="text-[10px] text-gray-400">Est. Time</span>
               <span className="text-[10px] font-mono font-bold text-white ml-auto">
                 {blueprint.estDuration >= 60 ? `${Math.floor(blueprint.estDuration / 60)}h ${blueprint.estDuration % 60}m` : `${blueprint.estDuration}m`}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Zap size={10} className="text-arcade-gold" />
+              <Zap size={10} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
               <span className="text-[10px] text-gray-400">Per Round</span>
               <span className="text-[10px] font-mono font-bold text-white ml-auto">{blueprint.matchesPerRound}</span>
             </div>
@@ -569,12 +579,15 @@ function TournamentBlueprint({ format, maxParticipants, roundCount, prizePool }:
 
 function ReviewRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex items-center justify-between p-3 bg-surface-1 rounded-lg">
+    <div className="flex items-center justify-between p-3 bg-surface-1 rounded-lg transition-all duration-200 hover:bg-surface-2">
       <span className="text-xs text-gray-400">{label}</span>
-      <span className={clsx(
-        'text-sm font-mono',
-        highlight ? 'text-arcade-gold font-bold' : 'text-white'
-      )}>
+      <span
+        className={clsx(
+          'text-sm font-mono',
+          highlight ? 'text-arcade-gold font-bold' : 'text-white'
+        )}
+        style={highlight ? { textShadow: '0 0 8px rgba(255,215,0,0.3)' } : undefined}
+      >
         {value}
       </span>
     </div>

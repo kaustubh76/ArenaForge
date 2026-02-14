@@ -98,7 +98,7 @@ export function PentathlonScoreboard({
       <div className="px-4 py-3 border-b border-white/[0.06] bg-surface-3/30">
         <div className="flex items-center justify-between">
           <h3 className="font-pixel text-xs text-arcade-purple flex items-center gap-2">
-            <Trophy size={14} />
+            <Trophy size={14} style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.5))' }} />
             PENTATHLON STANDINGS
           </h3>
           <div className="flex items-center gap-2">
@@ -149,13 +149,14 @@ export function PentathlonScoreboard({
           <div
             key={standing.agentAddress}
             className={clsx(
-              'grid grid-cols-[3rem_1fr_repeat(4,3.5rem)_4rem_5rem] gap-1 px-4 py-3 items-center transition-colors',
+              'grid grid-cols-[3rem_1fr_repeat(4,3.5rem)_4rem_5rem] gap-1 px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
               i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
               rank <= 3 && 'border-l-2',
               rank === 1 && 'border-l-arcade-gold',
               rank === 2 && 'border-l-gray-300',
               rank === 3 && 'border-l-amber-600'
             )}
+            style={rank === 1 ? { boxShadow: 'inset 0 0 20px rgba(255,215,0,0.05)' } : undefined}
           >
             <span
               className={clsx(
@@ -172,8 +173,8 @@ export function PentathlonScoreboard({
                 {getAgentName(standing.agentAddress)}
               </span>
               {(eventDominance.get(standing.agentAddress) ?? 0) > 0 && (
-                <span className="flex items-center gap-0.5 text-[8px] font-pixel text-arcade-gold bg-arcade-gold/10 px-1.5 py-0.5 rounded flex-shrink-0">
-                  <Star size={8} />
+                <span className="flex items-center gap-0.5 text-[8px] font-pixel text-arcade-gold bg-arcade-gold/10 px-1.5 py-0.5 rounded flex-shrink-0" style={{ boxShadow: '0 0 6px rgba(255,215,0,0.2)' }}>
+                  <Star size={8} style={{ filter: 'drop-shadow(0 0 2px rgba(255,215,0,0.5))' }} />
                   {eventDominance.get(standing.agentAddress)}
                 </span>
               )}
@@ -215,6 +216,7 @@ export function PentathlonScoreboard({
                       ? 'text-arcade-purple'
                       : 'text-white'
                 )}
+                style={rank <= 3 ? { textShadow: `0 0 6px ${rank === 1 ? 'rgba(255,215,0,0.4)' : 'rgba(168,85,247,0.3)'}` } : undefined}
               >
                 {standing.totalPoints}
               </span>

@@ -73,17 +73,17 @@ export function JoinTournamentModal({
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-surface-1 rounded-lg p-4 text-center">
-            <Coins size={20} className="text-arcade-gold mx-auto mb-2" />
+          <div className="bg-surface-1 rounded-lg p-4 text-center transition-all duration-200 hover:scale-[1.03]">
+            <Coins size={20} className="text-arcade-gold mx-auto mb-2" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.5))' }} />
             <p className="text-[10px] text-gray-500 mb-1">ENTRY STAKE</p>
-            <p className="font-mono text-lg font-bold text-arcade-gold">
+            <p className="font-mono text-lg font-bold text-arcade-gold" style={{ textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>
               {formatMON(tournament.entryStake)}
             </p>
           </div>
-          <div className="bg-surface-1 rounded-lg p-4 text-center">
-            <Trophy size={20} className="text-arcade-purple mx-auto mb-2" />
+          <div className="bg-surface-1 rounded-lg p-4 text-center transition-all duration-200 hover:scale-[1.03]">
+            <Trophy size={20} className="text-arcade-purple mx-auto mb-2" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.5))' }} />
             <p className="text-[10px] text-gray-500 mb-1">PRIZE POOL</p>
-            <p className="font-mono text-lg font-bold text-arcade-purple">
+            <p className="font-mono text-lg font-bold text-arcade-purple" style={{ textShadow: '0 0 8px rgba(168,85,247,0.3)' }}>
               {formatMON(tournament.prizePool)}
             </p>
           </div>
@@ -93,7 +93,7 @@ export function JoinTournamentModal({
         <div className="p-3 bg-surface-1 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Users size={16} className="text-gray-400" />
+              <Users size={16} className="text-gray-400" style={{ filter: 'drop-shadow(0 0 2px rgba(150,150,150,0.3))' }} />
               <span className="text-sm text-gray-400">Participants</span>
             </div>
             <span className="font-mono text-sm">
@@ -144,16 +144,21 @@ export function JoinTournamentModal({
                   <p className={clsx(
                     'font-mono text-sm font-bold',
                     winRoi > 0 ? 'text-arcade-green' : 'text-arcade-red'
-                  )}>
+                  )}
+                  style={winRoi > 0 ? { textShadow: '0 0 6px rgba(105,240,174,0.3)' } : undefined}
+                  >
                     {winRoi > 0 ? '+' : ''}{winRoi.toFixed(0)}%
                   </p>
                 </div>
                 <div>
                   <p className="text-[8px] text-gray-600 mb-0.5">AVG RETURN</p>
-                  <p className={clsx(
-                    'font-mono text-sm font-bold',
-                    maxRoi > 0 ? 'text-arcade-gold' : 'text-arcade-red'
-                  )}>
+                  <p
+                    className={clsx(
+                      'font-mono text-sm font-bold',
+                      maxRoi > 0 ? 'text-arcade-gold' : 'text-arcade-red'
+                    )}
+                    style={maxRoi > 0 ? { textShadow: '0 0 6px rgba(255,215,0,0.3)' } : undefined}
+                  >
                     {maxRoi > 0 ? '+' : ''}{maxRoi.toFixed(0)}%
                   </p>
                 </div>
@@ -173,7 +178,7 @@ export function JoinTournamentModal({
         {/* Warnings */}
         {insufficientBalance && (
           <div className="flex items-center gap-2 p-3 bg-arcade-red/10 border border-arcade-red/30 rounded-lg">
-            <AlertCircle size={16} className="text-arcade-red flex-shrink-0" />
+            <AlertCircle size={16} className="text-arcade-red flex-shrink-0" style={{ filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.4))' }} />
             <span className="text-xs text-arcade-red">Insufficient balance to join</span>
           </div>
         )}

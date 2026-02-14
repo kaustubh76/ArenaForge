@@ -32,7 +32,7 @@ export function SeriesProgress({ series, variant = 'compact' }: SeriesProgressPr
 
   if (variant === 'compact') {
     return (
-      <div className="inline-flex items-center gap-3 bg-surface-2 rounded-lg px-3 py-2 border border-white/[0.06]">
+      <div className="inline-flex items-center gap-3 bg-surface-2 rounded-lg px-3 py-2 border border-white/[0.06] transition-all duration-200 hover:scale-[1.01]">
         {/* Player 1 */}
         <div
           className={clsx(
@@ -175,11 +175,11 @@ export function SeriesProgress({ series, variant = 'compact' }: SeriesProgressPr
             <div key={i} className="flex flex-col items-center gap-1">
               <span className="text-[8px] text-gray-600 font-pixel">G{gameNumber}</span>
               {status === 'p1win' ? (
-                <CheckCircle2 size={18} className="text-arcade-green" />
+                <CheckCircle2 size={18} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.5))' }} />
               ) : status === 'p2win' ? (
-                <CheckCircle2 size={18} className="text-arcade-purple" />
+                <CheckCircle2 size={18} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.5))' }} />
               ) : status === 'pending' ? (
-                <Circle size={18} className="text-arcade-gold animate-pulse" />
+                <Circle size={18} className="text-arcade-gold animate-pulse" style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.5))' }} />
               ) : (
                 <Circle size={18} className="text-gray-700" />
               )}
@@ -226,11 +226,13 @@ export function SeriesProgress({ series, variant = 'compact' }: SeriesProgressPr
           <div className="mt-3 flex items-center justify-center gap-3">
             {momentum !== 'EVEN' && (
               <div className="flex items-center gap-1">
-                <Flame size={10} className={momentum === 'P1' ? 'text-arcade-cyan' : 'text-arcade-purple'} />
+                <Flame size={10} className={momentum === 'P1' ? 'text-arcade-cyan' : 'text-arcade-purple'} style={{ filter: `drop-shadow(0 0 3px ${momentum === 'P1' ? 'rgba(0,229,255,0.5)' : 'rgba(168,85,247,0.5)'})` }} />
                 <span className={clsx(
                   'text-[9px] font-pixel',
                   momentum === 'P1' ? 'text-arcade-cyan' : 'text-arcade-purple',
-                )}>
+                )}
+                style={{ textShadow: `0 0 6px ${momentum === 'P1' ? 'rgba(0,229,255,0.3)' : 'rgba(168,85,247,0.3)'}` }}
+                >
                   {momentum} MOMENTUM
                 </span>
               </div>

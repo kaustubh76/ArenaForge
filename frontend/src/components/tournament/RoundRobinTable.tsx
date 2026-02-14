@@ -62,16 +62,16 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
         {/* Stats bar */}
         <div className="flex items-center gap-4 px-1">
           <div className="flex items-center gap-1.5">
-            <Swords size={10} className="text-arcade-cyan" />
+            <Swords size={10} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.4))' }} />
             <span className="text-[9px] font-mono text-gray-400">{stats.totalMatches} matches</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Activity size={10} className="text-arcade-purple" />
+            <Activity size={10} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 2px rgba(168,85,247,0.4))' }} />
             <span className="text-[9px] font-mono text-gray-400">{stats.totalDraws} draws</span>
           </div>
           {stats.gap > 0 && (
             <div className="flex items-center gap-1.5">
-              <Target size={10} className="text-arcade-gold" />
+              <Target size={10} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 2px rgba(255,215,0,0.4))' }} />
               <span className="text-[9px] font-mono text-gray-400">Leader by {stats.gap}pts</span>
             </div>
           )}
@@ -102,7 +102,7 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
               {sorted.map((row, rowIdx) => (
                 <tr
                   key={row.agentAddress}
-                  className={clsx(rowIdx % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50')}
+                  className={clsx('transition-all duration-200 hover:bg-surface-1/50', rowIdx % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50')}
                 >
                   <td className="p-2 text-sm font-semibold text-white truncate max-w-[150px]">
                     {rowIdx === 0 && <Crown size={12} className="text-arcade-gold inline mr-1" />}
@@ -113,7 +113,7 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
                     return (
                       <td
                         key={`${row.agentAddress}-${col.agentAddress}`}
-                        className={clsx('p-2 text-center', result && RESULT_BG[result])}
+                        className={clsx('p-2 text-center transition-all duration-150 hover:scale-110', result && RESULT_BG[result])}
                       >
                         {result === null ? (
                           <span className="text-gray-700">-</span>
@@ -147,16 +147,16 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
       {/* Stats bar */}
       <div className="flex items-center gap-4 px-1">
         <div className="flex items-center gap-1.5">
-          <Swords size={10} className="text-arcade-cyan" />
+          <Swords size={10} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.4))' }} />
           <span className="text-[9px] font-mono text-gray-400">{stats.totalMatches} matches</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Activity size={10} className="text-arcade-purple" />
+          <Activity size={10} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 2px rgba(168,85,247,0.4))' }} />
           <span className="text-[9px] font-mono text-gray-400">{stats.totalDraws} draws</span>
         </div>
         {stats.gap > 0 && (
           <div className="flex items-center gap-1.5">
-            <Target size={10} className="text-arcade-gold" />
+            <Target size={10} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 2px rgba(255,215,0,0.4))' }} />
             <span className="text-[9px] font-mono text-gray-400">Leader by {stats.gap}pts</span>
           </div>
         )}
@@ -184,7 +184,7 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
             <div
               key={s.agentAddress}
               className={clsx(
-                'grid grid-cols-[3rem_1fr_6rem_4rem_4rem_4rem_4rem_4rem] gap-2 px-4 py-3 items-center transition-colors',
+                'grid grid-cols-[3rem_1fr_6rem_4rem_4rem_4rem_4rem_4rem] gap-2 px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
                 i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50'
               )}
             >
@@ -219,7 +219,7 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
               <span className="font-mono text-sm text-arcade-red">{s.losses}</span>
               <span className="font-mono text-sm text-gray-400">{s.draws}</span>
               <span className="font-mono text-sm text-gray-400">{s.gamesPlayed}</span>
-              <span className="font-mono text-sm font-bold text-arcade-purple">{s.points}</span>
+              <span className="font-mono text-sm font-bold text-arcade-purple" style={rank <= 3 ? { textShadow: '0 0 6px rgba(168,85,247,0.3)' } : undefined}>{s.points}</span>
             </div>
           );
         })}

@@ -71,8 +71,8 @@ export function RoyalRumbleArena({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Swords size={16} className="text-arcade-red" />
-              <span className="font-pixel text-sm text-arcade-red">ROYAL RUMBLE</span>
+              <Swords size={16} className="text-arcade-red" style={{ filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.4))' }} />
+              <span className="font-pixel text-sm text-arcade-red" style={{ textShadow: '0 0 6px rgba(255,82,82,0.2)' }}>ROYAL RUMBLE</span>
             </div>
             <div className="text-xs text-gray-400">
               Entry #{currentEntrant} of {totalEntrants}
@@ -132,7 +132,7 @@ export function RoyalRumbleArena({
                 <div
                   key={participant.address}
                   className={clsx(
-                    'flex items-center justify-between p-3 rounded-lg border transition-all',
+                    'flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:scale-[1.01]',
                     'bg-arcade-green/5 border-arcade-green/20 hover:border-arcade-green/40'
                   )}
                 >
@@ -217,8 +217,8 @@ export function RoyalRumbleArena({
           <h3 className="font-pixel text-[9px] text-gray-500 mb-3 tracking-wider">BATTLE STATS</h3>
           <div className="grid grid-cols-3 gap-3">
             {/* Top Eliminator */}
-            <div className="text-center p-2 bg-surface-1 rounded-lg border border-white/[0.04]">
-              <Flame size={14} className="text-arcade-red mx-auto mb-1" />
+            <div className="text-center p-2 bg-surface-1 rounded-lg border border-white/[0.04] transition-all duration-200 hover:scale-[1.03]">
+              <Flame size={14} className="text-arcade-red mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.4))' }} />
               <p className="text-[8px] text-gray-500 mb-0.5">TOP ELIMINATOR</p>
               <p className="text-[10px] font-semibold text-white truncate">
                 {survivalStats.topEliminator ? getAgentName(survivalStats.topEliminator.address) : '—'}
@@ -228,8 +228,8 @@ export function RoyalRumbleArena({
               )}
             </div>
             {/* Ironman */}
-            <div className="text-center p-2 bg-surface-1 rounded-lg border border-white/[0.04]">
-              <Clock size={14} className="text-arcade-gold mx-auto mb-1" />
+            <div className="text-center p-2 bg-surface-1 rounded-lg border border-white/[0.04] transition-all duration-200 hover:scale-[1.03]">
+              <Clock size={14} className="text-arcade-gold mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
               <p className="text-[8px] text-gray-500 mb-0.5">IRONMAN</p>
               <p className="text-[10px] font-semibold text-white truncate">
                 {survivalStats.ironman ? getAgentName(survivalStats.ironman.address) : '—'}
@@ -239,8 +239,8 @@ export function RoyalRumbleArena({
               )}
             </div>
             {/* Avg ELO */}
-            <div className="text-center p-2 bg-surface-1 rounded-lg border border-white/[0.04]">
-              <Shield size={14} className="text-arcade-purple mx-auto mb-1" />
+            <div className="text-center p-2 bg-surface-1 rounded-lg border border-white/[0.04] transition-all duration-200 hover:scale-[1.03]">
+              <Shield size={14} className="text-arcade-purple mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
               <p className="text-[8px] text-gray-500 mb-0.5">AVG ELO (RING)</p>
               <p className="text-lg font-mono font-bold text-arcade-purple">
                 {survivalStats.avgElo || '—'}
@@ -257,7 +257,7 @@ export function RoyalRumbleArena({
                   .map((p, i) => (
                     <div
                       key={p.address}
-                      className="w-5 h-5 rounded-full bg-arcade-red/20 border border-arcade-red/30 flex items-center justify-center"
+                      className="w-5 h-5 rounded-full bg-arcade-red/20 border border-arcade-red/30 flex items-center justify-center transition-all duration-150 hover:scale-125 cursor-default"
                       title={`#${i + 1}: ${getAgentName(p.address)}`}
                     >
                       <span className="text-[7px] font-mono text-arcade-red">{i + 1}</span>
@@ -281,9 +281,9 @@ export function RoyalRumbleArena({
       {/* Winner Display (if only one active) */}
       {activeParticipants.length === 1 && currentEntrant >= totalEntrants && (
         <div className="arcade-card p-6 border-arcade-gold/30 bg-arcade-gold/5 text-center">
-          <Crown size={32} className="text-arcade-gold mx-auto mb-3" />
+          <Crown size={32} className="text-arcade-gold mx-auto mb-3" style={{ filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.5))' }} />
           <h2 className="font-pixel text-lg neon-text-gold mb-2">ROYAL RUMBLE WINNER</h2>
-          <p className="text-xl font-bold text-white">
+          <p className="text-xl font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>
             {getAgentName(activeParticipants[0].address)}
           </p>
           <p className="text-sm text-gray-400 mt-2">

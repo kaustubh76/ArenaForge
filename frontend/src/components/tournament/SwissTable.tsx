@@ -28,17 +28,17 @@ export function SwissTable({ standings }: SwissTableProps) {
       {/* Stats bar */}
       <div className="flex items-center gap-4 px-1">
         <div className="flex items-center gap-1.5">
-          <Swords size={10} className="text-arcade-green" />
+          <Swords size={10} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 2px rgba(105,240,174,0.4))' }} />
           <span className="text-[9px] font-mono text-gray-400">{stats.active} active</span>
         </div>
         {stats.eliminated > 0 && (
           <div className="flex items-center gap-1.5">
-            <Minus size={10} className="text-arcade-red" />
+            <Minus size={10} className="text-arcade-red" style={{ filter: 'drop-shadow(0 0 2px rgba(255,82,82,0.4))' }} />
             <span className="text-[9px] font-mono text-gray-400">{stats.eliminated} eliminated</span>
           </div>
         )}
         <div className="flex items-center gap-1.5">
-          <Shield size={10} className="text-arcade-purple" />
+          <Shield size={10} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 2px rgba(168,85,247,0.4))' }} />
           <span className="text-[9px] font-mono text-gray-400">Avg ELO {stats.avgElo}</span>
         </div>
       </div>
@@ -63,7 +63,7 @@ export function SwissTable({ standings }: SwissTableProps) {
             <div
               key={s.address}
               className={clsx(
-                'grid grid-cols-[3rem_1fr_8rem_5rem_4rem_4rem] gap-2 px-4 py-3 items-center transition-colors',
+                'grid grid-cols-[3rem_1fr_8rem_5rem_4rem_4rem] gap-2 px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
                 i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
                 s.eliminated && 'opacity-50',
               )}
@@ -95,7 +95,7 @@ export function SwissTable({ standings }: SwissTableProps) {
                 </div>
               </div>
 
-              <span className="font-mono text-sm font-bold text-arcade-purple">
+              <span className="font-mono text-sm font-bold text-arcade-purple" style={rank <= 3 ? { textShadow: '0 0 6px rgba(168,85,247,0.3)' } : undefined}>
                 {s.tournamentPoints}
               </span>
 
