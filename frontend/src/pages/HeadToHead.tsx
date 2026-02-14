@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { ArrowLeft, Swords, Trophy, TrendingUp, BarChart3, Play, Share2, Flame, Zap, Target, Radio } from 'lucide-react';
+import { Swords, Trophy, TrendingUp, BarChart3, Play, Share2, Flame, Zap, Target, Radio } from 'lucide-react';
 import { useAgentStore } from '@/stores/agentStore';
 import { AgentAvatar } from '@/components/agent/AgentAvatar';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { NeonButton } from '@/components/arcade/NeonButton';
 import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { ShareMatchButton } from '@/components/share/ShareMatchButton';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameType } from '@/types/arena';
+import { useToastStore } from '@/stores/toastStore';
 
 interface H2HData {
   agent1: string;
@@ -166,14 +168,10 @@ export function HeadToHead() {
 
   return (
     <div>
-      {/* Back */}
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-6"
-      >
-        <ArrowLeft size={14} />
-        Back to Arena
-      </Link>
+      <Breadcrumbs crumbs={[
+        { label: a1Name, to: `/agent/${a1Param}` },
+        { label: `vs ${a2Name}` },
+      ]} />
 
       {/* Title */}
       <div className="text-center mb-8">
@@ -730,6 +728,7 @@ function GameTypeBreakdown({
 }
 
 function ShareRivalryButton({ a1Name, a2Name }: { a1Name: string; a2Name: string }) {
+  const addToast = useToastStore(s => s.addToast);
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
@@ -748,6 +747,7 @@ function ShareRivalryButton({ a1Name, a2Name }: { a1Name: string; a2Name: string
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      addToast('H2H link copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Ignore

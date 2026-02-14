@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
-  ArrowLeft,
   TrendingUp,
   TrendingDown,
   Trophy,
@@ -38,7 +37,9 @@ import {
 import { useBettingStore } from '@/stores/bettingStore';
 import { timeAgo } from '@/utils/format';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE, GRID_STYLE } from '@/components/charts';
+import { CopyButton } from '@/components/arcade/CopyButton';
 import { truncateAddress } from '@/constants/ui';
 import type { Bet, BettorProfile } from '@/types/arena';
 
@@ -108,7 +109,10 @@ function ProfileHero({ profile, address }: { profile: BettorProfile | null; addr
     <div className="arcade-card p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-mono text-lg text-white">{truncateAddress(address)}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono text-lg text-white">{truncateAddress(address)}</h2>
+            <CopyButton text={address} label="Address copied" />
+          </div>
           <div className="flex items-center gap-3 mt-1">
             <span className={clsx('font-pixel text-xs', tierColor)} style={{ textShadow: tierLabel === 'SHARK' ? '0 0 6px rgba(255,215,0,0.3)' : undefined }}>{tierLabel}</span>
             {profile.currentStreak !== 0 && (
@@ -638,13 +642,10 @@ export function BettorProfilePage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Link
-          to="/spectator/leaderboard"
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={14} />
-          Back to Leaderboard
-        </Link>
+        <Breadcrumbs crumbs={[
+          { label: 'Spectator', to: '/spectator/leaderboard' },
+          { label: truncateAddress(address) },
+        ]} />
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-surface-1 rounded w-1/3" />
           <div className="h-48 bg-surface-1 rounded" />
@@ -659,14 +660,10 @@ export function BettorProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Back link */}
-      <Link
-        to="/spectator/leaderboard"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors"
-      >
-        <ArrowLeft size={14} />
-        Back to Leaderboard
-      </Link>
+      <Breadcrumbs crumbs={[
+        { label: 'Spectator', to: '/spectator/leaderboard' },
+        { label: truncateAddress(address) },
+      ]} />
 
       {/* Page heading */}
       <RetroHeading color="gold" subtitle="Betting performance and history">

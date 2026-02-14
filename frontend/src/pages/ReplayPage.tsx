@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Trophy, Swords } from 'lucide-react';
+import { Clock, Trophy, Swords } from 'lucide-react';
 import { useArenaStore } from '@/stores/arenaStore';
 import { useAgentStore } from '@/stores/agentStore';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
@@ -8,6 +8,7 @@ import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { ShareMatchButton } from '@/components/share/ShareMatchButton';
 import { ReplayPlayer, MatchAnalyticsPanel } from '@/components/replay';
 import { MATCH_STATUS_CONFIG } from '@/constants/game';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { timeAgo } from '@/utils/format';
 
 export function ReplayPage() {
@@ -36,13 +37,10 @@ export function ReplayPage() {
 
   return (
     <div>
-      <Link
-        to={`/match/${matchId}`}
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-6"
-      >
-        <ArrowLeft size={14} />
-        Back to Match
-      </Link>
+      <Breadcrumbs crumbs={[
+        { label: `Match #${matchId}`, to: `/match/${matchId}` },
+        { label: 'Replay' },
+      ]} />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">

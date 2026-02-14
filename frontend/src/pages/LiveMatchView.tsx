@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, AlertTriangle, Clock, Play, Wifi, WifiOff, Calendar, Radio, Trophy, CheckCircle2, Zap } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Clock, Play, Wifi, WifiOff, Calendar, Radio, Trophy, CheckCircle2, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { GameType, MatchStatus } from '@/types/arena';
 import { useArenaStore } from '@/stores/arenaStore';
@@ -20,7 +20,6 @@ import { useMatchLive, useConnectionStatus } from '@/hooks';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
-import { NeonButton } from '@/components/arcade/NeonButton';
 import { SplitScreen } from '@/components/match/SplitScreen';
 import { PlayerPanel } from '@/components/match/PlayerPanel';
 import { StrategyArenaView } from '@/components/match/StrategyArenaView';
@@ -28,6 +27,9 @@ import { OracleDuelView } from '@/components/match/OracleDuelView';
 import { AuctionWarsView } from '@/components/match/AuctionWarsView';
 import { QuizBowlView } from '@/components/match/QuizBowlView';
 import { ErrorAlert } from '@/components/arcade/ErrorAlert';
+import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
+import { EmptyState } from '@/components/arcade/EmptyState';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { MatchErrorBoundary, cacheMatchState } from '@/components/match/MatchErrorBoundary';
 import { ShareMatchButton } from '@/components/share/ShareMatchButton';
 import { BettingPanel } from '@/components/betting';
@@ -203,31 +205,33 @@ export function LiveMatchView() {
   if (!match) {
     if (loading) {
       return (
-        <div className="animate-pulse space-y-6">
-          <div className="h-4 bg-surface-2 rounded w-32" />
-          <div className="h-8 bg-surface-2 rounded w-48" />
-          <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <ShimmerLoader width="w-32" height="h-4" />
+          <ShimmerLoader width="w-48" height="h-8" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="arcade-card p-6 space-y-3">
-              <div className="h-10 w-10 bg-surface-1 rounded-lg" />
-              <div className="h-4 bg-surface-1 rounded w-3/4" />
-              <div className="h-3 bg-surface-1 rounded w-1/2" />
+              <ShimmerLoader variant="circle" width="w-10" height="h-10" />
+              <ShimmerLoader width="w-3/4" height="h-4" />
+              <ShimmerLoader width="w-1/2" height="h-3" />
             </div>
             <div className="arcade-card p-6 space-y-3">
-              <div className="h-10 w-10 bg-surface-1 rounded-lg ml-auto" />
-              <div className="h-4 bg-surface-1 rounded w-3/4 ml-auto" />
-              <div className="h-3 bg-surface-1 rounded w-1/2 ml-auto" />
+              <ShimmerLoader variant="circle" width="w-10" height="h-10" className="ml-auto" />
+              <ShimmerLoader width="w-3/4" height="h-4" className="ml-auto" />
+              <ShimmerLoader width="w-1/2" height="h-3" className="ml-auto" />
             </div>
           </div>
         </div>
       );
     }
     return (
-      <div className="text-center py-16">
-        <p className="font-pixel text-sm text-gray-600 mb-4">MATCH NOT FOUND</p>
-        <Link to="/">
-          <NeonButton variant="neon" color="purple">BACK TO LOBBY</NeonButton>
-        </Link>
-      </div>
+      <EmptyState
+        icon={AlertTriangle}
+        headline="MATCH NOT FOUND"
+        subtitle="This match may have been removed or the ID is invalid."
+        actionLabel="BACK TO LOBBY"
+        onAction={() => window.location.href = '/'}
+        actionColor="purple"
+      />
     );
   }
 
@@ -264,14 +268,10 @@ export function LiveMatchView() {
       {/* Confetti on victory */}
       {showConfetti && <VictoryConfetti />}
 
-      {/* Back */}
-      <Link
-        to={tournament ? `/tournament/${tournament.id}` : '/'}
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-6"
-      >
-        <ArrowLeft size={14} />
-        {tournament ? `Back to ${tournament.name}` : 'Back to Lobby'}
-      </Link>
+      <Breadcrumbs crumbs={tournament
+        ? [{ label: tournament.name, to: `/tournament/${tournament.id}` }, { label: `Match #${matchId}` }]
+        : [{ label: `Match #${matchId}` }]
+      } />
 
       {/* Match header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

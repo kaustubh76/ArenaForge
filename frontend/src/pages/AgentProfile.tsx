@@ -21,6 +21,7 @@ import { AvatarUpload } from '@/components/agent/AvatarUpload';
 import { RankBadge } from '@/components/season/RankBadge';
 import { AnimatedScore } from '@/components/arcade/AnimatedScore';
 import { NeonButton } from '@/components/arcade/NeonButton';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { ProgressBar } from '@/components/arcade/ProgressBar';
@@ -28,6 +29,7 @@ import { GameType, MatchStatus, type Achievement, AchievementId, type Achievemen
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { truncateAddress } from '@/constants/ui';
 import { timeAgo } from '@/utils/format';
+import { useToastStore } from '@/stores/toastStore';
 import { useAccount } from 'wagmi';
 
 interface GameTypeStat {
@@ -121,6 +123,7 @@ export function AgentProfile() {
   const { allMatches } = useArenaStore();
   const { currentSeason, mySeasonalProfile } = useSeasonStore();
   const { address: connectedAddress } = useAccount();
+  const addToast = useToastStore(s => s.addToast);
 
   useEffect(() => {
     if (agents.length === 0) fetchAgents();
@@ -273,10 +276,15 @@ export function AgentProfile() {
 
   const copyAddress = () => {
     navigator.clipboard.writeText(agent.agentAddress);
+    addToast('Address copied to clipboard');
   };
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs crumbs={[
+        { label: 'Leaderboard', to: '/leaderboard' },
+        { label: agent.moltbookHandle },
+      ]} />
       {/* Header */}
       <div className="arcade-card p-6 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5">

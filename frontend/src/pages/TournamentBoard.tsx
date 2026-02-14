@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Coins, Users, Calendar, Download, ChevronDown, Wifi, WifiOff, Pause, Play, Eye, Zap, Percent, Timer, ChevronUp, Grid3X3 } from 'lucide-react';
+import { Coins, Users, Calendar, Download, ChevronDown, Wifi, WifiOff, Pause, Play, Eye, Zap, Percent, Timer, ChevronUp, Grid3X3 } from 'lucide-react';
 import clsx from 'clsx';
 import { TournamentFormat, TournamentStatus, MatchStatus } from '@/types/arena';
 import { useAgentStore } from '@/stores/agentStore';
@@ -10,6 +10,7 @@ import { formatMON } from '@/constants/ui';
 import { downloadMatches } from '@/lib/export-utils';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
+import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { StatusIndicator } from '@/components/arcade/StatusIndicator';
 import { NeonButton } from '@/components/arcade/NeonButton';
@@ -140,11 +141,7 @@ export function TournamentBoard() {
 
   return (
     <div>
-      {/* Back button */}
-      <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-6">
-        <ArrowLeft size={14} />
-        Back to Lobby
-      </Link>
+      <Breadcrumbs crumbs={[{ label: `Tournament #${id}` }]} />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
