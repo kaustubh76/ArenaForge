@@ -15,6 +15,7 @@ import type { TournamentConfig } from "./game-engine/game-mode.interface";
 import { ClaudeAnalysisService, setClaudeAnalysisService } from "./claude";
 import { startApiServers, stopApiServers } from "./api";
 import { getMatchStore } from "./persistence";
+import { createRateLimiter } from "./utils/rate-limiter";
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
 
@@ -34,17 +35,20 @@ async function main(): Promise<void> {
   const moltbookUrl = process.env.MOLTBOOK_API_URL || "https://moltbook.com";
   const moltbookToken = process.env.MOLTBOOK_BEARER_TOKEN || "";
 
+  // Shared rate limiter for all Moltbook API calls (publisher + submolt manager)
+  const moltbookLimiter = createRateLimiter("external-api");
+
   const publisher = new MoltbookPublisher({
     moltbookApiUrl: moltbookUrl,
     agentHandle: process.env.MOLTBOOK_AGENT_HANDLE || "ArenaForge",
     bearerToken: moltbookToken,
-  });
+  }, undefined, moltbookLimiter);
 
   const submoltManager = new SubmoltManager({
     moltbookApiUrl: moltbookUrl,
     bearerToken: moltbookToken,
     submoltName: process.env.SUBMOLT_NAME || "ArenaForge",
-  });
+  }, moltbookLimiter);
 
   // Initialize submolt
   try {

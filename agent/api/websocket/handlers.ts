@@ -4,6 +4,7 @@ import type { Server, Socket } from "socket.io";
 import type { Room } from "../../events";
 import { joinRoom, leaveRoom, cleanupSocket, getSocketRooms } from "./rooms";
 import { setupChatHandler, cleanupChatRateLimit, type ChatMessage } from "./chat";
+import { createRateLimiter } from "../../utils/rate-limiter";
 
 export interface ClientToServerEvents {
   "join:tournament": (tournamentId: number) => void;
@@ -52,6 +53,22 @@ export interface SocketData {
   lastActivity: number;
 }
 
+// Rate limiter for room join/leave events (Token Bucket: 10 burst, 2/sec per socket)
+const roomEventLimiter = createRateLimiter("websocket-events");
+
+/**
+ * Check room event rate limit for a socket. Returns true if allowed.
+ */
+function checkRoomRateLimit(
+  socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+): boolean {
+  if (!roomEventLimiter.consume(socket.id)) {
+    socket.emit("error", "Too many room events. Slow down.");
+    return false;
+  }
+  return true;
+}
+
 /**
  * Set up event handlers for a socket connection.
  */
@@ -71,6 +88,7 @@ export function setupSocketHandlers(
   // --- Tournament subscriptions ---
 
   socket.on("join:tournament", (tournamentId: number) => {
+    if (!checkRoomRateLimit(socket)) return;
     if (typeof tournamentId !== "number" || tournamentId < 1) {
       socket.emit("error", "Invalid tournament ID");
       return;
@@ -81,6 +99,7 @@ export function setupSocketHandlers(
   });
 
   socket.on("leave:tournament", (tournamentId: number) => {
+    if (!checkRoomRateLimit(socket)) return;
     if (typeof tournamentId !== "number") return;
     socket.data.lastActivity = Date.now();
     leaveRoom(socket, { type: "tournament", id: tournamentId });
@@ -90,6 +109,7 @@ export function setupSocketHandlers(
   // --- Match subscriptions ---
 
   socket.on("join:match", (matchId: number) => {
+    if (!checkRoomRateLimit(socket)) return;
     if (typeof matchId !== "number" || matchId < 1) {
       socket.emit("error", "Invalid match ID");
       return;
@@ -100,6 +120,7 @@ export function setupSocketHandlers(
   });
 
   socket.on("leave:match", (matchId: number) => {
+    if (!checkRoomRateLimit(socket)) return;
     if (typeof matchId !== "number") return;
     socket.data.lastActivity = Date.now();
     leaveRoom(socket, { type: "match", id: matchId });
@@ -109,6 +130,7 @@ export function setupSocketHandlers(
   // --- Agent subscriptions ---
 
   socket.on("join:agent", (agentAddress: string) => {
+    if (!checkRoomRateLimit(socket)) return;
     if (typeof agentAddress !== "string" || !agentAddress.startsWith("0x")) {
       socket.emit("error", "Invalid agent address");
       return;
@@ -119,6 +141,7 @@ export function setupSocketHandlers(
   });
 
   socket.on("leave:agent", (agentAddress: string) => {
+    if (!checkRoomRateLimit(socket)) return;
     if (typeof agentAddress !== "string") return;
     socket.data.lastActivity = Date.now();
     leaveRoom(socket, { type: "agent", id: agentAddress.toLowerCase() });
@@ -140,6 +163,7 @@ export function setupSocketHandlers(
   socket.on("disconnect", (reason: string) => {
     console.log(`[WebSocket] Client disconnected: ${socket.id} (${reason})`);
     cleanupChatRateLimit(socket.id);
+    roomEventLimiter.reset(socket.id);
     cleanupSocket(socket);
   });
 }

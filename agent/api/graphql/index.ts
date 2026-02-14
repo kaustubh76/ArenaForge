@@ -19,6 +19,7 @@ import type { MatchStore } from "../../persistence/match-store";
 import type { ArenaManager } from "../../arena-manager";
 import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import { getEventBroadcaster } from "../../events";
+import { createRateLimiter, type TokenBucketRateLimiter } from "../../utils/rate-limiter";
 
 export interface GraphQLServerConfig {
   port?: number;
@@ -36,9 +37,11 @@ export class GraphQLServer {
   private apolloServer: ApolloServer<ResolverContext> | null = null;
   private wsServer: WebSocketServer | null = null;
   private config: GraphQLServerConfig;
+  private graphqlLimiter: TokenBucketRateLimiter;
 
   constructor(config: GraphQLServerConfig) {
     this.config = config;
+    this.graphqlLimiter = createRateLimiter("graphql-api");
   }
 
   async start(): Promise<void> {
@@ -100,10 +103,38 @@ export class GraphQLServer {
 
     await this.apolloServer.start();
 
+    // Trust proxy for correct IP detection behind reverse proxy
+    app.set("trust proxy", 1);
+
+    // Rate limiting middleware (Token Bucket: 30 burst, 10/sec refill per IP)
+    const limiter = this.graphqlLimiter;
+    const rateLimitMiddleware: express.RequestHandler = (req, res, next) => {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+
+      if (!limiter.consume(ip)) {
+        const retryAfterSec = Math.ceil(limiter.retryAfterMs(ip) / 1000);
+        res.setHeader("Retry-After", String(retryAfterSec));
+        res.setHeader("X-RateLimit-Remaining", "0");
+        res.setHeader("X-RateLimit-Limit", "30");
+        res.status(429).json({
+          errors: [{
+            message: "Too many requests. Please try again later.",
+            extensions: { code: "RATE_LIMITED", retryAfterMs: limiter.retryAfterMs(ip) },
+          }],
+        });
+        return;
+      }
+
+      res.setHeader("X-RateLimit-Remaining", String(Math.floor(limiter.remaining(ip))));
+      res.setHeader("X-RateLimit-Limit", "30");
+      next();
+    };
+
     // Apply middleware
     app.use(
       "/graphql",
       cors<cors.CorsRequest>({ origin: corsOrigin, credentials: true }),
+      rateLimitMiddleware,
       express.json(),
       expressMiddleware(this.apolloServer, {
         context: async (): Promise<ResolverContext> => ({
@@ -133,6 +164,8 @@ export class GraphQLServer {
   }
 
   async stop(): Promise<void> {
+    this.graphqlLimiter.destroy();
+
     if (this.apolloServer) {
       await this.apolloServer.stop();
       this.apolloServer = null;
