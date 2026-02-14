@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import clsx from 'clsx';
 import { useBettingStore } from '@/stores/bettingStore';
+import { useToastStore } from '@/stores/toastStore';
 import { TrendingUp } from 'lucide-react';
 
 interface BetSlipProps {
@@ -26,6 +27,7 @@ export function BetSlip({ player1Handle, player2Handle, className, onClose }: Be
     matchPools,
     getPotentialPayout,
   } = useBettingStore();
+  const addToast = useToastStore(s => s.addToast);
 
   const [customAmount, setCustomAmount] = useState('');
 
@@ -49,8 +51,9 @@ export function BetSlip({ player1Handle, player2Handle, className, onClose }: Be
 
   const handleSubmit = async () => {
     const success = await submitBet();
-    if (success && onClose) {
-      onClose();
+    if (success) {
+      addToast('Bet placed!');
+      if (onClose) onClose();
     }
   };
 

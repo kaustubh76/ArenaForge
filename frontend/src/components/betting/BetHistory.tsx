@@ -7,6 +7,7 @@ import { truncateAddress } from '@/constants/ui';
 import { useWallet } from '@/hooks/useWallet';
 import { CHART_COLORS } from '@/components/charts';
 import { CopyButton } from '@/components/arcade/CopyButton';
+import { useToastStore } from '@/stores/toastStore';
 import { timeAgo } from '@/utils/format';
 
 interface BetHistoryProps {
@@ -205,6 +206,7 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
   const { userBets, fetchMyBets, claimWinnings, loading } = useBettingStore();
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [visibleBets, setVisibleBets] = useState(maxItems);
+  const addToast = useToastStore(s => s.addToast);
 
   useEffect(() => {
     if (address) {
@@ -216,6 +218,7 @@ export function BetHistory({ className, maxItems = 20, showHeader = true }: BetH
     setClaimingId(betId);
     try {
       await claimWinnings(betId);
+      addToast('Winnings claimed!');
     } finally {
       setClaimingId(null);
     }
