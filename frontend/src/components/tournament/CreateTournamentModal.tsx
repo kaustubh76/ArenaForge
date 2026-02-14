@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Loader2, AlertCircle, Coins, Users, Layers, Swords, Trophy, Clock, Zap } from 'lucide-react';
+import { Loader2, AlertCircle, Coins, Users, Layers, Swords, Trophy, Clock, Zap, Lock, Globe, Save, FolderOpen } from 'lucide-react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { GameType, TournamentFormat } from '@/types/arena';
 import { GAME_TYPE_CONFIG, FORMAT_LABELS } from '@/constants/game';
@@ -16,7 +16,22 @@ export interface CreateTournamentInput {
   entryStake: string;
   maxParticipants: number;
   roundCount: number;
+  isPrivate?: boolean;
+  accessCode?: string;
 }
+
+// Tournament template saved to localStorage
+interface TournamentTemplate {
+  id: string;
+  label: string;
+  gameType: GameType;
+  format: TournamentFormat;
+  entryStake: string;
+  maxParticipants: number;
+  roundCount: number;
+}
+
+const TEMPLATES_KEY = 'arenaforge-tournament-templates';
 
 interface CreateTournamentModalProps {
   open: boolean;
@@ -53,8 +68,20 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
   const [customStake, setCustomStake] = useState('');
   const [maxParticipants, setMaxParticipants] = useState(8);
   const [roundCount, setRoundCount] = useState(5);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Tournament templates
+  const [templates, setTemplates] = useState<TournamentTemplate[]>(() => {
+    try {
+      const stored = localStorage.getItem(TEMPLATES_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateName, setTemplateName] = useState('');
 
   const { isConnected, isCorrectChain } = useWallet();
   const { openConnectModal } = useConnectModal();
@@ -82,6 +109,8 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
         entryStake: effectiveStake,
         maxParticipants,
         roundCount,
+        isPrivate,
+        accessCode: isPrivate ? accessCode : undefined,
       });
       // Reset form
       setStep(0);
@@ -92,6 +121,8 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
       setCustomStake('');
       setMaxParticipants(8);
       setRoundCount(5);
+      setIsPrivate(false);
+      setAccessCode('');
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create tournament');
@@ -144,6 +175,56 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
               autoFocus
             />
             <p className="text-[10px] text-gray-500">{name.length}/48 characters</p>
+
+            {/* Templates */}
+            {templates.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowTemplates(!showTemplates)}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-arcade-cyan transition-colors"
+                >
+                  <FolderOpen size={12} />
+                  {showTemplates ? 'HIDE TEMPLATES' : `LOAD TEMPLATE (${templates.length})`}
+                </button>
+                {showTemplates && (
+                  <div className="mt-2 space-y-1.5">
+                    {templates.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setGameType(t.gameType);
+                          setFormat(t.format);
+                          setEntryStake(t.entryStake);
+                          setMaxParticipants(t.maxParticipants);
+                          setRoundCount(t.roundCount);
+                          setShowTemplates(false);
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-lg bg-surface-1 border border-white/[0.06] hover:border-arcade-cyan/30 transition-all text-left group"
+                      >
+                        <div>
+                          <span className="text-xs font-bold text-white">{t.label}</span>
+                          <span className="text-[9px] text-gray-500 ml-2">
+                            {GAME_TYPE_CONFIG[t.gameType]?.arcadeLabel} &middot; {FORMAT_LABELS[t.format]} &middot; {t.entryStake} MON
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const updated = templates.filter(x => x.id !== t.id);
+                            setTemplates(updated);
+                            localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+                          }}
+                          className="text-gray-600 hover:text-arcade-red transition-colors text-xs opacity-0 group-hover:opacity-100"
+                          title="Delete template"
+                        >
+                          &times;
+                        </button>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -297,6 +378,55 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
               </div>
             </div>
 
+            {/* Privacy Toggle */}
+            <div>
+              <label className="text-xs text-gray-400 mb-2 block flex items-center gap-1">
+                <Lock size={12} className="text-arcade-pink" style={{ filter: 'drop-shadow(0 0 3px rgba(255,64,129,0.4))' }} />
+                Tournament Access
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setIsPrivate(false); setAccessCode(''); }}
+                  className={clsx(
+                    'flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-all',
+                    !isPrivate
+                      ? 'bg-arcade-green/15 text-arcade-green border-arcade-green/40'
+                      : 'text-gray-400 border-white/[0.06] hover:border-white/[0.12]'
+                  )}
+                >
+                  <Globe size={14} />
+                  PUBLIC
+                </button>
+                <button
+                  onClick={() => setIsPrivate(true)}
+                  className={clsx(
+                    'flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-all',
+                    isPrivate
+                      ? 'bg-arcade-pink/15 text-arcade-pink border-arcade-pink/40'
+                      : 'text-gray-400 border-white/[0.06] hover:border-white/[0.12]'
+                  )}
+                >
+                  <Lock size={14} />
+                  PRIVATE
+                </button>
+              </div>
+              {isPrivate && (
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={accessCode}
+                    onChange={e => setAccessCode(e.target.value.toUpperCase())}
+                    placeholder="ACCESS CODE (optional)"
+                    maxLength={12}
+                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-white/[0.08] text-white text-xs font-mono placeholder-gray-600 focus:border-arcade-pink/50 focus:outline-none uppercase tracking-widest"
+                  />
+                  <p className="text-[9px] text-gray-600 mt-1">
+                    Share this code with invited participants. Leave empty for invite-link only.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Prize pool estimate */}
             <div className="p-3 rounded-lg bg-surface-1 border border-white/[0.04]">
               <div className="flex items-center justify-between">
@@ -325,6 +455,7 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
               <ReviewRow label="Entry Stake" value={`${effectiveStake} MON`} />
               <ReviewRow label="Max Players" value={String(maxParticipants)} />
               <ReviewRow label="Rounds" value={String(roundCount)} />
+              <ReviewRow label="Access" value={isPrivate ? `PRIVATE${accessCode ? ` (${accessCode})` : ''}` : 'PUBLIC'} />
               <ReviewRow label="Prize Pool" value={`~${prizePool} MON`} highlight />
             </div>
 
@@ -335,6 +466,40 @@ export function CreateTournamentModal({ open, onClose, onSubmit }: CreateTournam
               roundCount={roundCount}
               prizePool={prizePool}
             />
+
+            {/* Save as Template */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={templateName}
+                onChange={e => setTemplateName(e.target.value)}
+                placeholder="Template name..."
+                maxLength={24}
+                className="flex-1 px-3 py-2 rounded-lg bg-surface-1 border border-white/[0.08] text-white text-xs placeholder-gray-600 focus:border-arcade-cyan/50 focus:outline-none"
+              />
+              <button
+                onClick={() => {
+                  const label = templateName.trim() || `${GAME_TYPE_CONFIG[gameType]?.arcadeLabel} ${FORMAT_LABELS[format]}`;
+                  const newTemplate: TournamentTemplate = {
+                    id: Date.now().toString(36),
+                    label,
+                    gameType,
+                    format,
+                    entryStake: effectiveStake,
+                    maxParticipants,
+                    roundCount,
+                  };
+                  const updated = [...templates, newTemplate];
+                  setTemplates(updated);
+                  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+                  setTemplateName('');
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-1 border border-white/[0.06] hover:border-arcade-cyan/30 text-xs text-gray-400 hover:text-arcade-cyan transition-all"
+              >
+                <Save size={12} />
+                SAVE TEMPLATE
+              </button>
+            </div>
           </div>
         )}
 
