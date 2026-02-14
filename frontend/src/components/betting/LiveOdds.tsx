@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import clsx from 'clsx';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useBettingStore } from '@/stores/bettingStore';
+import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
 
 interface LiveOddsProps {
   matchId: number;
@@ -90,7 +91,13 @@ export function LiveOdds({
 
   if (!pool) {
     return (
-      <div className={clsx('animate-pulse bg-surface-1 rounded-lg h-20', className)} />
+      <div className={clsx('bg-surface-1 rounded-lg p-4 space-y-3', className)}>
+        <div className="flex items-center justify-between">
+          <ShimmerLoader width="w-16" height="h-3" />
+          <ShimmerLoader width="w-10" height="h-3" />
+        </div>
+        <ShimmerLoader width="w-full" height="h-6" />
+      </div>
     );
   }
 

@@ -10,6 +10,7 @@ import { ErrorAlert } from '@/components/arcade/ErrorAlert';
 import { MutationCard } from '@/components/evolution/MutationCard';
 import { MetricsPanel } from '@/components/evolution/MetricsPanel';
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE } from '@/components/charts';
+import { timeAgo } from '@/utils/format';
 
 export function EvolutionDashboard() {
   const { records, selectedTournamentId, loading, error, selectTournament, getFilteredRecords, fetchFromChain } = useEvolutionStore();
@@ -125,8 +126,8 @@ export function EvolutionDashboard() {
                     <span className="font-pixel text-[9px] text-gray-500">
                       ROUND {record.round}
                     </span>
-                    <span className="text-[10px] text-gray-600">
-                      {new Date(record.timestamp).toLocaleTimeString()}
+                    <span className="text-[10px] text-gray-600" title={new Date(record.timestamp).toLocaleString()}>
+                      {timeAgo(record.timestamp)}
                     </span>
                   </div>
 

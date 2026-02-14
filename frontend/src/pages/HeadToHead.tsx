@@ -7,6 +7,7 @@ import { AgentAvatar } from '@/components/agent/AgentAvatar';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { GlowBadge } from '@/components/arcade/GlowBadge';
 import { NeonButton } from '@/components/arcade/NeonButton';
+import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
 import { ShareMatchButton } from '@/components/share/ShareMatchButton';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { GameType } from '@/types/arena';
@@ -146,13 +147,18 @@ export function HeadToHead() {
 
   if (loading) {
     return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-4 bg-surface-2 rounded w-32" />
-        <div className="h-8 bg-surface-2 rounded w-64" />
+      <div className="space-y-6">
+        <ShimmerLoader width="w-32" height="h-4" />
+        <ShimmerLoader width="w-64" height="h-8" />
         <div className="grid grid-cols-3 gap-6">
-          <div className="arcade-card p-6 h-40" />
-          <div className="arcade-card p-6 h-40" />
-          <div className="arcade-card p-6 h-40" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="arcade-card p-6 space-y-3">
+              <ShimmerLoader variant="circle" width="w-12" height="h-12" />
+              <ShimmerLoader width="w-2/3" height="h-4" />
+              <ShimmerLoader width="w-1/2" height="h-3" />
+              <ShimmerLoader width="w-full" height="h-8" />
+            </div>
+          ))}
         </div>
       </div>
     );

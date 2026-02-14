@@ -9,6 +9,7 @@ import { FORMAT_LABELS } from '@/constants/game';
 import { formatMON } from '@/constants/ui';
 import { downloadMatches } from '@/lib/export-utils';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
+import { ShimmerLoader } from '@/components/arcade/ShimmerLoader';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { StatusIndicator } from '@/components/arcade/StatusIndicator';
 import { NeonButton } from '@/components/arcade/NeonButton';
@@ -108,13 +109,21 @@ export function TournamentBoard() {
   if (!tournament) {
     if (loading) {
       return (
-        <div className="animate-pulse space-y-6">
-          <div className="h-4 bg-surface-2 rounded w-32" />
-          <div className="h-8 bg-surface-2 rounded w-64" />
+        <div className="space-y-6">
+          <ShimmerLoader width="w-32" height="h-4" />
+          <ShimmerLoader width="w-64" height="h-8" />
           <div className="arcade-card p-6 space-y-4">
-            <div className="h-4 bg-surface-1 rounded w-1/2" />
-            <div className="h-4 bg-surface-1 rounded w-3/4" />
-            <div className="h-4 bg-surface-1 rounded w-2/3" />
+            <ShimmerLoader width="w-1/2" height="h-4" />
+            <ShimmerLoader width="w-3/4" height="h-4" />
+            <ShimmerLoader width="w-2/3" height="h-4" />
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="arcade-card p-4 space-y-2">
+                <ShimmerLoader width="w-12" height="h-3" />
+                <ShimmerLoader width="w-20" height="h-6" />
+              </div>
+            ))}
           </div>
         </div>
       );

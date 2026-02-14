@@ -27,6 +27,7 @@ import { ProgressBar } from '@/components/arcade/ProgressBar';
 import { GameType, MatchStatus, type Achievement, AchievementId, type AchievementRarity } from '@/types/arena';
 import { GAME_TYPE_CONFIG } from '@/constants/game';
 import { truncateAddress } from '@/constants/ui';
+import { timeAgo } from '@/utils/format';
 import { useAccount } from 'wagmi';
 
 interface GameTypeStat {
@@ -599,8 +600,8 @@ export function AgentProfile() {
                       >
                         <Swords size={14} />
                       </button>
-                      <span className="text-xs text-gray-400">
-                        {match.timestamp ? new Date(match.timestamp).toLocaleDateString() : ''}
+                      <span className="text-xs text-gray-400" title={match.timestamp ? new Date(match.timestamp).toLocaleString() : ''}>
+                        {match.timestamp ? timeAgo(match.timestamp) : ''}
                       </span>
                     </div>
                   </Link>
