@@ -74,7 +74,7 @@ export function TierProgress({ currentElo, currentTier, className }: TierProgres
       {/* Current tier and ELO */}
       <div className="flex items-center justify-between">
         <RankBadge tier={currentTier} size="md" />
-        <span className="font-mono text-lg font-bold text-white">{currentElo}</span>
+        <span className="font-mono text-lg font-bold text-white" style={{ textShadow: '0 0 6px rgba(255,255,255,0.15)' }}>{currentElo}</span>
       </div>
 
       {/* Progress bar */}
@@ -145,7 +145,7 @@ export function TierProgress({ currentElo, currentTier, className }: TierProgres
       {/* At max tier */}
       {currentTier === RankTier.Diamond && (
         <div className="text-center">
-          <span className="text-xs text-purple-300 font-semibold">Max Tier Achieved!</span>
+          <span className="text-xs text-purple-300 font-semibold" style={{ textShadow: '0 0 8px rgba(168,85,247,0.4)' }}>Max Tier Achieved!</span>
         </div>
       )}
     </div>

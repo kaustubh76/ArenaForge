@@ -119,6 +119,15 @@ export function NotificationSettings({ className, compact = false }: Notificatio
                           ? 'bg-arcade-purple'
                           : 'bg-gray-700'
                   )}
+                  style={
+                    permission === 'granted'
+                      ? { boxShadow: '0 0 4px rgba(105,240,174,0.5)' }
+                      : permission === 'denied'
+                        ? { boxShadow: '0 0 4px rgba(255,82,82,0.4)' }
+                        : i === 0
+                          ? { boxShadow: '0 0 4px rgba(168,85,247,0.4)' }
+                          : undefined
+                  }
                 />
                 {i === 0 && (
                   <div className={clsx(
@@ -135,7 +144,7 @@ export function NotificationSettings({ className, compact = false }: Notificatio
               onClick={handleClick}
               className={clsx(
                 'px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                'bg-arcade-purple/20 text-arcade-purple hover:bg-arcade-purple/30',
+                'bg-arcade-purple/20 text-arcade-purple hover:bg-arcade-purple/30 hover:scale-105 active:scale-95',
                 'border border-arcade-purple/30'
               )}
             >
@@ -145,7 +154,7 @@ export function NotificationSettings({ className, compact = false }: Notificatio
 
           {permission === 'granted' && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-arcade-green/10 text-arcade-green text-xs font-medium">
-              <div className="w-1.5 h-1.5 rounded-full bg-arcade-green animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-arcade-green animate-pulse" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
               Active
             </div>
           )}

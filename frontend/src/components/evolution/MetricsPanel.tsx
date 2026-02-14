@@ -97,6 +97,7 @@ function MetricsRadar({ metrics }: { metrics: EvolutionMetrics }) {
           stroke="#00e5ff"
           strokeWidth={1.5}
           strokeLinejoin="round"
+          style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.3))' }}
         />
         {/* Data points */}
         {radarData.points.map((p, i) => (
@@ -129,7 +130,7 @@ export function MetricsPanel({ metrics }: MetricsPanelProps) {
   return (
     <div className="arcade-card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <Activity size={14} className="text-arcade-cyan" />
+        <Activity size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.5))' }} />
         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
           METRICS
         </span>

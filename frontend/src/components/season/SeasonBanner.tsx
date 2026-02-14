@@ -117,7 +117,7 @@ export function SeasonBanner({ compact = false, className }: SeasonBannerProps) 
           {/* Countdown */}
           <div className="text-right">
             <div className="text-xs text-gray-400 uppercase tracking-wider">Time Remaining</div>
-            <div className="font-mono text-2xl font-bold text-arcade-cyan">
+            <div className="font-mono text-2xl font-bold text-arcade-cyan" style={{ textShadow: '0 0 8px rgba(0,229,255,0.3)' }}>
               {formatTimeRemaining(timeRemaining)}
             </div>
           </div>
@@ -170,13 +170,13 @@ export function SeasonBanner({ compact = false, className }: SeasonBannerProps) 
                 })()}
                 <div className="grid grid-cols-3 gap-4 flex-1">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-arcade-green">
+                    <div className="text-2xl font-bold text-arcade-green" style={{ textShadow: '0 0 6px rgba(105,240,174,0.3)' }}>
                       {mySeasonalProfile.wins}
                     </div>
                     <div className="text-[10px] text-gray-400 uppercase">Wins</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-arcade-red">
+                    <div className="text-2xl font-bold text-arcade-red" style={{ textShadow: '0 0 6px rgba(255,82,82,0.3)' }}>
                       {mySeasonalProfile.losses}
                     </div>
                     <div className="text-[10px] text-gray-400 uppercase">Losses</div>
@@ -241,7 +241,7 @@ export function SeasonBanner({ compact = false, className }: SeasonBannerProps) 
                       </div>
                     );
                   })()}
-                  <span className="font-mono font-bold text-arcade-gold">
+                  <span className="font-mono font-bold text-arcade-gold" style={{ textShadow: '0 0 6px rgba(255,215,0,0.3)' }}>
                     {mySeasonalProfile.peakElo}
                   </span>
                 </div>
@@ -271,7 +271,7 @@ export function SeasonBanner({ compact = false, className }: SeasonBannerProps) 
           <div className="mt-6 pt-4 border-t border-gray-700/50">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-400">Season Prize Pool</span>
-              <span className="font-mono text-lg font-bold text-arcade-gold">
+              <span className="font-mono text-lg font-bold text-arcade-gold" style={{ textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>
                 {currentSeason.totalPrizePool} ETH
               </span>
             </div>

@@ -52,7 +52,7 @@ export function ActivityFeedItem({ event, onNavigate }: ActivityFeedItemProps) {
       >
         <IconComponent size={14} />
         {isRecent && (
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-arcade-green animate-pulse" />
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-arcade-green animate-pulse" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
         )}
       </span>
       <div className="flex-1 min-w-0">
@@ -66,7 +66,9 @@ export function ActivityFeedItem({ event, onNavigate }: ActivityFeedItemProps) {
       <span className={clsx(
         "text-[9px] flex-shrink-0 mt-0.5 whitespace-nowrap",
         isRecent ? "text-arcade-cyan font-mono" : "text-gray-600"
-      )}>
+      )}
+      style={isRecent ? { textShadow: '0 0 4px rgba(0,229,255,0.3)' } : undefined}
+      >
         {timeAgo(event.timestamp)}
       </span>
     </button>

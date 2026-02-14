@@ -22,7 +22,7 @@ export function MutationCard({ mutation }: MutationCardProps) {
   const impactColor = isPositive ? '#69f0ae' : '#ff5252';
 
   return (
-    <div className="arcade-card p-4">
+    <div className="arcade-card p-4 transition-all duration-200 hover:scale-[1.01]">
       <div className="flex items-start gap-3">
         <div className={clsx(
           'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
@@ -30,7 +30,7 @@ export function MutationCard({ mutation }: MutationCardProps) {
             ? 'bg-arcade-green/10 text-arcade-green'
             : 'bg-arcade-red/10 text-arcade-red',
         )}>
-          {isPositive ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          {isPositive ? <ArrowUp size={16} style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.5))' }} /> : <ArrowDown size={16} style={{ filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.5))' }} />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
