@@ -67,7 +67,7 @@ export function createDataLoaders(
           try {
             const agent = await contractClient.getAgent(addr) as Record<string, unknown>;
             return {
-              address: addr,
+              address: addr.toLowerCase(),
               moltbookHandle: String(agent.moltbookHandle || addr.slice(0, 8)),
               elo: Number(agent.elo ?? 1200),
               matchesPlayed: Number(agent.matchesPlayed ?? 0),

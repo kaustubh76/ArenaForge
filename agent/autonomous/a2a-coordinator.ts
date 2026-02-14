@@ -8,6 +8,7 @@ import {
   TournamentFormat,
 } from "../game-engine/game-mode.interface";
 import { getEventBroadcaster } from "../events";
+import { normalizeAddress } from "../utils/normalize";
 
 // --- Types ---
 
@@ -186,6 +187,8 @@ export class A2ACoordinator {
     gameType: GameType,
     stake: string
   ): A2AChallenge {
+    from = normalizeAddress(from);
+    to = normalizeAddress(to);
     const now = Date.now();
     const challenge: A2AChallenge = {
       id: this.nextChallengeId++,
@@ -335,6 +338,8 @@ export class A2ACoordinator {
     type: A2AMessageType,
     payload: string
   ): A2AMessage {
+    from = normalizeAddress(from);
+    to = normalizeAddress(to);
     const msg: A2AMessage = {
       id: this.nextMessageId++,
       fromAgent: from,
@@ -372,7 +377,7 @@ export class A2ACoordinator {
     type: A2AMessageType,
     payload: string
   ): A2AMessage {
-    return this.addMessage(from, to, type, payload);
+    return this.addMessage(normalizeAddress(from), normalizeAddress(to), type, payload);
   }
 
   // --- Relationship Management ---

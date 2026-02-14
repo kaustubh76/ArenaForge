@@ -214,7 +214,7 @@ export function getEventRooms<T extends BroadcastEventName>(
     }
     case "agent:eloUpdated": {
       const agentPayload = payload as AgentEloUpdatedEvent;
-      rooms.push({ type: "agent", id: agentPayload.agent });
+      rooms.push({ type: "agent", id: agentPayload.agent.toLowerCase() });
       break;
     }
     case "a2a:challenge":

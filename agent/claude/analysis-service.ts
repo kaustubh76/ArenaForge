@@ -1,4 +1,5 @@
 import { ClaudeClient, ThinkingResponse } from "./client";
+import { stableJsonKey } from "../utils/normalize";
 import {
   EVOLUTION_SYSTEM_PROMPT,
   COMMENTARY_SYSTEM_PROMPT,
@@ -177,7 +178,7 @@ export class ClaudeAnalysisService {
       return null;
     }
 
-    const cacheKey = `commentary:${context}:${JSON.stringify(data)}`;
+    const cacheKey = `commentary:${context}:${stableJsonKey(data as Record<string, unknown>)}`;
     const cached = this.getFromCache<string>(cacheKey);
     if (cached) {
       return { text: cached, fromCache: true };
@@ -276,7 +277,7 @@ export class ClaudeAnalysisService {
       dominantStrategy: metrics.dominantStrategy,
       stakeBehavior: metrics.averageStakeBehavior,
     };
-    return `evolution:${JSON.stringify(key)}`;
+    return `evolution:${stableJsonKey(key as Record<string, unknown>)}`;
   }
 
   private getFromCache<T>(key: string): T | null {

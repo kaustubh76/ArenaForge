@@ -20,6 +20,7 @@ import type { ArenaManager } from "../../arena-manager";
 import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import { getEventBroadcaster } from "../../events";
 import { createRateLimiter, type TokenBucketRateLimiter } from "../../utils/rate-limiter";
+import { normalizeIP } from "../../utils/normalize";
 
 export interface GraphQLServerConfig {
   port?: number;
@@ -109,7 +110,7 @@ export class GraphQLServer {
     // Rate limiting middleware (Token Bucket: 30 burst, 10/sec refill per IP)
     const limiter = this.graphqlLimiter;
     const rateLimitMiddleware: express.RequestHandler = (req, res, next) => {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      const ip = normalizeIP(req.ip || req.socket.remoteAddress || "unknown");
 
       if (!limiter.consume(ip)) {
         const retryAfterSec = Math.ceil(limiter.retryAfterMs(ip) / 1000);

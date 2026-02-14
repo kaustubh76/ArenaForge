@@ -9,6 +9,7 @@ import {
 } from "../game-engine/game-mode.interface";
 import type { MonadContractClient } from "../monad/contract-client";
 import { A2ACoordinator } from "./a2a-coordinator";
+import { normalizeAddress } from "../utils/normalize";
 
 interface SchedulerConfig {
   arenaManager: ArenaManager;
@@ -140,7 +141,7 @@ export class AutonomousScheduler {
           elo: a.elo,
           matchesPlayed: a.matchesPlayed,
         })),
-      agentAddress: config.agentAddress || "0x0000000000000000000000000000000000000000",
+      agentAddress: normalizeAddress(config.agentAddress || "0x0000000000000000000000000000000000000000"),
     });
   }
 
@@ -362,7 +363,7 @@ export class AutonomousScheduler {
             }
 
             this.knownAgents.set(key, {
-              address: addr,
+              address: normalizeAddress(addr),
               discoveredAt: Date.now(),
               fromTournament: i,
               matchesPlayed,
@@ -406,7 +407,7 @@ export class AutonomousScheduler {
           const key = p.address.toLowerCase();
           if (!this.knownAgents.has(key)) {
             this.knownAgents.set(key, {
-              address: p.address,
+              address: normalizeAddress(p.address),
               discoveredAt: Date.now(),
               fromTournament: tid,
               matchesPlayed: 0,
