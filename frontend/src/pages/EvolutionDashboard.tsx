@@ -7,6 +7,7 @@ import { useArenaStore } from '@/stores/arenaStore';
 import { RetroHeading } from '@/components/arcade/RetroHeading';
 import { GameTypeBadge } from '@/components/arcade/GameTypeBadge';
 import { ErrorAlert } from '@/components/arcade/ErrorAlert';
+import { ShimmerLoader, SkeletonStatCard } from '@/components/arcade/ShimmerLoader';
 import { MutationCard } from '@/components/evolution/MutationCard';
 import { MetricsPanel } from '@/components/evolution/MetricsPanel';
 import { CHART_COLORS, TOOLTIP_STYLE, AXIS_STYLE } from '@/components/charts';
@@ -51,9 +52,17 @@ export function EvolutionDashboard() {
 
       {/* Loading indicator */}
       {loading && records.length === 0 && !error && (
-        <div className="flex items-center gap-2 mb-6 text-sm text-gray-400">
-          <div className="w-3 h-3 border-2 border-arcade-cyan border-t-transparent rounded-full animate-spin" />
-          Fetching evolution data...
+        <div className="space-y-4 mb-6">
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 4 }, (_, i) => (
+              <ShimmerLoader key={i} width="w-20" height="h-8" className="rounded-lg" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }, (_, i) => (
+              <SkeletonStatCard key={i} />
+            ))}
+          </div>
         </div>
       )}
 

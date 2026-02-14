@@ -164,14 +164,14 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
 
       <div className="arcade-card p-0 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[3rem_1fr_6rem_4rem_4rem_4rem_4rem_4rem] gap-2 px-4 py-3 border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+        <div className="grid grid-cols-[2.5rem_1fr_5rem_3.5rem] sm:grid-cols-[3rem_1fr_6rem_4rem_4rem_4rem_4rem_4rem] gap-2 px-3 sm:px-4 py-3 border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-wider">
           <span>#</span>
           <span>AGENT</span>
-          <span>WIN RATE</span>
-          <span>W</span>
-          <span>L</span>
-          <span>D</span>
-          <span>GP</span>
+          <span className="hidden sm:block">WIN RATE</span>
+          <span className="hidden sm:block">W</span>
+          <span className="hidden sm:block">L</span>
+          <span className="hidden sm:block">D</span>
+          <span className="hidden sm:block">GP</span>
           <span>PTS</span>
         </div>
 
@@ -184,7 +184,7 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
             <div
               key={s.agentAddress}
               className={clsx(
-                'grid grid-cols-[3rem_1fr_6rem_4rem_4rem_4rem_4rem_4rem] gap-2 px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
+                'grid grid-cols-[2.5rem_1fr_5rem_3.5rem] sm:grid-cols-[3rem_1fr_6rem_4rem_4rem_4rem_4rem_4rem] gap-2 px-3 sm:px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
                 i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50'
               )}
             >
@@ -202,8 +202,8 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
                 {getAgentName(s.agentAddress)}
               </span>
 
-              {/* Win rate bar */}
-              <div className="flex items-center gap-1.5">
+              {/* Win rate bar — visible on sm+ */}
+              <div className="hidden sm:flex items-center gap-1.5">
                 <div className="flex-1 h-2 bg-surface-1 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
@@ -215,10 +215,10 @@ export function RoundRobinTable({ standings, matches = [], showGrid = false }: R
                 </span>
               </div>
 
-              <span className="font-mono text-sm text-arcade-green">{s.wins}</span>
-              <span className="font-mono text-sm text-arcade-red">{s.losses}</span>
-              <span className="font-mono text-sm text-gray-400">{s.draws}</span>
-              <span className="font-mono text-sm text-gray-400">{s.gamesPlayed}</span>
+              <span className="hidden sm:block font-mono text-sm text-arcade-green">{s.wins}</span>
+              <span className="hidden sm:block font-mono text-sm text-arcade-red">{s.losses}</span>
+              <span className="hidden sm:block font-mono text-sm text-gray-400">{s.draws}</span>
+              <span className="hidden sm:block font-mono text-sm text-gray-400">{s.gamesPlayed}</span>
               <span className="font-mono text-sm font-bold text-arcade-purple" style={rank <= 3 ? { textShadow: '0 0 6px rgba(168,85,247,0.3)' } : undefined}>{s.points}</span>
             </div>
           );

@@ -45,11 +45,11 @@ export function SwissTable({ standings }: SwissTableProps) {
 
       <div className="arcade-card p-0 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[3rem_1fr_8rem_5rem_4rem_4rem] gap-2 px-4 py-3 border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+        <div className="grid grid-cols-[2.5rem_1fr_3.5rem_4rem] sm:grid-cols-[3rem_1fr_8rem_5rem_4rem_4rem] gap-2 px-3 sm:px-4 py-3 border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-wider">
           <span>#</span>
           <span>AGENT</span>
-          <span>ELO</span>
-          <span>POINTS</span>
+          <span className="hidden sm:block">ELO</span>
+          <span className="hidden sm:block">POINTS</span>
           <span>PTS</span>
           <span>STATUS</span>
         </div>
@@ -63,7 +63,7 @@ export function SwissTable({ standings }: SwissTableProps) {
             <div
               key={s.address}
               className={clsx(
-                'grid grid-cols-[3rem_1fr_8rem_5rem_4rem_4rem] gap-2 px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
+                'grid grid-cols-[2.5rem_1fr_3.5rem_4rem] sm:grid-cols-[3rem_1fr_8rem_5rem_4rem_4rem] gap-2 px-3 sm:px-4 py-3 items-center transition-all duration-200 hover:bg-surface-1/50',
                 i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
                 s.eliminated && 'opacity-50',
               )}
@@ -83,10 +83,12 @@ export function SwissTable({ standings }: SwissTableProps) {
                 {s.handle}
               </span>
 
-              <EloBar elo={s.elo} showLabel={false} />
+              <div className="hidden sm:block">
+                <EloBar elo={s.elo} showLabel={false} />
+              </div>
 
               {/* Points progress bar */}
-              <div className="flex items-center gap-1.5">
+              <div className="hidden sm:flex items-center gap-1.5">
                 <div className="flex-1 h-2 bg-surface-1 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
