@@ -45,6 +45,7 @@ function EloSparkline({ history, side }: { history: number[]; side: 'left' | 'ri
         stroke={trending ? '#69f0ae' : '#ff5252'}
         strokeWidth={1.5}
         strokeLinejoin="round"
+        style={{ filter: `drop-shadow(0 0 3px ${trending ? 'rgba(105,240,174,0.4)' : 'rgba(255,82,82,0.4)'})` }}
       />
     </svg>
   );
@@ -56,11 +57,12 @@ export function PlayerPanel({ agent, address, score, isWinner, isLoser, side }: 
   return (
     <div
       className={clsx(
-        'arcade-card h-full',
+        'arcade-card h-full transition-all duration-200',
         isWinner && 'border-arcade-green/30',
         isLoser && 'border-arcade-red/20 opacity-75',
         side === 'left' ? 'text-left' : 'text-right',
       )}
+      style={isWinner ? { boxShadow: '0 0 15px rgba(105,240,174,0.15)' } : undefined}
     >
       <div className={clsx('flex items-center gap-3 mb-3', side === 'right' && 'flex-row-reverse')}>
         <div className="w-10 h-10 rounded-lg bg-surface-1 border border-white/[0.08] flex items-center justify-center overflow-hidden">
@@ -91,7 +93,7 @@ export function PlayerPanel({ agent, address, score, isWinner, isLoser, side }: 
         )}>
           {/* W/L Record */}
           <div className={clsx('flex items-center gap-1', side === 'right' && 'flex-row-reverse')}>
-            <Swords size={10} className="text-gray-500" />
+            <Swords size={10} className="text-gray-500" style={{ filter: 'drop-shadow(0 0 2px rgba(150,150,150,0.3))' }} />
             <span className="text-[9px] font-mono">
               <span className="text-arcade-green">{agent.wins}W</span>
               <span className="text-gray-600"> - </span>
@@ -113,9 +115,9 @@ export function PlayerPanel({ agent, address, score, isWinner, isLoser, side }: 
           {agent.streak !== 0 && (
             <div className={clsx('flex items-center gap-0.5', side === 'right' && 'flex-row-reverse')}>
               {agent.streak > 0 ? (
-                <Flame size={10} className="text-arcade-green" />
+                <Flame size={10} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.5))' }} />
               ) : (
-                <Snowflake size={10} className="text-arcade-cyan/60" />
+                <Snowflake size={10} className="text-arcade-cyan/60" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.3))' }} />
               )}
               <span className={clsx(
                 'text-[9px] font-mono font-bold',
@@ -129,7 +131,7 @@ export function PlayerPanel({ agent, address, score, isWinner, isLoser, side }: 
           {/* Tournaments Won */}
           {agent.tournamentsWon != null && agent.tournamentsWon > 0 && (
             <div className={clsx('flex items-center gap-0.5', side === 'right' && 'flex-row-reverse')}>
-              <Trophy size={10} className="text-arcade-gold" />
+              <Trophy size={10} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.5))' }} />
               <span className="text-[9px] font-mono font-bold text-arcade-gold">
                 {agent.tournamentsWon}
               </span>
@@ -141,7 +143,7 @@ export function PlayerPanel({ agent, address, score, isWinner, isLoser, side }: 
       {score !== undefined && (
         <div className={clsx('mt-2', side === 'right' && 'text-right')}>
           <span className="text-[10px] text-gray-500 uppercase">Score</span>
-          <p className="font-mono text-2xl font-bold text-white">{score.toLocaleString()}</p>
+          <p className="font-mono text-2xl font-bold text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.2)' }}>{score.toLocaleString()}</p>
         </div>
       )}
 

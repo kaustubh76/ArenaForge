@@ -36,15 +36,15 @@ function MoveIcon({ move, resolved }: { move: StrategyMove; resolved: boolean })
 
   if (move === StrategyMove.Cooperate) {
     return (
-      <div className="w-10 h-10 rounded-lg bg-arcade-green/10 border border-arcade-green/30 flex items-center justify-center">
-        <Shield size={18} className="text-arcade-green" />
+      <div className="w-10 h-10 rounded-lg bg-arcade-green/10 border border-arcade-green/30 flex items-center justify-center" style={{ boxShadow: '0 0 8px rgba(105,240,174,0.15)' }}>
+        <Shield size={18} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
       </div>
     );
   }
 
   return (
-    <div className="w-10 h-10 rounded-lg bg-arcade-red/10 border border-arcade-red/30 flex items-center justify-center">
-      <Sword size={18} className="text-arcade-red" />
+    <div className="w-10 h-10 rounded-lg bg-arcade-red/10 border border-arcade-red/30 flex items-center justify-center" style={{ boxShadow: '0 0 8px rgba(255,82,82,0.15)' }}>
+      <Sword size={18} className="text-arcade-red" style={{ filter: 'drop-shadow(0 0 3px rgba(255,82,82,0.4))' }} />
     </div>
   );
 }
@@ -99,7 +99,7 @@ function StrategyInsights({ rounds }: { rounds: StrategyViewProps['rounds'] }) {
                 <div
                   key={`p1-${i}`}
                   className={clsx(
-                    'w-4 h-3 rounded-sm transition-all',
+                    'w-4 h-3 rounded-sm transition-all duration-150 hover:scale-150 cursor-default',
                     p.p1 === 'C' ? 'bg-arcade-green/60' : 'bg-arcade-red/60',
                   )}
                   title={`R${i + 1}: ${p.p1 === 'C' ? 'Cooperate' : 'Defect'}`}
@@ -115,7 +115,7 @@ function StrategyInsights({ rounds }: { rounds: StrategyViewProps['rounds'] }) {
                 <div
                   key={`p2-${i}`}
                   className={clsx(
-                    'w-4 h-3 rounded-sm transition-all',
+                    'w-4 h-3 rounded-sm transition-all duration-150 hover:scale-150 cursor-default',
                     p.p2 === 'C' ? 'bg-arcade-green/60' : 'bg-arcade-red/60',
                   )}
                   title={`R${i + 1}: ${p.p2 === 'C' ? 'Cooperate' : 'Defect'}`}
@@ -130,7 +130,7 @@ function StrategyInsights({ rounds }: { rounds: StrategyViewProps['rounds'] }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <HeartHandshake size={9} className="text-arcade-green" />
+            <HeartHandshake size={9} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 2px rgba(105,240,174,0.4))' }} />
             <span className="text-[8px] text-gray-500">P1 TRUST</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -145,7 +145,7 @@ function StrategyInsights({ rounds }: { rounds: StrategyViewProps['rounds'] }) {
         </div>
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <HeartHandshake size={9} className="text-arcade-green" />
+            <HeartHandshake size={9} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 2px rgba(105,240,174,0.4))' }} />
             <span className="text-[8px] text-gray-500">P2 TRUST</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -163,7 +163,7 @@ function StrategyInsights({ rounds }: { rounds: StrategyViewProps['rounds'] }) {
       {/* Betrayal counts */}
       {(analysis.p1Betrayals > 0 || analysis.p2Betrayals > 0) && (
         <div className="flex items-center gap-3">
-          <Swords size={9} className="text-arcade-red" />
+          <Swords size={9} className="text-arcade-red" style={{ filter: 'drop-shadow(0 0 2px rgba(255,82,82,0.4))' }} />
           <span className="text-[8px] text-gray-500">BETRAYALS:</span>
           <span className="text-[8px] font-mono text-arcade-red">
             P1: {analysis.p1Betrayals} | P2: {analysis.p2Betrayals}
@@ -306,7 +306,7 @@ export function StrategyArenaView({
             <div key={r.round}>
               <div
                 className={clsx(
-                  'grid grid-cols-[2.5rem_1fr_auto_1fr] gap-3 items-center p-2 rounded-lg',
+                  'grid grid-cols-[2.5rem_1fr_auto_1fr] gap-3 items-center p-2 rounded-lg transition-all duration-200 hover:bg-surface-2/70',
                   r.round === currentRound && !r.resolved ? 'bg-arcade-purple/5 border border-arcade-purple/20 animate-pulse-soft' : 'bg-surface-1/50',
                 )}
               >
@@ -339,19 +339,25 @@ export function StrategyArenaView({
       <div className="flex justify-between mt-4 pt-3 border-t border-white/[0.06]">
         <div>
           <span className="text-[10px] text-gray-500">P1 TOTAL</span>
-          <p className={clsx(
-            'font-mono text-lg font-bold',
-            p1Leading ? 'text-arcade-green' : 'text-white',
-          )}>
+          <p
+            className={clsx(
+              'font-mono text-lg font-bold',
+              p1Leading ? 'text-arcade-green' : 'text-white',
+            )}
+            style={p1Leading ? { textShadow: '0 0 8px rgba(105,240,174,0.3)' } : undefined}
+          >
             {player1Total.toLocaleString()}
           </p>
         </div>
         <div className="text-right">
           <span className="text-[10px] text-gray-500">P2 TOTAL</span>
-          <p className={clsx(
-            'font-mono text-lg font-bold',
-            p2Leading ? 'text-arcade-green' : 'text-white',
-          )}>
+          <p
+            className={clsx(
+              'font-mono text-lg font-bold',
+              p2Leading ? 'text-arcade-green' : 'text-white',
+            )}
+            style={p2Leading ? { textShadow: '0 0 8px rgba(105,240,174,0.3)' } : undefined}
+          >
             {player2Total.toLocaleString()}
           </p>
         </div>

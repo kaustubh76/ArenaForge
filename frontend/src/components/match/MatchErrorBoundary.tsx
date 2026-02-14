@@ -56,11 +56,11 @@ export class MatchErrorBoundary extends Component<Props, State> {
         <div className="arcade-card p-6 text-center">
           <div className="flex justify-center mb-4">
             <div className="w-12 h-12 rounded-full bg-arcade-red/10 flex items-center justify-center">
-              <AlertTriangle size={24} className="text-arcade-red" />
+              <AlertTriangle size={24} className="text-arcade-red" style={{ filter: 'drop-shadow(0 0 4px rgba(255,82,82,0.5))' }} />
             </div>
           </div>
 
-          <h3 className="font-pixel text-sm text-arcade-red mb-2">
+          <h3 className="font-pixel text-sm text-arcade-red mb-2" style={{ textShadow: '0 0 8px rgba(255,82,82,0.3)' }}>
             DISPLAY ERROR
           </h3>
 
@@ -86,12 +86,12 @@ export class MatchErrorBoundary extends Component<Props, State> {
             return (
               <div className="mb-4 p-3 bg-surface-1 rounded-lg border border-arcade-cyan/20">
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <Database size={14} className="text-arcade-cyan" />
+                  <Database size={14} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.5))' }} />
                   <p className="text-[10px] font-pixel text-arcade-cyan">CACHED STATE AVAILABLE</p>
                 </div>
                 <div className="flex items-center justify-center gap-3">
                   <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-arcade-green animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-arcade-green animate-pulse" style={{ boxShadow: '0 0 4px rgba(105,240,174,0.6)' }} />
                     <span className="text-[9px] text-gray-400">Recovery ready</span>
                   </div>
                   {cacheAge && (

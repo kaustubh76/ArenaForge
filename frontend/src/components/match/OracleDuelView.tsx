@@ -60,13 +60,13 @@ export function OracleDuelView({
       <div className="text-center mb-6">
         <p className="font-pixel text-lg neon-text-gold mb-1">${tokenSymbol}</p>
         <p className="text-xs text-gray-500">Snapshot Price</p>
-        <p className="font-mono text-2xl font-bold text-white mt-1">{snapshotPrice}</p>
+        <p className="font-mono text-2xl font-bold text-white mt-1" style={{ textShadow: '0 0 8px rgba(255,255,255,0.15)' }}>{snapshotPrice}</p>
       </div>
 
       {/* Prediction locked message */}
       {predictionLocked && !resolved && (
         <div className="mb-4 p-4 bg-arcade-green/10 border border-arcade-green/30 rounded-lg text-center">
-          <Check size={24} className="text-arcade-green mx-auto mb-2" />
+          <Check size={24} className="text-arcade-green mx-auto mb-2" style={{ filter: 'drop-shadow(0 0 4px rgba(105,240,174,0.5))' }} />
           <p className="font-pixel text-xs text-arcade-green">
             PREDICTION: {selectedPrediction?.toUpperCase()}
           </p>
@@ -95,7 +95,7 @@ export function OracleDuelView({
             selectedPrediction === 'bear' && !resolved && 'bg-surface-1 border-white/[0.06] opacity-60',
           )}
         >
-          <TrendingUp size={24} className="text-arcade-green mx-auto mb-2" />
+          <TrendingUp size={24} className="text-arcade-green mx-auto mb-2" style={{ filter: 'drop-shadow(0 0 4px rgba(105,240,174,0.5))' }} />
           <p className="font-pixel text-[9px] text-arcade-green mb-1">BULL</p>
           <p className="text-[10px] text-gray-400">Price goes UP</p>
           <p className="text-[10px] text-gray-500 font-mono mt-2 truncate">{bullName}</p>
@@ -119,7 +119,7 @@ export function OracleDuelView({
             selectedPrediction === 'bull' && !resolved && 'bg-surface-1 border-white/[0.06] opacity-60',
           )}
         >
-          <TrendingDown size={24} className="text-arcade-red mx-auto mb-2" />
+          <TrendingDown size={24} className="text-arcade-red mx-auto mb-2" style={{ filter: 'drop-shadow(0 0 4px rgba(255,82,82,0.5))' }} />
           <p className="font-pixel text-[9px] text-arcade-red mb-1">BEAR</p>
           <p className="text-[10px] text-gray-400">Price goes DOWN</p>
           <p className="text-[10px] text-gray-500 font-mono mt-2 truncate">{bearName}</p>
@@ -152,7 +152,7 @@ export function OracleDuelView({
       {!resolved ? (
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 text-gray-500 mb-2">
-            <Clock size={14} />
+            <Clock size={14} style={{ filter: 'drop-shadow(0 0 2px rgba(150,150,150,0.3))' }} />
             <span className="text-xs">Time remaining</span>
           </div>
           <CountdownTimer targetTime={endTime} />
@@ -179,20 +179,26 @@ export function OracleDuelView({
               </div>
               <div className="text-left">
                 <p className="text-[9px] text-gray-600">RESOLVED</p>
-                <p className={clsx(
-                  'font-mono text-sm font-bold',
-                  priceUp ? 'text-arcade-green' : 'text-arcade-red',
-                )}>
+                <p
+                  className={clsx(
+                    'font-mono text-sm font-bold',
+                    priceUp ? 'text-arcade-green' : 'text-arcade-red',
+                  )}
+                  style={{ textShadow: `0 0 6px ${priceUp ? 'rgba(105,240,174,0.3)' : 'rgba(255,82,82,0.3)'}` }}
+                >
                   {resolvedPrice}
                 </p>
               </div>
             </div>
           </div>
 
-          <p className={clsx(
-            'font-mono text-2xl font-bold',
-            priceUp ? 'text-arcade-green' : 'text-arcade-red',
-          )}>
+          <p
+            className={clsx(
+              'font-mono text-2xl font-bold',
+              priceUp ? 'text-arcade-green' : 'text-arcade-red',
+            )}
+            style={{ textShadow: `0 0 10px ${priceUp ? 'rgba(105,240,174,0.4)' : 'rgba(255,82,82,0.4)'}` }}
+          >
             {resolvedPrice}
           </p>
           {priceChange && (

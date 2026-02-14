@@ -124,7 +124,7 @@ export function AuctionWarsView({
             <div
               key={box.id}
               className={clsx(
-                'p-4 rounded-lg border text-center',
+                'p-4 rounded-lg border text-center transition-all duration-200 hover:scale-[1.02]',
                 box.revealed
                   ? 'bg-arcade-cyan/5 border-arcade-cyan/30'
                   : 'bg-surface-1 border-white/[0.06]',
@@ -132,9 +132,9 @@ export function AuctionWarsView({
             >
               <div className="w-12 h-12 mx-auto mb-3 rounded-lg bg-surface-0 border border-arcade-cyan/20 flex items-center justify-center">
                 {box.revealed ? (
-                  <Package size={24} className="text-arcade-cyan" />
+                  <Package size={24} className="text-arcade-cyan" style={{ filter: 'drop-shadow(0 0 4px rgba(0,229,255,0.4))' }} />
                 ) : (
-                  <HelpCircle size={24} className="text-gray-600 animate-pulse-soft" />
+                  <HelpCircle size={24} className="text-gray-600 animate-pulse-soft" style={{ filter: 'drop-shadow(0 0 3px rgba(150,150,150,0.2))' }} />
                 )}
               </div>
 
@@ -153,14 +153,14 @@ export function AuctionWarsView({
               {box.revealed && box.actualValue && (
                 <div className="mt-3 pt-2 border-t border-white/[0.06]">
                   <p className="text-[10px] text-gray-500">Actual Value</p>
-                  <p className="font-mono text-sm font-bold text-arcade-gold">{box.actualValue}</p>
+                  <p className="font-mono text-sm font-bold text-arcade-gold" style={{ textShadow: '0 0 6px rgba(255,215,0,0.3)' }}>{box.actualValue}</p>
                 </div>
               )}
 
               {resolved && winnerName && (
                 <div className="mt-2 pt-2 border-t border-white/[0.06]">
                   <div className="flex items-center justify-center gap-1">
-                    <Trophy size={10} className="text-arcade-gold" />
+                    <Trophy size={10} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
                     <span className="text-[10px] text-gray-400 font-mono">{winnerName}</span>
                   </div>
                   {/* Value vs Bid indicator */}
@@ -170,10 +170,13 @@ export function AuctionWarsView({
                     const roi = val > 0 ? ((val - bid) / bid * 100) : 0;
                     return (
                       <div className="mt-1 flex items-center justify-center gap-1">
-                        <span className={clsx(
-                          'text-[9px] font-mono font-bold',
-                          roi >= 0 ? 'text-arcade-green' : 'text-arcade-red'
-                        )}>
+                        <span
+                          className={clsx(
+                            'text-[9px] font-mono font-bold',
+                            roi >= 0 ? 'text-arcade-green' : 'text-arcade-red'
+                          )}
+                          style={{ textShadow: `0 0 6px ${roi >= 0 ? 'rgba(105,240,174,0.3)' : 'rgba(255,82,82,0.3)'}` }}
+                        >
                           {roi >= 0 ? '+' : ''}{roi.toFixed(0)}% ROI
                         </span>
                       </div>
@@ -311,7 +314,7 @@ export function AuctionWarsView({
                 <div
                   key={`${bid.player}-${bid.boxId}-${i}`}
                   className={clsx(
-                    'flex justify-between items-center text-xs p-2 rounded',
+                    'flex justify-between items-center text-xs p-2 rounded transition-all duration-200 hover:bg-surface-2/70',
                     isHighest ? 'bg-arcade-green/10 border border-arcade-green/20' : 'bg-surface-1/50',
                   )}
                 >
@@ -320,7 +323,7 @@ export function AuctionWarsView({
                   <span className={clsx('font-mono font-bold', bid.revealed ? 'text-white' : 'text-gray-600')}>
                     {bid.revealed ? `${bid.amount} MON` : '???'}
                   </span>
-                  {isHighest && <Trophy size={10} className="text-arcade-gold ml-1" />}
+                  {isHighest && <Trophy size={10} className="text-arcade-gold ml-1" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />}
                 </div>
               );
             })}

@@ -82,17 +82,21 @@ export function QuizBowlView({
             </span>
             {/* Difficulty dots */}
             <div className="flex items-center gap-0.5">
-              {[1, 2, 3].map(d => (
-                <div
-                  key={d}
-                  className={clsx(
-                    'w-1.5 h-1.5 rounded-full',
-                    d <= (currentQuestion.difficulty === 'easy' ? 1 : currentQuestion.difficulty === 'medium' ? 2 : 3)
-                      ? currentQuestion.difficulty === 'easy' ? 'bg-arcade-green' : currentQuestion.difficulty === 'medium' ? 'bg-arcade-gold' : 'bg-arcade-red'
-                      : 'bg-gray-700'
-                  )}
-                />
-              ))}
+              {[1, 2, 3].map(d => {
+                const active = d <= (currentQuestion.difficulty === 'easy' ? 1 : currentQuestion.difficulty === 'medium' ? 2 : 3);
+                const dotColor = currentQuestion.difficulty === 'easy' ? 'bg-arcade-green' : currentQuestion.difficulty === 'medium' ? 'bg-arcade-gold' : 'bg-arcade-red';
+                const glowColor = currentQuestion.difficulty === 'easy' ? 'rgba(105,240,174,0.5)' : currentQuestion.difficulty === 'medium' ? 'rgba(255,215,0,0.5)' : 'rgba(255,82,82,0.5)';
+                return (
+                  <div
+                    key={d}
+                    className={clsx(
+                      'w-1.5 h-1.5 rounded-full transition-all',
+                      active ? dotColor : 'bg-gray-700'
+                    )}
+                    style={active ? { boxShadow: `0 0 4px ${glowColor}` } : undefined}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -154,7 +158,7 @@ export function QuizBowlView({
                     <Lock size={14} className="text-arcade-cyan" />
                   )}
                   {/* Resolved indicators */}
-                  {resolved && isCorrect && <CheckCircle size={14} className="text-arcade-green" />}
+                  {resolved && isCorrect && <CheckCircle size={14} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.5))' }} />}
                   {resolved && !isCorrect && currentQuestion.correctAnswer !== undefined && (
                     <XCircle size={14} className="text-gray-600" />
                   )}
@@ -175,7 +179,7 @@ export function QuizBowlView({
           {timeRemaining !== undefined && totalTime && !resolved && (
             <div>
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-gray-500" />
+                <Clock size={14} className="text-gray-500" style={{ filter: 'drop-shadow(0 0 2px rgba(150,150,150,0.3))' }} />
                 <ProgressBar
                   value={(timeRemaining / totalTime) * 100}
                   color={timeRemaining < 5 ? 'red' : 'cyan'}
@@ -185,7 +189,7 @@ export function QuizBowlView({
               </div>
               {timeRemaining > totalTime * 0.7 && (
                 <div className="flex items-center justify-center gap-1 mt-1">
-                  <Zap size={10} className="text-arcade-gold" />
+                  <Zap size={10} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.5))' }} />
                   <span className="text-[9px] font-pixel text-arcade-gold">SPEED BONUS x2</span>
                 </div>
               )}
@@ -229,31 +233,37 @@ export function QuizBowlView({
         <div className="flex justify-between">
           <div>
             <span className="text-[10px] text-gray-500">P1 SCORE</span>
-            <p className={clsx(
-              'font-mono text-lg font-bold',
-              p1Leading ? 'text-arcade-green' : 'text-white',
-            )}>
+            <p
+              className={clsx(
+                'font-mono text-lg font-bold',
+                p1Leading ? 'text-arcade-green' : 'text-white',
+              )}
+              style={p1Leading ? { textShadow: '0 0 8px rgba(105,240,174,0.4)' } : undefined}
+            >
               {player1Score}
             </p>
             {player1Streak >= 3 && (
               <div className="flex items-center gap-1 mt-1">
-                <Flame size={10} className="text-arcade-orange" />
-                <span className="text-[9px] font-pixel text-arcade-orange">{player1Streak}x STREAK</span>
+                <Flame size={10} className="text-arcade-orange" style={{ filter: 'drop-shadow(0 0 3px rgba(255,152,0,0.5))' }} />
+                <span className="text-[9px] font-pixel text-arcade-orange" style={{ textShadow: '0 0 6px rgba(255,152,0,0.3)' }}>{player1Streak}x STREAK</span>
               </div>
             )}
           </div>
           <div className="text-right">
             <span className="text-[10px] text-gray-500">P2 SCORE</span>
-            <p className={clsx(
-              'font-mono text-lg font-bold',
-              p2Leading ? 'text-arcade-green' : 'text-white',
-            )}>
+            <p
+              className={clsx(
+                'font-mono text-lg font-bold',
+                p2Leading ? 'text-arcade-green' : 'text-white',
+              )}
+              style={p2Leading ? { textShadow: '0 0 8px rgba(105,240,174,0.4)' } : undefined}
+            >
               {player2Score}
             </p>
             {player2Streak >= 3 && (
               <div className="flex items-center gap-1 mt-1 justify-end">
-                <Flame size={10} className="text-arcade-orange" />
-                <span className="text-[9px] font-pixel text-arcade-orange">{player2Streak}x STREAK</span>
+                <Flame size={10} className="text-arcade-orange" style={{ filter: 'drop-shadow(0 0 3px rgba(255,152,0,0.5))' }} />
+                <span className="text-[9px] font-pixel text-arcade-orange" style={{ textShadow: '0 0 6px rgba(255,152,0,0.3)' }}>{player2Streak}x STREAK</span>
               </div>
             )}
           </div>
