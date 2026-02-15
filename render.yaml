@@ -7,8 +7,9 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npm install --include=dev && npx tsc --outDir dist
-    startCommand: NODE_ENV=production node dist/agent/index.js
+    buildCommand: npm install && npx tsc --outDir dist
+    startCommand: node dist/agent/index.js
+    envVars:
       - key: USE_TESTNET
         value: "true"
       - key: MONAD_RPC_URL
