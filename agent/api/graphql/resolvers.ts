@@ -18,6 +18,8 @@ import { getClaudeAnalysisService } from "../../claude";
 import type { TokenManager } from "../../monad/token-manager";
 import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import type { A2ACoordinator } from "../../autonomous/a2a-coordinator";
+import { normalizeAddress } from "../../utils/normalize";
+import { clampLimit, clampOffset, validateId, validateAddress } from "../../utils/validate";
 
 export interface ResolverContext {
   loaders: DataLoaders;
@@ -74,6 +76,7 @@ export const resolvers = {
     },
 
     tournament: async (_: unknown, args: { id: number }, context: ResolverContext) => {
+      validateId(args.id, "tournament ID");
       const tournament = await context.loaders.tournamentLoader.load(args.id);
       if (!tournament) return null;
 
@@ -95,8 +98,8 @@ export const resolvers = {
       args: { tournamentId?: number; status?: string; limit?: number; offset?: number },
       context: ResolverContext
     ) => {
-      const limit = args.limit ?? 50;
-      const offset = args.offset ?? 0;
+      const limit = clampLimit(args.limit);
+      const offset = clampOffset(args.offset);
 
       if (args.tournamentId) {
         const matches = await context.loaders.tournamentMatchesLoader.load(args.tournamentId);
@@ -206,6 +209,7 @@ export const resolvers = {
     },
 
     agent: async (_: unknown, args: { address: string }, context: ResolverContext) => {
+      validateAddress(args.address);
       const agent = await context.loaders.agentLoader.load(args.address);
       if (!agent) return null;
 
@@ -281,12 +285,14 @@ export const resolvers = {
       context: ResolverContext
     ) => {
       if (!context.matchStore) return null;
+      validateAddress(args.agent1, "agent1");
+      validateAddress(args.agent2, "agent2");
 
       const matches = context.matchStore.getMatchesBetweenAgents(args.agent1, args.agent2);
       if (matches.length === 0) return null;
 
-      const a1 = args.agent1.toLowerCase();
-      const a2 = args.agent2.toLowerCase();
+      const a1 = normalizeAddress(args.agent1);
+      const a2 = normalizeAddress(args.agent2);
 
       let agent1Wins = 0;
       let agent2Wins = 0;
@@ -295,9 +301,9 @@ export const resolvers = {
       const h2hMatches = matches.map(m => {
         if (m.isDraw) {
           draws++;
-        } else if (m.winner?.toLowerCase() === a1) {
+        } else if (m.winner ? normalizeAddress(m.winner) === a1 : false) {
           agent1Wins++;
-        } else if (m.winner?.toLowerCase() === a2) {
+        } else if (m.winner ? normalizeAddress(m.winner) === a2 : false) {
           agent2Wins++;
         }
 
@@ -337,6 +343,7 @@ export const resolvers = {
     },
 
     season: async (_: unknown, args: { id: number }, context: ResolverContext) => {
+      validateId(args.id, "season ID");
       // For now, only return current season
       const season = await context.contractClient.getCurrentSeason();
       if (!season || season.id !== args.id) return null;
@@ -351,7 +358,8 @@ export const resolvers = {
       args: { seasonId: number; address: string },
       context: ResolverContext
     ) => {
-      // Would need SeasonalRankings.getSeasonalProfile() method
+      validateId(args.seasonId, "season ID");
+      validateAddress(args.address);
       // For now return mock data based on agent
       const agent = await context.loaders.agentLoader.load(args.address);
       if (!agent) return null;
@@ -401,6 +409,7 @@ export const resolvers = {
     // =========================================================================
 
     matchPool: async (_: unknown, args: { matchId: number }, context: ResolverContext) => {
+      validateId(args.matchId, "match ID");
       const pool = await context.contractClient.getMatchPool(args.matchId);
       return pool;
     },
@@ -451,6 +460,7 @@ export const resolvers = {
     // =========================================================================
 
     replayMetadata: async (_: unknown, args: { matchId: number }, context: ResolverContext) => {
+      validateId(args.matchId, "match ID");
       const replay = await context.contractClient.getReplayData(args.matchId);
       if (!replay) return null;
       return {
@@ -462,6 +472,7 @@ export const resolvers = {
     },
 
     matchReplay: async (_: unknown, args: { matchId: number }, context: ResolverContext) => {
+      validateId(args.matchId, "match ID");
       // Try to get full replay data from SQLite stats_json
       const matchResult = context.matchStore?.getMatch(args.matchId);
       const matchData = await context.loaders.matchLoader.load(args.matchId);
@@ -637,7 +648,8 @@ export const resolvers = {
     matchDurations: async (_: unknown, args: { limit?: number }, context: ResolverContext) => {
       if (!context.matchStore) return [];
       const all = context.matchStore.getAllMatchDurations();
-      const limited = args.limit ? all.slice(-args.limit) : all;
+      const safeLimit = clampLimit(args.limit);
+      const limited = args.limit ? all.slice(-safeLimit) : all;
       return limited.map(d => ({
         matchId: d.matchId,
         gameType: gameTypeToEnum(d.gameType),
@@ -653,7 +665,7 @@ export const resolvers = {
     ) => {
       if (!context.matchStore) return [];
       const gameTypeNum = enumToGameType(args.gameType);
-      return context.matchStore.getGameTypeLeaderboard(gameTypeNum, args.limit ?? 50);
+      return context.matchStore.getGameTypeLeaderboard(gameTypeNum, clampLimit(args.limit));
     },
 
     agentBio: async (_: unknown, args: { address: string }, context: ResolverContext) => {
@@ -666,6 +678,7 @@ export const resolvers = {
       args: { matchId: number; context: string },
       ctx: ResolverContext
     ) => {
+      validateId(args.matchId, "match ID");
       if (!ctx.matchStore) return null;
 
       const analysisService = getClaudeAnalysisService();
@@ -698,7 +711,8 @@ export const resolvers = {
           generatedAt: Math.floor(Date.now() / 1000),
           fromCache: result.fromCache,
         };
-      } catch {
+      } catch (err) {
+        console.debug("[GraphQL] Commentary generation failed:", err);
         return null;
       }
     },
@@ -804,14 +818,15 @@ export const resolvers = {
       // Calculate standings
       const standings = addresses.map((addr: string) => {
         const agent = { address: addr, handle: addr.slice(0, 8), elo: 1200 };
-        const wins = matches.filter((m: MatchData) => m.winner?.toLowerCase() === addr.toLowerCase()).length;
+        const normalAddr = normalizeAddress(addr);
+        const wins = matches.filter((m: MatchData) => m.winner ? normalizeAddress(m.winner) === normalAddr : false).length;
         const losses = matches.filter(
           (m: MatchData) =>
             m.status === 2 &&
             m.winner &&
-            m.winner.toLowerCase() !== addr.toLowerCase() &&
-            (m.player1.toLowerCase() === addr.toLowerCase() ||
-              m.player2.toLowerCase() === addr.toLowerCase())
+            normalizeAddress(m.winner) !== normalAddr &&
+            (normalizeAddress(m.player1) === normalAddr ||
+              normalizeAddress(m.player2) === normalAddr)
         ).length;
 
         return {
@@ -893,6 +908,7 @@ export const resolvers = {
       args: { id: number },
       context: ResolverContext
     ) => {
+      validateId(args.id, "tournament ID");
       if (!context.arenaManager) return null;
       await context.arenaManager.pauseTournament(args.id);
       const t = await context.loaders.tournamentLoader.load(args.id);
@@ -910,6 +926,7 @@ export const resolvers = {
       args: { id: number },
       context: ResolverContext
     ) => {
+      validateId(args.id, "tournament ID");
       if (!context.arenaManager) return null;
       await context.arenaManager.resumeTournament(args.id);
       const t = await context.loaders.tournamentLoader.load(args.id);
@@ -1035,6 +1052,7 @@ export const resolvers = {
       args: { challengeId: number; accept: boolean },
       context: ResolverContext
     ) => {
+      validateId(args.challengeId, "challenge ID");
       if (!context.a2aCoordinator) throw new Error("A2A coordinator not available");
       const challenge = await context.a2aCoordinator.respondToChallenge(
         args.challengeId,
