@@ -12,23 +12,26 @@ import {
   type SocketData,
 } from "./handlers";
 import { getRoomStats } from "./rooms";
+import { buildCorsOrigin } from "../../utils/cors";
 
 export interface WebSocketServerConfig {
   port?: number;
-  corsOrigin?: string | string[];
+  corsOrigin?: (string | RegExp)[] | string | string[];
   pingInterval?: number;
   pingTimeout?: number;
+  httpServer?: HttpServer;
 }
 
-const DEFAULT_CONFIG: Required<WebSocketServerConfig> = {
+const DEFAULT_CONFIG: Required<Omit<WebSocketServerConfig, "httpServer">> = {
   port: 3001,
-  corsOrigin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+  corsOrigin: buildCorsOrigin(),
   pingInterval: 25000,
   pingTimeout: 20000,
 };
 
 export class WebSocketServer {
   private httpServer: HttpServer;
+  private ownsHttpServer: boolean;
   private io: Server<
     ClientToServerEvents,
     ServerToClientEvents,
@@ -36,17 +39,19 @@ export class WebSocketServer {
     SocketData
   >;
   private broadcaster: EventBroadcaster;
-  private config: Required<WebSocketServerConfig>;
+  private config: Required<Omit<WebSocketServerConfig, "httpServer">>;
   private unsubscribe: (() => void) | null = null;
 
   constructor(config: WebSocketServerConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    const { httpServer: externalServer, ...rest } = config;
+    this.config = { ...DEFAULT_CONFIG, ...rest };
     this.broadcaster = getEventBroadcaster();
 
-    // Create HTTP server
-    this.httpServer = createServer();
+    // Use external HTTP server if provided (single-port mode), otherwise create own
+    this.ownsHttpServer = !externalServer;
+    this.httpServer = externalServer || createServer();
 
-    // Create Socket.IO server
+    // Create Socket.IO server (path /socket.io by default, works alongside /graphql)
     this.io = new Server(this.httpServer, {
       cors: {
         origin: this.config.corsOrigin,
@@ -86,8 +91,13 @@ export class WebSocketServer {
 
   /**
    * Start the WebSocket server.
+   * If using an external HTTP server (single-port mode), this is a no-op.
    */
   start(): Promise<void> {
+    if (!this.ownsHttpServer) {
+      console.log("[WebSocket] Attached to shared HTTP server (single-port mode)");
+      return Promise.resolve();
+    }
     return new Promise((resolve) => {
       this.httpServer.listen(this.config.port, () => {
         console.log(
@@ -111,6 +121,13 @@ export class WebSocketServer {
     const sockets = await this.io.fetchSockets();
     for (const socket of sockets) {
       socket.disconnect(true);
+    }
+
+    if (!this.ownsHttpServer) {
+      // In shared mode, just close Socket.IO without closing the HTTP server
+      this.io.close();
+      console.log("[WebSocket] Server stopped (shared mode)");
+      return;
     }
 
     return new Promise((resolve, reject) => {

@@ -21,10 +21,11 @@ import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import { getEventBroadcaster } from "../../events";
 import { createRateLimiter, type TokenBucketRateLimiter } from "../../utils/rate-limiter";
 import { normalizeIP } from "../../utils/normalize";
+import { buildCorsOrigin } from "../../utils/cors";
 
 export interface GraphQLServerConfig {
   port?: number;
-  corsOrigin?: string | string[];
+  corsOrigin?: (string | RegExp)[] | string | string[];
   contractClient: MonadContractClient;
   matchStore: MatchStore | null;
   arenaManager?: ArenaManager;
@@ -47,7 +48,7 @@ export class GraphQLServer {
 
   async start(): Promise<void> {
     const port = this.config.port ?? DEFAULT_PORT;
-    const corsOrigin = this.config.corsOrigin ?? ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"];
+    const corsOrigin = this.config.corsOrigin ?? buildCorsOrigin();
 
     // Create executable schema
     const schema = makeExecutableSchema({
@@ -162,6 +163,10 @@ export class GraphQLServer {
         resolve();
       });
     });
+  }
+
+  getHttpServer(): ReturnType<typeof createServer> | null {
+    return this.httpServer;
   }
 
   async stop(): Promise<void> {

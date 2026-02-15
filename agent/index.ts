@@ -16,6 +16,7 @@ import { ClaudeAnalysisService, setClaudeAnalysisService } from "./claude";
 import { startApiServers, stopApiServers } from "./api";
 import { getMatchStore } from "./persistence";
 import { createRateLimiter } from "./utils/rate-limiter";
+import { buildCorsOrigin } from "./utils/cors";
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
 
@@ -203,7 +204,7 @@ async function main(): Promise<void> {
     await startApiServers({
       wsPort: Number(process.env.WS_PORT) || 3001,
       graphqlPort: Number(process.env.GRAPHQL_PORT) || 4000,
-      corsOrigin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+      corsOrigin: buildCorsOrigin(),
       contractClient,
       matchStore,
       arenaManager,
