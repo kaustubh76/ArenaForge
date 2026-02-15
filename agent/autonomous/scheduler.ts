@@ -114,6 +114,7 @@ export class AutonomousScheduler {
   private tournamentIndex = 0;
   private formatIndex = 0;
   private running = false;
+  private ticking = false; // Mutex: prevents concurrent tick execution
   private lastScannedTournament = 0;
 
   // A2A: Track discovered agents across ticks
@@ -195,8 +196,22 @@ export class AutonomousScheduler {
 
   /**
    * Main scheduler tick — runs every interval.
+   * Uses a mutex flag to prevent overlapping execution.
    */
   private async tick(): Promise<void> {
+    if (this.ticking) {
+      console.warn("[Scheduler] Tick skipped — previous tick still running");
+      return;
+    }
+    this.ticking = true;
+    try {
+      await this.tickInner();
+    } finally {
+      this.ticking = false;
+    }
+  }
+
+  private async tickInner(): Promise<void> {
     this.tickCount++;
     this.checkDailyReset();
 
@@ -358,8 +373,8 @@ export class AutonomousScheduler {
                 elo = Number(agent.elo ?? 1200);
                 matchesPlayed = Number(agent.matchesPlayed ?? 0);
               }
-            } catch {
-              /* use defaults */
+            } catch (err) {
+              console.debug(`[Scheduler] Agent data fetch failed for ${addr.slice(0, 10)}..., using defaults:`, err);
             }
 
             this.knownAgents.set(key, {
@@ -392,8 +407,8 @@ export class AutonomousScheduler {
               priority: 4,
             });
           }
-        } catch {
-          // Skip failed lookups
+        } catch (err) {
+          console.debug(`[Scheduler] Tournament #${i} participant lookup failed:`, err);
         }
       }
 

@@ -81,6 +81,12 @@ const MAX_PENDING_CHALLENGES = 3;
 const AUTO_CHALLENGE_ELO_RANGE = 200;
 // ELO proximity for auto-accept
 const AUTO_ACCEPT_ELO_RANGE = 300;
+// Eviction: delete resolved/expired challenges older than this
+const CHALLENGE_EVICTION_MS = 60 * 60 * 1000; // 1 hour
+// Eviction: max relationships to keep (oldest by lastInteraction pruned)
+const MAX_RELATIONSHIPS = 500;
+// Eviction: max alliances to track
+const MAX_ALLIANCES = 200;
 
 // Taunts for flavor
 const TAUNTS = [
@@ -222,7 +228,7 @@ export class A2ACoordinator {
         status: "pending",
         timestamp: Math.floor(now / 1000),
       });
-    } catch { /* broadcaster may not be initialized */ }
+    } catch (err) { console.debug("[A2A] Broadcaster not ready:", err); }
 
     console.log(
       `[A2A] Challenge #${challenge.id}: ${from.slice(0, 10)}... → ${to.slice(0, 10)}... (${GameType[gameType]}, ${stake} MON)`
@@ -325,7 +331,7 @@ export class A2ACoordinator {
         status: challenge.status,
         timestamp: Math.floor(Date.now() / 1000),
       });
-    } catch { /* silent */ }
+    } catch (err) { console.debug("[A2A] Event emit failed:", err); }
 
     return challenge;
   }
@@ -366,7 +372,7 @@ export class A2ACoordinator {
         messageType: msg.messageType,
         timestamp: msg.timestamp,
       });
-    } catch { /* silent */ }
+    } catch (err) { console.debug("[A2A] Event emit failed:", err); }
 
     return msg;
   }
@@ -503,13 +509,33 @@ export class A2ACoordinator {
   // --- Autonomous Behavior ---
 
   async autonomousTick(): Promise<void> {
-    // 1. Expire old challenges
+    // 1. Expire old challenges + evict resolved/expired challenges older than 1h
     const now = Date.now();
     for (const [id, challenge] of this.challenges) {
       if (challenge.status === "pending" && now > challenge.expiresAt) {
         challenge.status = "expired";
         console.log(`[A2A] Challenge #${id} expired`);
       }
+      // Evict non-pending challenges older than CHALLENGE_EVICTION_MS
+      if (
+        challenge.status !== "pending" &&
+        now - challenge.createdAt > CHALLENGE_EVICTION_MS
+      ) {
+        this.challenges.delete(id);
+      }
+    }
+
+    // 1b. Prune relationships if over cap (keep most recently interacted)
+    if (this.relationships.size > MAX_RELATIONSHIPS) {
+      const sorted = Array.from(this.relationships.entries())
+        .sort((a, b) => b[1].lastInteraction - a[1].lastInteraction);
+      this.relationships = new Map(sorted.slice(0, MAX_RELATIONSHIPS));
+    }
+
+    // 1c. Prune alliances if over cap
+    if (this.alliances.size > MAX_ALLIANCES) {
+      const toKeep = Array.from(this.alliances).slice(-MAX_ALLIANCES);
+      this.alliances = new Set(toKeep);
     }
 
     // 2. Compute relationships
