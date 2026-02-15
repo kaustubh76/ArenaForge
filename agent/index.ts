@@ -163,6 +163,7 @@ async function main(): Promise<void> {
   // --- Initialize Autonomous Scheduler (created before API so it's available in GraphQL context) ---
   let scheduler: AutonomousScheduler | undefined;
   const autonomousEnabled = process.env.AUTONOMOUS_ENABLED === "true";
+  const schedulerMatchStore = getMatchStore();
 
   if (autonomousEnabled && tokenManager) {
     scheduler = new AutonomousScheduler({
@@ -170,6 +171,7 @@ async function main(): Promise<void> {
       tokenManager,
       publisher,
       contractClient,
+      matchStore: schedulerMatchStore,
       agentAddress,
       intervalMs: Number(process.env.AUTONOMOUS_INTERVAL_MS) || 300_000,
       autoCreateTournaments: process.env.AUTO_CREATE_TOURNAMENTS !== "false",
@@ -187,6 +189,7 @@ async function main(): Promise<void> {
       }),
       publisher,
       contractClient,
+      matchStore: schedulerMatchStore,
       agentAddress,
       intervalMs: Number(process.env.AUTONOMOUS_INTERVAL_MS) || 300_000,
       autoCreateTournaments: process.env.AUTO_CREATE_TOURNAMENTS !== "false",

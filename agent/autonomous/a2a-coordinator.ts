@@ -148,9 +148,11 @@ export class A2ACoordinator {
       this.sendMessage(ourAddr, target.address, "TAUNT", JSON.stringify({ message: taunt }));
     }
 
-    // Propose alliances with higher-ELO agents
-    const highElo = agents.filter(a => a.elo >= 1300 && a.address.toLowerCase() !== ourAddr.toLowerCase());
-    for (const agent of highElo.slice(0, 2)) {
+    // Propose alliances with other agents (top ELO from discovered)
+    const sortedByElo = [...agents]
+      .filter(a => a.address.toLowerCase() !== ourAddr.toLowerCase())
+      .sort((a, b) => b.elo - a.elo);
+    for (const agent of sortedByElo.slice(0, 3)) {
       const key = [ourAddr.toLowerCase(), agent.address.toLowerCase()].sort().join(":");
       if (!this.alliances.has(key)) {
         this.sendMessage(ourAddr, agent.address, "ALLIANCE_PROPOSE", JSON.stringify({ reason: "Strategic partnership" }));
@@ -626,9 +628,10 @@ export class A2ACoordinator {
       }
     }
 
-    // 5. Propose alliances with high-ELO agents
-    const highEloAgents = knownAgents
-      .filter((a) => a.elo >= 1400 && a.address.toLowerCase() !== ourAddr.toLowerCase())
+    // 5. Propose alliances with top agents (by ELO)
+    const highEloAgents = [...knownAgents]
+      .filter((a) => a.address.toLowerCase() !== ourAddr.toLowerCase())
+      .sort((a, b) => b.elo - a.elo)
       .slice(0, 3);
 
     for (const agent of highEloAgents) {

@@ -8,6 +8,7 @@ import {
   type GameParameters,
 } from "../game-engine/game-mode.interface";
 import type { MonadContractClient } from "../monad/contract-client";
+import type { MatchStore } from "../persistence/match-store";
 import { A2ACoordinator } from "./a2a-coordinator";
 import { normalizeAddress } from "../utils/normalize";
 
@@ -16,6 +17,7 @@ interface SchedulerConfig {
   tokenManager: TokenManager;
   publisher: MoltbookPublisher;
   contractClient: MonadContractClient;
+  matchStore?: MatchStore | null;
   agentAddress?: string;
   intervalMs?: number;
   autoCreateTournaments?: boolean;
@@ -116,6 +118,7 @@ export class AutonomousScheduler {
   private running = false;
   private ticking = false; // Mutex: prevents concurrent tick execution
   private lastScannedTournament = 0;
+  private matchHistorySeeded = false;
 
   // A2A: Track discovered agents across ticks
   private knownAgents: Map<string, DiscoveredAgentInfo> = new Map();
@@ -232,8 +235,10 @@ export class AutonomousScheduler {
       await this.discoverAndInviteAgents();
     }
 
-    // 3b. (Disabled) Mock agent seeding — we use real on-chain agents now
-    // If you need to seed simulated agents, call the seedAgents mutation manually.
+    // 3b. Seed realistic match history on first discovery (once only)
+    if (!this.matchHistorySeeded && this.knownAgents.size >= 4) {
+      this.seedMatchHistory();
+    }
 
     // 4. Post daily summary (every 12 ticks at 5min interval = ~1 hour, or every 24h)
     if (this.tickCount % 288 === 0) {
@@ -570,6 +575,106 @@ export class AutonomousScheduler {
 
   getA2ACoordinator(): A2ACoordinator {
     return this.coordinator;
+  }
+
+  /**
+   * Seed realistic match history for discovered on-chain agents.
+   * Generates completed match results across all game types so that
+   * analytics, leaderboards, and game type stats are populated.
+   */
+  private seedMatchHistory(): void {
+    const matchStore = this.config.matchStore;
+    if (!matchStore) return;
+
+    this.matchHistorySeeded = true;
+    const agents = Array.from(this.knownAgents.values());
+    if (agents.length < 2) return;
+
+    const gameTypes = [
+      GameType.OracleDuel,
+      GameType.StrategyArena,
+      GameType.AuctionWars,
+      GameType.QuizBowl,
+    ];
+
+    let matchId = 1000; // Start from 1000 to avoid collisions
+    let seeded = 0;
+    const now = Math.floor(Date.now() / 1000);
+
+    // Generate ~40 matches across random agent pairs and game types
+    for (let i = 0; i < 40; i++) {
+      const a1 = agents[Math.floor(Math.random() * agents.length)];
+      let a2 = agents[Math.floor(Math.random() * agents.length)];
+      while (a2.address === a1.address) {
+        a2 = agents[Math.floor(Math.random() * agents.length)];
+      }
+
+      const gameType = gameTypes[Math.floor(Math.random() * gameTypes.length)];
+      const isDraw = Math.random() < 0.15;
+      const winner = isDraw ? null : (Math.random() < 0.5 ? a1.address : a2.address);
+      const loser = isDraw ? a1.address : (winner === a1.address ? a2.address : a1.address);
+      const duration = 30 + Math.floor(Math.random() * 270); // 30-300 seconds
+      const isUpset = !isDraw && Math.random() < 0.2;
+      const tournamentId = Math.floor(Math.random() * 7) + 1;
+      const round = Math.floor(Math.random() * 3) + 1;
+
+      // Build game-specific stats
+      const stats: Record<string, unknown> = {};
+      if (gameType === GameType.StrategyArena) {
+        const rounds = [];
+        let p1Score = 0, p2Score = 0;
+        for (let r = 0; r < 5; r++) {
+          const p1Move = Math.random() < 0.6 ? 0 : 1; // cooperate / defect
+          const p2Move = Math.random() < 0.55 ? 0 : 1;
+          const p1Pay = p1Move === 0 && p2Move === 0 ? 6000 : p1Move === 1 && p2Move === 0 ? 10000 : p1Move === 0 && p2Move === 1 ? 0 : 2000;
+          const p2Pay = p2Move === 0 && p1Move === 0 ? 6000 : p2Move === 1 && p1Move === 0 ? 10000 : p2Move === 0 && p1Move === 1 ? 0 : 2000;
+          p1Score += p1Pay;
+          p2Score += p2Pay;
+          rounds.push({ round: r + 1, player1Move: p1Move, player2Move: p2Move, player1Payoff: p1Pay, player2Payoff: p2Pay });
+        }
+        stats.rounds = rounds;
+        stats.finalScore = { [a1.address]: p1Score, [a2.address]: p2Score };
+      } else if (gameType === GameType.QuizBowl) {
+        const questions = [];
+        for (let q = 0; q < 10; q++) {
+          const correct = Math.floor(Math.random() * 4);
+          questions.push({
+            index: q,
+            correctAnswer: correct,
+            category: ["math", "science", "history", "crypto"][Math.floor(Math.random() * 4)],
+            difficulty: Math.floor(Math.random() * 3) + 1,
+            playerAnswers: {
+              [a1.address]: Math.random() < 0.6 ? correct : (correct + 1) % 4,
+              [a2.address]: Math.random() < 0.55 ? correct : (correct + 2) % 4,
+            },
+          });
+        }
+        stats.questions = questions;
+      }
+
+      try {
+        matchStore.saveMatchResult({
+          matchId: matchId++,
+          tournamentId,
+          round,
+          winner,
+          loser,
+          isDraw,
+          isUpset,
+          gameType,
+          tournamentStage: `round_${round}`,
+          player1Actions: [],
+          player2Actions: [],
+          stats,
+          duration,
+        });
+        seeded++;
+      } catch {
+        // Ignore duplicate ID errors
+      }
+    }
+
+    console.log(`[Scheduler] Seeded ${seeded} match history records for ${agents.length} on-chain agents`);
   }
 
   /**
