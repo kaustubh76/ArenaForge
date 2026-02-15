@@ -1,0 +1,52 @@
+# Render Blueprint — ArenaForge Backend
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: arenaforge-agent
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npx tsc --outDir dist
+    startCommand: node dist/agent/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_TESTNET
+        value: "true"
+      - key: MONAD_RPC_URL
+        sync: false
+      - key: MONAD_TESTNET_RPC_URL
+        sync: false
+      - key: ARENA_AGENT_PRIVATE_KEY
+        sync: false
+      - key: ARENA_CORE_ADDRESS
+        sync: false
+      - key: ESCROW_ADDRESS
+        sync: false
+      - key: MATCH_REGISTRY_ADDRESS
+        sync: false
+      - key: ORACLE_DUEL_ADDRESS
+        sync: false
+      - key: STRATEGY_ARENA_ADDRESS
+        sync: false
+      - key: AUCTION_WARS_ADDRESS
+        sync: false
+      - key: QUIZ_BOWL_ADDRESS
+        sync: false
+      - key: SEASONAL_RANKINGS_ADDRESS
+        sync: false
+      - key: SPECTATOR_BETTING_ADDRESS
+        sync: false
+      - key: NADFUN_API_URL
+        value: https://api.nadapp.net
+      - key: CORS_ORIGIN
+        value: "https://*.vercel.app"
+      - key: AUTONOMOUS_ENABLED
+        value: "true"
+      - key: AUTONOMOUS_INTERVAL_MS
+        value: "300000"
+      - key: AUTO_CREATE_TOURNAMENTS
+        value: "true"
+      - key: AUTO_AGENT_DISCOVERY
+        value: "true"

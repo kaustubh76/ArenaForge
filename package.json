@@ -13,6 +13,8 @@
     "agent:dev": "USE_TESTNET=true npx ts-node agent/index.ts",
     "agent:prod": "USE_TESTNET=false npx ts-node agent/index.ts",
     "agent:local": "USE_LOCAL=true npx ts-node agent/index.ts",
+    "agent:build": "npx tsc --outDir dist",
+    "agent:start": "node dist/agent/index.js",
     "anvil:start": "bash scripts/local-deploy.sh",
     "anvil:stop": "bash scripts/anvil-stop.sh",
     "test:e2e": "npx ts-node agent/test-local.ts",
