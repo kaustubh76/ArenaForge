@@ -68,28 +68,32 @@ export function createDataLoaders(
         addresses.map(async (addr: string) => {
           try {
             const raw = await contractClient.getAgent(addr);
-            // viem may return tuple as array or object depending on ABI type
             const agent = raw as Record<string, unknown>;
-            // Check registered field — could be named or at index [6]
-            const isRegistered = Boolean(
-              agent.registered ?? (Array.isArray(raw) ? raw[6] : undefined)
-            );
-            if (agent && isRegistered) {
-              // Named properties or indexed access
-              const handle = String(agent.moltbookHandle ?? (Array.isArray(raw) ? raw[1] : "") || addr.slice(0, 8));
-              const elo = Number(agent.elo ?? (Array.isArray(raw) ? raw[2] : 1200));
-              const matchesPlayed = Number(agent.matchesPlayed ?? (Array.isArray(raw) ? raw[3] : 0));
-              const wins = Number(agent.wins ?? (Array.isArray(raw) ? raw[4] : 0));
-              const losses = Number(agent.losses ?? (Array.isArray(raw) ? raw[5] : 0));
-              return {
-                address: normalizeAddress(addr),
-                moltbookHandle: handle,
-                elo: elo || 1200,
-                matchesPlayed,
-                wins,
-                losses,
-                registered: true,
-              };
+            if (agent) {
+              const handle = String(agent.moltbookHandle || addr.slice(0, 8));
+              // Contract struct may have swapped elo/matchesPlayed layout
+              // Use the larger value as ELO (default 1200) if they look swapped
+              let elo = Number(agent.elo ?? 1200);
+              let matchesPlayed = Number(agent.matchesPlayed ?? 0);
+              if (elo < 100 && matchesPlayed >= 100) {
+                // Values are likely swapped due to ABI/struct mismatch
+                [elo, matchesPlayed] = [matchesPlayed, elo];
+              }
+              const wins = Number(agent.wins ?? 0);
+              const losses = Number(agent.losses ?? 0);
+              // Treat agent as registered if it has a non-empty handle
+              const isRegistered = handle.length > 0 && handle !== addr.slice(0, 8);
+              if (isRegistered) {
+                return {
+                  address: normalizeAddress(addr),
+                  moltbookHandle: handle,
+                  elo: elo || 1200,
+                  matchesPlayed,
+                  wins,
+                  losses,
+                  registered: true,
+                };
+              }
             }
           } catch (err) {
             console.debug(`[DataLoader] Contract getAgent failed for ${addr.slice(0, 10)}...:`, err);

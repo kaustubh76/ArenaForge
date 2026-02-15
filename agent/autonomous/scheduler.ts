@@ -371,11 +371,14 @@ export class AutonomousScheduler {
               const raw = await this.config.contractClient.getAgent(addr);
               const agent = raw as Record<string, unknown>;
               if (agent) {
-                // viem may return named or indexed properties
-                const rawElo = agent.elo ?? (Array.isArray(raw) ? raw[2] : undefined);
-                const rawMatches = agent.matchesPlayed ?? (Array.isArray(raw) ? raw[3] : undefined);
-                elo = Number(rawElo ?? 1200) || 1200;
-                matchesPlayed = Number(rawMatches ?? 0);
+                let rawElo = Number(agent.elo ?? 1200);
+                let rawMatches = Number(agent.matchesPlayed ?? 0);
+                // Contract struct may have swapped elo/matchesPlayed layout
+                if (rawElo < 100 && rawMatches >= 100) {
+                  [rawElo, rawMatches] = [rawMatches, rawElo];
+                }
+                elo = rawElo || 1200;
+                matchesPlayed = rawMatches;
               }
             } catch (err) {
               console.debug(`[Scheduler] Agent data fetch failed for ${addr.slice(0, 10)}..., using defaults:`, err);
