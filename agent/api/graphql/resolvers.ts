@@ -20,7 +20,6 @@ import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import type { A2ACoordinator } from "../../autonomous/a2a-coordinator";
 import { normalizeAddress } from "../../utils/normalize";
 import { clampLimit, clampOffset, validateId, validateAddress } from "../../utils/validate";
-import { seededAgentCache } from "../../autonomous/scheduler";
 
 export interface ResolverContext {
   loaders: DataLoaders;
@@ -210,13 +209,12 @@ export const resolvers = {
       const limit = clampLimit(args.limit ?? 50);
       const offset = clampOffset(args.offset ?? 0);
 
-      // Collect all known agents from scheduler + seeded cache
+      // Collect all known agents from scheduler (on-chain discovered)
       const discovered = context.scheduler?.getDiscoveredAgents() ?? [];
       const allAddresses = new Set<string>();
       for (const d of discovered) allAddresses.add(d.address.toLowerCase());
-      for (const [key] of seededAgentCache) allAddresses.add(key);
 
-      // Load agent data via dataloader (handles contract + seeded fallback)
+      // Load agent data via dataloader (contract + seeded fallback)
       const agents = await Promise.all(
         Array.from(allAddresses).map((addr) => context.loaders.agentLoader.load(addr))
       );
@@ -264,11 +262,10 @@ export const resolvers = {
       const limit = clampLimit(args.limit ?? 20);
       const offset = clampOffset(args.offset ?? 0);
 
-      // Collect all known agent addresses
+      // Collect all known agent addresses (on-chain discovered)
       const discovered = context.scheduler?.getDiscoveredAgents() ?? [];
       const allAddresses = new Set<string>();
       for (const d of discovered) allAddresses.add(d.address.toLowerCase());
-      for (const [key] of seededAgentCache) allAddresses.add(key);
 
       // Load and filter
       const agents = await Promise.all(

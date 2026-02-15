@@ -232,10 +232,8 @@ export class AutonomousScheduler {
       await this.discoverAndInviteAgents();
     }
 
-    // 3b. Auto-seed simulated agents on first tick if arena is empty
-    if (this.tickCount === 1 && this.knownAgents.size < 8) {
-      await this.seedAgents(16);
-    }
+    // 3b. (Disabled) Mock agent seeding — we use real on-chain agents now
+    // If you need to seed simulated agents, call the seedAgents mutation manually.
 
     // 4. Post daily summary (every 12 ticks at 5min interval = ~1 hour, or every 24h)
     if (this.tickCount % 288 === 0) {

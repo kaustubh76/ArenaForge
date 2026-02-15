@@ -79,8 +79,8 @@ export function createDataLoaders(
                 registered: Boolean(agent.registered),
               };
             }
-          } catch {
-            // Contract lookup failed — fall through to seeded cache
+          } catch (err) {
+            console.debug(`[DataLoader] Contract getAgent failed for ${addr.slice(0, 10)}...:`, err);
           }
 
           // Fallback: check seeded agent cache
