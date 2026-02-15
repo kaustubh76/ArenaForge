@@ -66,6 +66,7 @@ export class ClaudeAnalysisService {
   private client: ClaudeClient | null = null;
   private enabled: boolean;
   private cache: Map<string, CacheEntry<unknown>> = new Map();
+  private cacheCleanupTimer: ReturnType<typeof setInterval> | null = null;
   private circuitBreaker: CircuitBreakerState = {
     failures: 0,
     lastFailure: 0,
@@ -75,6 +76,7 @@ export class ClaudeAnalysisService {
   private readonly CIRCUIT_THRESHOLD = 3;
   private readonly CIRCUIT_RESET_MS = 300000; // 5 minutes
   private readonly CACHE_TTL_MS = 300000; // 5 minutes
+  private readonly CACHE_CLEANUP_INTERVAL_MS = 60000; // 1 minute
 
   private logThinking: boolean;
   private logTokenUsage: boolean;
@@ -92,6 +94,27 @@ export class ClaudeAnalysisService {
         this.enabled = false;
       }
     }
+
+    // Periodic cache cleanup — evict expired entries even if never read again
+    this.cacheCleanupTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [key, entry] of this.cache) {
+        if (now - entry.timestamp > entry.ttlMs) {
+          this.cache.delete(key);
+        }
+      }
+    }, this.CACHE_CLEANUP_INTERVAL_MS);
+    if (this.cacheCleanupTimer.unref) {
+      this.cacheCleanupTimer.unref();
+    }
+  }
+
+  destroy(): void {
+    if (this.cacheCleanupTimer) {
+      clearInterval(this.cacheCleanupTimer);
+      this.cacheCleanupTimer = null;
+    }
+    this.cache.clear();
   }
 
   isEnabled(): boolean {
