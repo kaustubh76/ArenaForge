@@ -124,7 +124,19 @@ export function AnalyticsDashboard() {
           `{ matchDurations(limit: 100) { matchId gameType duration timestamp } }`
         ),
       ]);
-      setDurationData(dur?.durationByGameType ?? []);
+      const rawDuration = dur?.durationByGameType ?? [];
+      // Ensure all 4 game types are always represented (even with zero data)
+      const ALL_GAME_TYPES = ['ORACLE_DUEL', 'STRATEGY_ARENA', 'AUCTION_WARS', 'QUIZ_BOWL'];
+      const existingTypes = new Set(rawDuration.map(d => d.gameType));
+      const fullDuration = [
+        ...rawDuration,
+        ...ALL_GAME_TYPES.filter(gt => !existingTypes.has(gt)).map(gt => ({
+          gameType: gt,
+          averageDuration: 0,
+          matchCount: 0,
+        })),
+      ];
+      setDurationData(fullDuration);
       setMatchDurations(md?.matchDurations ?? []);
       setLoading(false);
     }
@@ -769,7 +781,7 @@ function GameTypesTab({ durationData }: { durationData: DurationByGameType[] }) 
             <Gamepad2 size={14} />
             Match Distribution
           </h3>
-          {pieData.length > 0 ? (
+          {totalMatches > 0 ? (
             <div className="flex items-center justify-center gap-8">
               <ResponsiveContainer width={220} height={220}>
                 <PieChart>
@@ -805,7 +817,25 @@ function GameTypesTab({ durationData }: { durationData: DurationByGameType[] }) 
               </div>
             </div>
           ) : (
-            <EmptyChart message="No match data yet" />
+            <div className="flex items-center justify-center gap-8">
+              <div className="w-[220px] h-[220px] flex items-center justify-center">
+                <div className="w-[180px] h-[180px] rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
+                  <span className="text-xs text-gray-500">No matches yet</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {pieData.map(d => (
+                  <div key={d.name} className="flex items-center gap-2 text-sm">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: d.fill }} />
+                    <span className="text-gray-300">{d.name}</span>
+                    <span className="text-gray-500 font-mono">0</span>
+                  </div>
+                ))}
+                <div className="border-t border-white/10 pt-2 mt-2">
+                  <span className="text-xs text-gray-500">Matches begin when tournaments start</span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
