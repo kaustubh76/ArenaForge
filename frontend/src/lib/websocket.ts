@@ -157,7 +157,7 @@ class WebSocketClient {
       reconnectionDelay: this.config.reconnectionDelay,
       reconnectionDelayMax: this.config.reconnectionDelayMax,
       reconnectionAttempts: this.config.reconnectionAttempts,
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
     });
 
     this.setupEventHandlers();

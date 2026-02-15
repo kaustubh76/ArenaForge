@@ -20,6 +20,7 @@ import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import type { A2ACoordinator } from "../../autonomous/a2a-coordinator";
 import { normalizeAddress } from "../../utils/normalize";
 import { clampLimit, clampOffset, validateId, validateAddress } from "../../utils/validate";
+import { seededAgentCache } from "../../autonomous/scheduler";
 
 export interface ResolverContext {
   loaders: DataLoaders;
@@ -200,15 +201,47 @@ export const resolvers = {
       return [];
     },
 
-    // Agent queries
+    // Agent queries — combines on-chain discovered agents + seeded cache
     agents: async (
       _: unknown,
       args: { limit?: number; offset?: number; sortBy?: string },
       context: ResolverContext
     ) => {
-      // This would need a way to enumerate all agents
-      // For now, return empty - would need index contract or off-chain indexer
-      return [];
+      const limit = clampLimit(args.limit ?? 50);
+      const offset = clampOffset(args.offset ?? 0);
+
+      // Collect all known agents from scheduler + seeded cache
+      const discovered = context.scheduler?.getDiscoveredAgents() ?? [];
+      const allAddresses = new Set<string>();
+      for (const d of discovered) allAddresses.add(d.address.toLowerCase());
+      for (const [key] of seededAgentCache) allAddresses.add(key);
+
+      // Load agent data via dataloader (handles contract + seeded fallback)
+      const agents = await Promise.all(
+        Array.from(allAddresses).map((addr) => context.loaders.agentLoader.load(addr))
+      );
+
+      const valid = agents.filter((a): a is NonNullable<typeof a> => a !== null);
+
+      // Sort
+      const sortBy = args.sortBy || "ELO";
+      valid.sort((a, b) => {
+        switch (sortBy) {
+          case "WINS": return b.wins - a.wins;
+          case "MATCHES_PLAYED": return b.matchesPlayed - a.matchesPlayed;
+          case "WIN_RATE": {
+            const wrA = a.matchesPlayed > 0 ? a.wins / a.matchesPlayed : 0;
+            const wrB = b.matchesPlayed > 0 ? b.wins / b.matchesPlayed : 0;
+            return wrB - wrA;
+          }
+          default: return b.elo - a.elo;
+        }
+      });
+
+      return valid.slice(offset, offset + limit).map((a) => ({
+        ...a,
+        winRate: a.matchesPlayed > 0 ? a.wins / a.matchesPlayed : 0,
+      }));
     },
 
     agent: async (_: unknown, args: { address: string }, context: ResolverContext) => {
@@ -222,18 +255,44 @@ export const resolvers = {
       };
     },
 
-    // Leaderboard
+    // Leaderboard — uses discovered agents + seeded cache
     leaderboard: async (
       _: unknown,
       args: { gameType?: string; limit?: number; offset?: number },
       context: ResolverContext
     ) => {
-      // Would need an off-chain indexer to efficiently track leaderboard
-      // For now, return empty
+      const limit = clampLimit(args.limit ?? 20);
+      const offset = clampOffset(args.offset ?? 0);
+
+      // Collect all known agent addresses
+      const discovered = context.scheduler?.getDiscoveredAgents() ?? [];
+      const allAddresses = new Set<string>();
+      for (const d of discovered) allAddresses.add(d.address.toLowerCase());
+      for (const [key] of seededAgentCache) allAddresses.add(key);
+
+      // Load and filter
+      const agents = await Promise.all(
+        Array.from(allAddresses).map((addr) => context.loaders.agentLoader.load(addr))
+      );
+
+      const valid = agents.filter((a): a is NonNullable<typeof a> => a !== null && a.matchesPlayed > 0);
+
+      // Sort by ELO descending
+      valid.sort((a, b) => b.elo - a.elo);
+
+      const total = valid.length;
+      const page = valid.slice(offset, offset + limit);
+
       return {
-        entries: [],
-        total: 0,
-        hasMore: false,
+        entries: page.map((a, i) => ({
+          rank: offset + i + 1,
+          agent: {
+            ...a,
+            winRate: a.matchesPlayed > 0 ? a.wins / a.matchesPlayed : 0,
+          },
+        })),
+        total,
+        hasMore: offset + limit < total,
       };
     },
 
@@ -1070,6 +1129,15 @@ export const resolvers = {
         createdAt: Math.floor(challenge.createdAt / 1000),
         expiresAt: Math.floor(challenge.expiresAt / 1000),
       };
+    },
+
+    seedAgents: async (
+      _: unknown,
+      args: { count?: number },
+      context: ResolverContext
+    ) => {
+      if (!context.scheduler) throw new Error("Scheduler not available");
+      return context.scheduler.seedAgents(args.count ?? 16);
     },
   },
 };

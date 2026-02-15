@@ -569,6 +569,7 @@ export const typeDefs = `#graphql
     sellArenaToken(amountTokens: String!): TokenTradeResult
     sendA2AChallenge(targetAgent: String!, gameType: GameType!, stake: String!): A2AChallenge
     respondToChallenge(challengeId: Int!, accept: Boolean!): A2AChallenge
+    seedAgents(count: Int): Int!
   }
 
   schema {

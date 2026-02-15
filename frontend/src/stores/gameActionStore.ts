@@ -235,7 +235,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, pendingMove: null, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.error('[gameActionStore] submitMove failed:', error);
+      console.debug('[gameActionStore] submitMove failed:', error);
       // Clear submission record on failure to allow retry
       clearSubmission(matchId, 'move');
       set({
@@ -308,7 +308,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, pendingBids: {}, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.error('[gameActionStore] submitBids failed:', error);
+      console.debug('[gameActionStore] submitBids failed:', error);
       clearSubmission(matchId, 'bids');
       set({
         submitting: false,
@@ -384,7 +384,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.error('[gameActionStore] submitAnswer failed:', error);
+      console.debug('[gameActionStore] submitAnswer failed:', error);
       set({
         submitting: false,
         submitError: error instanceof Error ? error.message : 'Submission failed',
@@ -438,7 +438,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.error('[gameActionStore] submitPrediction failed:', error);
+      console.debug('[gameActionStore] submitPrediction failed:', error);
       clearSubmission(matchId, 'prediction');
       set({
         submitting: false,

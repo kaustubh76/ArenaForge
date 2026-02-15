@@ -4,6 +4,7 @@ import DataLoader from "dataloader";
 import type { MonadContractClient } from "../../monad/contract-client";
 import type { MatchStore } from "../../persistence/match-store";
 import { normalizeAddress } from "../../utils/normalize";
+import { getSeededAgent } from "../../autonomous/scheduler";
 
 export interface DataLoaders {
   agentLoader: DataLoader<string, AgentData | null>;
@@ -67,18 +68,35 @@ export function createDataLoaders(
         addresses.map(async (addr: string) => {
           try {
             const agent = await contractClient.getAgent(addr) as Record<string, unknown>;
+            if (agent && agent.registered) {
+              return {
+                address: normalizeAddress(addr),
+                moltbookHandle: String(agent.moltbookHandle || addr.slice(0, 8)),
+                elo: Number(agent.elo ?? 1200),
+                matchesPlayed: Number(agent.matchesPlayed ?? 0),
+                wins: Number(agent.wins ?? 0),
+                losses: Number(agent.losses ?? 0),
+                registered: Boolean(agent.registered),
+              };
+            }
+          } catch {
+            // Contract lookup failed — fall through to seeded cache
+          }
+
+          // Fallback: check seeded agent cache
+          const seeded = getSeededAgent(addr);
+          if (seeded) {
             return {
               address: normalizeAddress(addr),
-              moltbookHandle: String(agent.moltbookHandle || addr.slice(0, 8)),
-              elo: Number(agent.elo ?? 1200),
-              matchesPlayed: Number(agent.matchesPlayed ?? 0),
-              wins: Number(agent.wins ?? 0),
-              losses: Number(agent.losses ?? 0),
-              registered: Boolean(agent.registered),
+              moltbookHandle: seeded.moltbookHandle,
+              elo: seeded.elo,
+              matchesPlayed: seeded.matchesPlayed,
+              wins: seeded.wins,
+              losses: seeded.losses,
+              registered: true,
             };
-          } catch {
-            return null;
           }
+          return null;
         })
       );
       return results;

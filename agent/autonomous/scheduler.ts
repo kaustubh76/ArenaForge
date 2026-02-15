@@ -232,6 +232,11 @@ export class AutonomousScheduler {
       await this.discoverAndInviteAgents();
     }
 
+    // 3b. Auto-seed simulated agents on first tick if arena is empty
+    if (this.tickCount === 1 && this.knownAgents.size < 8) {
+      await this.seedAgents(16);
+    }
+
     // 4. Post daily summary (every 12 ticks at 5min interval = ~1 hour, or every 24h)
     if (this.tickCount % 288 === 0) {
       // ~24 hours at 5min intervals
@@ -564,6 +569,96 @@ export class AutonomousScheduler {
   getA2ACoordinator(): A2ACoordinator {
     return this.coordinator;
   }
+
+  /**
+   * Seed simulated agents into the discovered agents pool.
+   * Used to populate the arena with AI agents for demonstration.
+   * Returns the number of newly seeded agents.
+   */
+  async seedAgents(count: number = 16): Promise<number> {
+    const handles = [
+      "CryptoWolf", "NeuralNinja", "QuantumFox", "DeepOracle",
+      "AlphaStrike", "BetaMind", "GammaPulse", "DeltaForce",
+      "OmegaBot", "SigmaStrat", "ThetaPrime", "ZetaCore",
+      "NovaFlare", "LunarTide", "SolarBlaze", "VoidWalker",
+      "IronLogic", "StealthNode", "RapidFire", "FrostByte",
+      "NeonDrift", "CyberHawk", "BlitzKing", "ShadowCalc",
+      "EchoGrid", "PixelStorm", "VectorPush", "HexMaster",
+      "ByteForge", "ChainReaper", "WarpDrive", "TurboMind",
+    ];
+
+    let seeded = 0;
+
+    for (let i = 0; i < count && i < handles.length; i++) {
+      // Generate a deterministic pseudo-address from handle
+      const addrHex = Array.from(handles[i])
+        .map((c) => c.charCodeAt(0).toString(16).padStart(2, "0"))
+        .join("")
+        .padEnd(40, "0")
+        .slice(0, 40);
+      const address = normalizeAddress(`0x${addrHex}`);
+      const key = address.toLowerCase();
+
+      if (this.knownAgents.has(key)) continue;
+
+      // Generate varied stats
+      const elo = 900 + Math.floor(Math.random() * 700); // 900-1600
+      const matchesPlayed = 5 + Math.floor(Math.random() * 80); // 5-84
+      const winRate = 0.3 + Math.random() * 0.5; // 30%-80%
+      const wins = Math.floor(matchesPlayed * winRate);
+
+      this.knownAgents.set(key, {
+        address,
+        discoveredAt: Date.now() - Math.floor(Math.random() * 86400000),
+        fromTournament: 1,
+        matchesPlayed,
+        elo,
+      });
+
+      // Store in seeded agents cache (for resolver/dataloader fallback)
+      seededAgentCache.set(key, {
+        address,
+        moltbookHandle: handles[i],
+        elo,
+        peakElo: elo + Math.floor(Math.random() * 100),
+        matchesPlayed,
+        wins,
+        losses: matchesPlayed - wins,
+        registered: true,
+      });
+
+      seeded++;
+    }
+
+    // After seeding, auto-populate open tournaments
+    if (seeded > 0) {
+      console.log(`[Scheduler] Seeded ${seeded} simulated agents (total: ${this.knownAgents.size})`);
+      await this.autoPopulateTournaments();
+    }
+
+    return seeded;
+  }
+}
+
+/**
+ * In-memory cache of seeded agent data for resolver/dataloader fallback.
+ * When the contract doesn't know about an agent, we check here.
+ */
+export interface SeededAgentData {
+  address: string;
+  moltbookHandle: string;
+  elo: number;
+  peakElo: number;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+  registered: boolean;
+}
+
+export const seededAgentCache = new Map<string, SeededAgentData>();
+
+export function getSeededAgent(address: string): SeededAgentData | null {
+  return seededAgentCache.get(address.toLowerCase()) ?? null;
 }
 
 function formatTokenPrice(weiStr: string): string {
