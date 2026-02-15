@@ -42,10 +42,12 @@ export const resolvers = {
       const count = await context.contractClient.getTournamentCount();
       const tournaments = [];
 
-      const limit = args.limit ?? 50;
-      const offset = args.offset ?? 0;
+      const limit = clampLimit(args.limit);
+      const offset = clampOffset(args.offset);
 
-      for (let i = 1; i <= count; i++) {
+      // Cap iteration to prevent DoS on large tournament counts
+      const maxScan = Math.min(count, 500);
+      for (let i = 1; i <= maxScan; i++) {
         const tournament = await context.loaders.tournamentLoader.load(i);
         if (!tournament) continue;
 
@@ -136,6 +138,7 @@ export const resolvers = {
     },
 
     match: async (_: unknown, args: { id: number }, context: ResolverContext) => {
+      validateId(args.id, "match ID");
       const match = await context.loaders.matchLoader.load(args.id);
       if (!match) return null;
 
@@ -171,7 +174,7 @@ export const resolvers = {
     },
 
     recentMatches: async (_: unknown, args: { limit?: number }, context: ResolverContext) => {
-      const limit = args.limit ?? 20;
+      const limit = clampLimit(args.limit, 20);
 
       if (context.matchStore) {
         const matches = context.matchStore.getRecentMatches(limit);
@@ -491,7 +494,10 @@ export const resolvers = {
             roundHashes: replayData.roundStateHashes,
           };
         }
-      } catch { /* replay contract may not have data for this match */ }
+      } catch (err) {
+        // Replay contract may not have data for this match — log for debugging
+        console.debug(`[GraphQL] Replay data unavailable for match #${args.matchId}:`, err);
+      }
 
       // Build rounds from SQLite stats_json (resultData from game engine)
       const stats = matchResult?.stats as Record<string, unknown> | undefined;
