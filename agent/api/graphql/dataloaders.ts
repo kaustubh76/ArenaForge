@@ -67,16 +67,28 @@ export function createDataLoaders(
       const results = await Promise.all(
         addresses.map(async (addr: string) => {
           try {
-            const agent = await contractClient.getAgent(addr) as Record<string, unknown>;
-            if (agent && agent.registered) {
+            const raw = await contractClient.getAgent(addr);
+            // viem may return tuple as array or object depending on ABI type
+            const agent = raw as Record<string, unknown>;
+            // Check registered field — could be named or at index [6]
+            const isRegistered = Boolean(
+              agent.registered ?? (Array.isArray(raw) ? raw[6] : undefined)
+            );
+            if (agent && isRegistered) {
+              // Named properties or indexed access
+              const handle = String(agent.moltbookHandle ?? (Array.isArray(raw) ? raw[1] : "") || addr.slice(0, 8));
+              const elo = Number(agent.elo ?? (Array.isArray(raw) ? raw[2] : 1200));
+              const matchesPlayed = Number(agent.matchesPlayed ?? (Array.isArray(raw) ? raw[3] : 0));
+              const wins = Number(agent.wins ?? (Array.isArray(raw) ? raw[4] : 0));
+              const losses = Number(agent.losses ?? (Array.isArray(raw) ? raw[5] : 0));
               return {
                 address: normalizeAddress(addr),
-                moltbookHandle: String(agent.moltbookHandle || addr.slice(0, 8)),
-                elo: Number(agent.elo ?? 1200),
-                matchesPlayed: Number(agent.matchesPlayed ?? 0),
-                wins: Number(agent.wins ?? 0),
-                losses: Number(agent.losses ?? 0),
-                registered: Boolean(agent.registered),
+                moltbookHandle: handle,
+                elo: elo || 1200,
+                matchesPlayed,
+                wins,
+                losses,
+                registered: true,
               };
             }
           } catch (err) {

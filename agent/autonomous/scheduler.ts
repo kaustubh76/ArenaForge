@@ -368,13 +368,14 @@ export class AutonomousScheduler {
             let elo = 1200;
             let matchesPlayed = 0;
             try {
-              const agent = await this.config.contractClient.getAgent(addr) as {
-                elo?: bigint;
-                matchesPlayed?: bigint;
-              };
+              const raw = await this.config.contractClient.getAgent(addr);
+              const agent = raw as Record<string, unknown>;
               if (agent) {
-                elo = Number(agent.elo ?? 1200);
-                matchesPlayed = Number(agent.matchesPlayed ?? 0);
+                // viem may return named or indexed properties
+                const rawElo = agent.elo ?? (Array.isArray(raw) ? raw[2] : undefined);
+                const rawMatches = agent.matchesPlayed ?? (Array.isArray(raw) ? raw[3] : undefined);
+                elo = Number(rawElo ?? 1200) || 1200;
+                matchesPlayed = Number(rawMatches ?? 0);
               }
             } catch (err) {
               console.debug(`[Scheduler] Agent data fetch failed for ${addr.slice(0, 10)}..., using defaults:`, err);
