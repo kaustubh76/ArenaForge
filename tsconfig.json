@@ -16,5 +16,5 @@
     "sourceMap": true
   },
   "include": ["agent/**/*"],
-  "exclude": ["node_modules", "dist", "out", "lib", "cache", "agent/setup-arena.ts", "agent/test-local.ts", "agent/test-testnet.ts"]
+  "exclude": ["node_modules", "dist", "out", "lib", "cache", "agent/setup-arena.ts", "agent/test-local.ts", "agent/test-testnet.ts", "agent/scripts"]
 }
