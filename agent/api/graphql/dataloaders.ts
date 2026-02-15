@@ -3,6 +3,7 @@
 import DataLoader from "dataloader";
 import type { MonadContractClient } from "../../monad/contract-client";
 import type { MatchStore } from "../../persistence/match-store";
+import { normalizeAddress } from "../../utils/normalize";
 
 export interface DataLoaders {
   agentLoader: DataLoader<string, AgentData | null>;
@@ -67,7 +68,7 @@ export function createDataLoaders(
           try {
             const agent = await contractClient.getAgent(addr) as Record<string, unknown>;
             return {
-              address: addr.toLowerCase(),
+              address: normalizeAddress(addr),
               moltbookHandle: String(agent.moltbookHandle || addr.slice(0, 8)),
               elo: Number(agent.elo ?? 1200),
               matchesPlayed: Number(agent.matchesPlayed ?? 0),
@@ -83,7 +84,7 @@ export function createDataLoaders(
       return results;
     },
     {
-      cacheKeyFn: (key: string) => key.toLowerCase(),
+      cacheKeyFn: (key: string) => normalizeAddress(key),
     }
   );
 

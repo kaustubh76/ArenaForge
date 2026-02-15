@@ -5,6 +5,7 @@ import type { Room } from "../../events";
 import { joinRoom, leaveRoom, cleanupSocket, getSocketRooms } from "./rooms";
 import { setupChatHandler, cleanupChatRateLimit, type ChatMessage } from "./chat";
 import { createRateLimiter } from "../../utils/rate-limiter";
+import { normalizeAddress } from "../../utils/normalize";
 
 export interface ClientToServerEvents {
   "join:tournament": (tournamentId: number) => void;
@@ -136,7 +137,7 @@ export function setupSocketHandlers(
       return;
     }
     socket.data.lastActivity = Date.now();
-    joinRoom(socket, { type: "agent", id: agentAddress.toLowerCase() });
+    joinRoom(socket, { type: "agent", id: normalizeAddress(agentAddress) });
     socket.emit("subscriptions", getSocketRooms(socket));
   });
 
@@ -144,7 +145,7 @@ export function setupSocketHandlers(
     if (!checkRoomRateLimit(socket)) return;
     if (typeof agentAddress !== "string") return;
     socket.data.lastActivity = Date.now();
-    leaveRoom(socket, { type: "agent", id: agentAddress.toLowerCase() });
+    leaveRoom(socket, { type: "agent", id: normalizeAddress(agentAddress) });
     socket.emit("subscriptions", getSocketRooms(socket));
   });
 

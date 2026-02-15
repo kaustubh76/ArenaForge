@@ -8,6 +8,7 @@ import type {
   GameType,
   TournamentFormat,
 } from "../game-engine/game-mode.interface";
+import { normalizeAddress } from "../utils/normalize";
 
 // --- Event Payloads ---
 
@@ -214,7 +215,7 @@ export function getEventRooms<T extends BroadcastEventName>(
     }
     case "agent:eloUpdated": {
       const agentPayload = payload as AgentEloUpdatedEvent;
-      rooms.push({ type: "agent", id: agentPayload.agent.toLowerCase() });
+      rooms.push({ type: "agent", id: normalizeAddress(agentPayload.agent) });
       break;
     }
     case "a2a:challenge":
