@@ -105,14 +105,14 @@ export class MonadContractClient {
   constructor() {
     if (!walletClient) throw new Error("Wallet client not initialized");
 
-    const coreAddr = process.env.ARENA_CORE_ADDRESS as `0x${string}`;
-    const escrowAddr = process.env.ESCROW_ADDRESS as `0x${string}`;
-    const registryAddr = process.env.MATCH_REGISTRY_ADDRESS as `0x${string}`;
-    const oracleAddr = process.env.ORACLE_DUEL_ADDRESS as `0x${string}`;
-    const strategyAddr = process.env.STRATEGY_ARENA_ADDRESS as `0x${string}`;
+    const coreAddr = process.env.ARENA_CORE_ADDRESS?.trim() as `0x${string}`;
+    const escrowAddr = process.env.ESCROW_ADDRESS?.trim() as `0x${string}`;
+    const registryAddr = process.env.MATCH_REGISTRY_ADDRESS?.trim() as `0x${string}`;
+    const oracleAddr = process.env.ORACLE_DUEL_ADDRESS?.trim() as `0x${string}`;
+    const strategyAddr = process.env.STRATEGY_ARENA_ADDRESS?.trim() as `0x${string}`;
     // Phase 2 addresses
-    const seasonalAddr = process.env.SEASONAL_RANKINGS_ADDRESS as `0x${string}` | undefined;
-    const bettingAddr = process.env.SPECTATOR_BETTING_ADDRESS as `0x${string}` | undefined;
+    const seasonalAddr = process.env.SEASONAL_RANKINGS_ADDRESS?.trim() as `0x${string}` | undefined;
+    const bettingAddr = process.env.SPECTATOR_BETTING_ADDRESS?.trim() as `0x${string}` | undefined;
 
     this.arenaCore = getContract({
       address: coreAddr,
