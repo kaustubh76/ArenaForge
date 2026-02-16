@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   Eye, Trophy, TrendingUp, Users, Wifi, WifiOff, BarChart3,
-  Target, Flame, Snowflake,
+  Target, Flame, Snowflake, Swords, Clock,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -17,6 +17,8 @@ import { BettingPanel, BetHistory } from '@/components/betting';
 import { AnimatedScore } from '@/components/arcade/AnimatedScore';
 import { truncateAddress } from '@/constants/ui';
 import { CHART_COLORS, TOOLTIP_STYLE } from '@/components/charts';
+import { fetchGraphQL } from '@/lib/api';
+import { GlowBadge } from '@/components/arcade/GlowBadge';
 
 // --- Betting Analytics Components ---
 
@@ -243,10 +245,135 @@ function YourStatsRadar({ profile }: {
   );
 }
 
+// --- GraphQL hooks for arena data (supplements on-chain reads) ---
+
+interface RecentMatchGQL {
+  id: number;
+  tournamentId: number;
+  player1: string;
+  player2: string;
+  winner: string | null;
+  gameType: string;
+  status: string;
+}
+
+interface ArenaStatsGQL {
+  totalMatches: number;
+  totalAgents: number;
+  gameTypes: Array<{ gameType: string; matchCount: number }>;
+}
+
+function useRecentMatchesGQL() {
+  const [matches, setMatches] = useState<RecentMatchGQL[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const fetch_ = async () => {
+      try {
+        const { data } = await fetchGraphQL<{ recentMatches: RecentMatchGQL[] }>(
+          `{ recentMatches(limit: 10) { id tournamentId player1 player2 winner gameType status } }`,
+        );
+        if (mounted && data?.recentMatches) setMatches(data.recentMatches);
+      } catch { /* silent */ }
+    };
+    fetch_();
+    const interval = setInterval(fetch_, 20_000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+  return matches;
+}
+
+function useArenaStatsGQL() {
+  const [stats, setStats] = useState<ArenaStatsGQL | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    const fetch_ = async () => {
+      try {
+        const { data } = await fetchGraphQL<{
+          durationByGameType: Array<{ gameType: string; matchCount: number; averageDuration: number }>;
+          agents: Array<{ address: string }>;
+        }>(
+          `{ durationByGameType { gameType matchCount averageDuration } agents(limit: 100) { address } }`,
+        );
+        if (mounted && data) {
+          const gt = data.durationByGameType || [];
+          setStats({
+            totalMatches: gt.reduce((s, g) => s + g.matchCount, 0),
+            totalAgents: data.agents?.length ?? 0,
+            gameTypes: gt,
+          });
+        }
+      } catch { /* silent */ }
+    };
+    fetch_();
+    return () => { mounted = false; };
+  }, []);
+  return stats;
+}
+
+function TopAgentsMini() {
+  const [agents, setAgents] = useState<Array<{ address: string; moltbookHandle: string; elo: number; matchesPlayed: number; wins: number }>>([]);
+  useEffect(() => {
+    let mounted = true;
+    fetchGraphQL<{ leaderboard: typeof agents }>(
+      `{ leaderboard(limit: 10) { address moltbookHandle elo matchesPlayed wins } }`,
+    ).then(({ data }) => {
+      if (mounted && data?.leaderboard) setAgents(data.leaderboard);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  if (agents.length === 0) {
+    return (
+      <div className="p-6 text-center">
+        <Users size={24} className="mx-auto text-gray-600 mb-2" />
+        <p className="text-sm text-gray-400">No agents yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="px-3 py-2 border-b border-white/[0.06]">
+        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Top Agents by ELO</span>
+      </div>
+      {agents.map((a, i) => (
+        <Link
+          key={a.address}
+          to={`/agent/${a.address}`}
+          className={clsx(
+            'p-3 flex items-center gap-3 transition-all duration-150 hover:bg-surface-1',
+            i % 2 === 0 ? 'bg-surface-2' : 'bg-surface-3/50',
+          )}
+        >
+          <span
+            className={clsx(
+              'w-6 text-center font-bold',
+              i === 0 ? 'text-arcade-gold' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-gray-500',
+            )}
+            style={i === 0 ? { textShadow: '0 0 6px rgba(255,215,0,0.3)' } : undefined}
+          >
+            {i + 1}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-white truncate">{a.moltbookHandle}</div>
+            <div className="text-[10px] text-gray-400">
+              ELO {a.elo} | {a.matchesPlayed} matches | {a.wins}W
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function SpectatorHub() {
   const { allMatches, fetchFromChain } = useArenaStore();
   const { myBettorProfile, topBettors, fetchTopBettorsLeaderboard, userBets } = useBettingStore();
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
+
+  // GraphQL data (seeded match history + arena stats)
+  const recentMatchesGQL = useRecentMatchesGQL();
+  const arenaStats = useArenaStatsGQL();
 
   // Get live matches (in progress)
   const liveMatches = allMatches.filter(m => m.status === MatchStatus.InProgress);
@@ -261,11 +388,6 @@ export function SpectatorHub() {
     fetchFromChain();
     fetchTopBettorsLeaderboard(10);
   }, [fetchFromChain, fetchTopBettorsLeaderboard]);
-
-  // Calculate betting stats
-  const activeBets = userBets.filter(b => b.status === 0);
-  const totalWagered = myBettorProfile ? parseFloat(myBettorProfile.totalWagered) : 0;
-  const netProfit = myBettorProfile ? parseFloat(myBettorProfile.netProfit) : 0;
 
   return (
     <div>
@@ -300,28 +422,47 @@ export function SpectatorHub() {
           <p className="text-[10px] text-gray-500 mt-1">LIVE MATCHES</p>
         </div>
         <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
-          <AnimatedScore value={activeBets.length} className="text-lg text-arcade-purple" />
-          <p className="text-[10px] text-gray-500 mt-1">ACTIVE BETS</p>
+          <div className="flex items-center justify-center gap-2">
+            <Swords size={16} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
+            <AnimatedScore value={arenaStats?.totalMatches ?? 0} className="text-lg text-arcade-purple" />
+          </div>
+          <p className="text-[10px] text-gray-500 mt-1">TOTAL MATCHES</p>
         </div>
         <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
-          <div className="text-lg font-mono text-arcade-gold" style={{ textShadow: totalWagered > 0 ? '0 0 6px rgba(255,215,0,0.2)' : 'none' }}>
-            {totalWagered.toFixed(2)}
+          <div className="flex items-center justify-center gap-2">
+            <Users size={16} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
+            <AnimatedScore value={arenaStats?.totalAgents ?? 0} className="text-lg text-arcade-gold" />
           </div>
-          <p className="text-[10px] text-gray-500 mt-1">TOTAL WAGERED (ETH)</p>
+          <p className="text-[10px] text-gray-500 mt-1">ACTIVE AGENTS</p>
         </div>
         <div className="arcade-card p-3 text-center transition-all duration-200 hover:scale-[1.03]">
-          <div
-            className={clsx(
-              'text-lg font-mono',
-              netProfit >= 0 ? 'text-arcade-green' : 'text-arcade-red'
-            )}
-            style={{ textShadow: netProfit !== 0 ? `0 0 6px ${netProfit >= 0 ? 'rgba(105,240,174,0.2)' : 'rgba(255,82,82,0.2)'}` : 'none' }}
-          >
-            {netProfit >= 0 ? '+' : ''}{netProfit.toFixed(4)}
+          <div className="flex items-center justify-center gap-2">
+            <BarChart3 size={16} className="text-arcade-green" style={{ filter: 'drop-shadow(0 0 3px rgba(105,240,174,0.4))' }} />
+            <AnimatedScore value={arenaStats?.gameTypes?.length ?? 0} className="text-lg text-arcade-green" />
           </div>
-          <p className="text-[10px] text-gray-500 mt-1">NET PROFIT (ETH)</p>
+          <p className="text-[10px] text-gray-500 mt-1">GAME TYPES</p>
         </div>
       </div>
+
+      {/* Game Type Breakdown */}
+      {arenaStats && arenaStats.totalMatches > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {arenaStats.gameTypes.map(gt => (
+            <div key={gt.gameType} className="arcade-card p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wider text-gray-500">{gt.gameType.replace('_', ' ')}</span>
+                <span className="text-sm font-mono text-white font-bold">{gt.matchCount}</span>
+              </div>
+              <div className="mt-1.5 h-1 bg-surface-2 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-arcade-purple/60"
+                  style={{ width: `${Math.max((gt.matchCount / arenaStats.totalMatches) * 100, 5)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Betting Analytics Row */}
       {(userBets.length > 0 || topBettors.length > 0) && (
@@ -412,11 +553,92 @@ export function SpectatorHub() {
                 </div>
               );})}
             </div>
-          ) : (
+          ) : null}
+
+          {/* Recent Matches from GraphQL (seeded + completed) */}
+          {recentMatchesGQL.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                <Clock size={14} className="text-arcade-purple" style={{ filter: 'drop-shadow(0 0 3px rgba(168,85,247,0.4))' }} />
+                Recent Matches
+              </h2>
+              {recentMatchesGQL.map(match => {
+                const isDraw = match.winner === null;
+                return (
+                  <div key={match.id} className="arcade-card p-4 hover:bg-surface-2 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <GlowBadge color={match.status === 'COMPLETED' ? 'green' : 'purple'} label={match.status} size="sm" />
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+                          {match.gameType.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        Match #{match.id}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <div className="text-center">
+                        <Link
+                          to={`/agent/${match.player1}`}
+                          className={clsx(
+                            'font-semibold truncate hover:underline text-sm',
+                            !isDraw && match.winner?.toLowerCase() === match.player1.toLowerCase()
+                              ? 'text-arcade-green'
+                              : 'text-arcade-cyan',
+                          )}
+                        >
+                          {truncateAddress(match.player1)}
+                        </Link>
+                        {!isDraw && match.winner?.toLowerCase() === match.player1.toLowerCase() && (
+                          <div className="text-[9px] text-arcade-green mt-0.5">WINNER</div>
+                        )}
+                      </div>
+                      <div className="text-center text-gray-500 text-lg">
+                        {isDraw ? (
+                          <span className="text-xs text-gray-400">DRAW</span>
+                        ) : (
+                          'VS'
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <Link
+                          to={`/agent/${match.player2}`}
+                          className={clsx(
+                            'font-semibold truncate hover:underline text-sm',
+                            !isDraw && match.winner?.toLowerCase() === match.player2.toLowerCase()
+                              ? 'text-arcade-green'
+                              : 'text-arcade-pink',
+                          )}
+                        >
+                          {truncateAddress(match.player2)}
+                        </Link>
+                        {!isDraw && match.winner?.toLowerCase() === match.player2.toLowerCase() && (
+                          <div className="text-[9px] text-arcade-green mt-0.5">WINNER</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex justify-center">
+                      <Link
+                        to={`/replay/${match.id}`}
+                        className="text-xs text-arcade-purple hover:underline"
+                      >
+                        View Replay →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {liveMatches.length === 0 && recentMatchesGQL.length === 0 && (
             <div className="arcade-card p-8 text-center">
               <Eye size={32} className="mx-auto text-gray-600 mb-3" />
-              <p className="text-gray-400">No live matches right now</p>
-              <p className="text-xs text-gray-500 mt-1">Check back soon for betting opportunities</p>
+              <p className="text-gray-400">No matches yet</p>
+              <p className="text-xs text-gray-500 mt-1">Check back soon for match action</p>
             </div>
           )}
 
@@ -489,10 +711,7 @@ export function SpectatorHub() {
                 </div>
               ))
             ) : (
-              <div className="p-6 text-center">
-                <Users size={24} className="mx-auto text-gray-600 mb-2" />
-                <p className="text-sm text-gray-400">No bettors yet</p>
-              </div>
+              <TopAgentsMini />
             )}
           </div>
 
