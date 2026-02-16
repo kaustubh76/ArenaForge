@@ -72,11 +72,11 @@ export function createDataLoaders(
             if (agent) {
               const handle = String(agent.moltbookHandle || addr.slice(0, 8));
               // Contract struct may have swapped elo/matchesPlayed layout
-              // Use the larger value as ELO (default 1200) if they look swapped
+              // Detect swap: if matchesPlayed looks like an ELO (≥1000) and elo looks like a count (<1000)
               let elo = Number(agent.elo ?? 1200);
               let matchesPlayed = Number(agent.matchesPlayed ?? 0);
-              if (elo < 100 && matchesPlayed >= 100) {
-                // Values are likely swapped due to ABI/struct mismatch
+              if (matchesPlayed >= 1000 && elo < 1000 && matchesPlayed > elo) {
+                // Values are swapped due to ABI/struct mismatch
                 [elo, matchesPlayed] = [matchesPlayed, elo];
               }
               const wins = Number(agent.wins ?? 0);

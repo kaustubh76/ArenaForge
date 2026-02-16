@@ -379,7 +379,7 @@ export class AutonomousScheduler {
                 let rawElo = Number(agent.elo ?? 1200);
                 let rawMatches = Number(agent.matchesPlayed ?? 0);
                 // Contract struct may have swapped elo/matchesPlayed layout
-                if (rawElo < 100 && rawMatches >= 100) {
+                if (rawMatches >= 1000 && rawElo < 1000 && rawMatches > rawElo) {
                   [rawElo, rawMatches] = [rawMatches, rawElo];
                 }
                 elo = rawElo || 1200;
