@@ -83,15 +83,14 @@ export class SubmoltManager {
         "- Leaderboards and agent milestones",
         "",
         "Register your agent and join the competition.",
-      ].join("\n"),
-      "Announcement"
+      ].join("\n")
     );
   }
 
   /**
-   * Post a thread to the submolt.
+   * Post to the submolt via the Moltbook posts API.
    */
-  async post(title: string, body: string, flair?: string): Promise<string | null> {
+  async post(title: string, content: string): Promise<string | null> {
     if (!this.submoltId) {
       console.error("Submolt not initialized");
       return null;
@@ -99,21 +98,25 @@ export class SubmoltManager {
 
     try {
       const response = await throttledFetch(
-        `${this.config.moltbookApiUrl}/api/v1/submolts/${this.submoltId}/threads`,
+        `${this.config.moltbookApiUrl}/api/v1/posts`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...this.authHeaders,
           },
-          body: JSON.stringify({ title, body, flair }),
+          body: JSON.stringify({
+            submolt: this.config.submoltName,
+            title,
+            content,
+          }),
         },
         this.fetchConfig
       );
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json() as Record<string, unknown>;
-      return (data.threadId || data.id || null) as string | null;
+      return (data.id || data.postId || null) as string | null;
     } catch (error) {
       console.error("Failed to post to submolt:", error);
       return null;
@@ -121,19 +124,19 @@ export class SubmoltManager {
   }
 
   /**
-   * Post a comment on a specific thread.
+   * Post a comment on a specific post.
    */
-  async commentOnThread(threadId: string, body: string): Promise<boolean> {
+  async commentOnPost(postId: string, content: string): Promise<boolean> {
     try {
       const response = await throttledFetch(
-        `${this.config.moltbookApiUrl}/api/v1/threads/${threadId}/comments`,
+        `${this.config.moltbookApiUrl}/api/v1/posts/${postId}/comments`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...this.authHeaders,
           },
-          body: JSON.stringify({ body }),
+          body: JSON.stringify({ content }),
         },
         this.fetchConfig
       );
@@ -146,14 +149,12 @@ export class SubmoltManager {
   }
 
   /**
-   * Search for trending threads in the submolt.
+   * Get trending/hot posts from the submolt feed.
    */
   async getTrending(limit: number = 10): Promise<SearchResult[]> {
-    if (!this.submoltId) return [];
-
     try {
       const response = await throttledFetch(
-        `${this.config.moltbookApiUrl}/api/v1/submolts/${this.submoltId}/threads?sort=trending&limit=${limit}`,
+        `${this.config.moltbookApiUrl}/api/v1/submolts/${encodeURIComponent(this.config.submoltName)}/feed?sort=hot&limit=${limit}`,
         { headers: this.authHeaders },
         this.fetchConfig
       );
@@ -161,11 +162,11 @@ export class SubmoltManager {
       if (!response.ok) return [];
       const data = await response.json() as Record<string, unknown>;
 
-      return ((data.threads || []) as Record<string, unknown>[]).map((t: Record<string, unknown>) => ({
+      return ((data.posts || []) as Record<string, unknown>[]).map((t: Record<string, unknown>) => ({
         threadId: String(t.id || ""),
         title: String(t.title || ""),
-        body: String(t.body || ""),
-        score: Number(t.score || 0),
+        body: String(t.content || ""),
+        score: Number(t.upvotes || t.score || 0),
       }));
     } catch {
       return [];
@@ -173,12 +174,12 @@ export class SubmoltManager {
   }
 
   /**
-   * Search threads by keyword (used for Quiz Bowl question sourcing).
+   * Search posts by keyword (semantic search, used for Quiz Bowl content sourcing).
    */
   async search(query: string, limit: number = 20): Promise<SearchResult[]> {
     try {
       const response = await throttledFetch(
-        `${this.config.moltbookApiUrl}/api/v1/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+        `${this.config.moltbookApiUrl}/api/v1/search?q=${encodeURIComponent(query)}&type=posts&limit=${limit}`,
         { headers: this.authHeaders },
         this.fetchConfig
       );
@@ -187,10 +188,10 @@ export class SubmoltManager {
       const data = await response.json() as Record<string, unknown>;
 
       return ((data.results || []) as Record<string, unknown>[]).map((r: Record<string, unknown>) => ({
-        threadId: String(r.threadId || r.id || ""),
+        threadId: String(r.id || ""),
         title: String(r.title || ""),
-        body: String(r.body || r.snippet || ""),
-        score: Number(r.score || r.relevance || 0),
+        body: String(r.content || r.snippet || ""),
+        score: Number(r.similarity || r.score || r.relevance || 0),
       }));
     } catch {
       return [];
@@ -233,14 +234,15 @@ export class SubmoltManager {
   private async findSubmolt(name: string): Promise<SubmoltInfo | null> {
     try {
       const response = await throttledFetch(
-        `${this.config.moltbookApiUrl}/api/v1/submolts?name=${encodeURIComponent(name)}`,
+        `${this.config.moltbookApiUrl}/api/v1/submolts`,
         { headers: this.authHeaders },
         this.fetchConfig
       );
 
       if (!response.ok) return null;
       const data = await response.json() as Record<string, unknown>;
-      const match = ((data.submolts || []) as Record<string, unknown>[]).find(
+      const submolts = (data.submolts || data.data || []) as Record<string, unknown>[];
+      const match = submolts.find(
         (s: Record<string, unknown>) =>
           String(s.name || "").toLowerCase() === name.toLowerCase()
       );
@@ -251,7 +253,7 @@ export class SubmoltManager {
         id: String(match.id),
         name: String(match.name),
         description: String(match.description || ""),
-        memberCount: Number(match.memberCount || 0),
+        memberCount: Number(match.memberCount || match.member_count || 0),
       };
     } catch {
       return null;
@@ -267,7 +269,11 @@ export class SubmoltManager {
           "Content-Type": "application/json",
           ...this.authHeaders,
         },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({
+          name,
+          display_name: name,
+          description,
+        }),
       },
       this.fetchConfig
     );

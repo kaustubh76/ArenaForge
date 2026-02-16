@@ -3,7 +3,7 @@ import type { ClaudeAnalysisService } from "../claude";
 import type { TokenBucketRateLimiter } from "../utils/rate-limiter";
 import { throttledFetch } from "../utils/throttled-fetch";
 
-// Rate limits
+// Rate limits (matching Moltbook API limits)
 const POST_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between posts
 const COMMENT_COOLDOWN_MS = 20 * 1000; // 20 seconds between comments
 const DAILY_POST_LIMIT = 50;
@@ -12,6 +12,15 @@ interface PublisherConfig {
   moltbookApiUrl: string;
   agentHandle: string;
   bearerToken: string;
+  defaultSubmolt?: string;
+}
+
+interface FeedPost {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  score: number;
 }
 
 export class MoltbookPublisher {
@@ -65,7 +74,7 @@ export class MoltbookPublisher {
     eloChange?: number
   ): Promise<QueuedPost> {
     // Try Claude-generated commentary first
-    const dynamicBody = await this.generateDynamicCommentary("post_match", {
+    const dynamicContent = await this.generateDynamicCommentary("post_match", {
       matchId: result.matchId,
       winner: winnerHandle,
       loser: loserHandle,
@@ -76,11 +85,10 @@ export class MoltbookPublisher {
       eloChange: eloChange || 16,
     });
 
-    if (dynamicBody) {
+    if (dynamicContent) {
       return {
         title: `[RESULT]${result.isUpset ? " [UPSET]" : ""} ${winnerHandle} defeats ${loserHandle}`,
-        body: dynamicBody,
-        flair: "Result",
+        content: dynamicContent,
         priority: 6,
       };
     }
@@ -99,18 +107,17 @@ export class MoltbookPublisher {
     mutations: Array<{ strategy: string; reason: string }>
   ): Promise<QueuedPost> {
     // Try Claude-generated commentary first
-    const dynamicBody = await this.generateDynamicCommentary("evolution", {
+    const dynamicContent = await this.generateDynamicCommentary("evolution", {
       tournamentId,
       tournamentName,
       round,
       mutations,
     });
 
-    if (dynamicBody) {
+    if (dynamicContent) {
       return {
         title: `[EVOLUTION] Tournament #${tournamentId} — Round ${round} Adaptations`,
-        body: dynamicBody,
-        flair: "Evolution",
+        content: dynamicContent,
         priority: 7,
       };
     }
@@ -161,21 +168,21 @@ export class MoltbookPublisher {
   }
 
   /**
-   * Post a comment on a thread (respects comment cooldown).
+   * Post a comment on a post (respects comment cooldown).
    */
-  async comment(threadId: string, body: string): Promise<boolean> {
+  async comment(postId: string, content: string): Promise<boolean> {
     const now = Date.now();
     if (now - this.lastCommentTime < COMMENT_COOLDOWN_MS) return false;
 
     try {
-      const url = `${this.config.moltbookApiUrl}/api/v1/threads/${threadId}/comments`;
+      const url = `${this.config.moltbookApiUrl}/api/v1/posts/${postId}/comments`;
       const init: RequestInit = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${this.config.bearerToken}`,
         },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ content }),
       };
 
       const response = this.rateLimiter
@@ -191,6 +198,78 @@ export class MoltbookPublisher {
     }
   }
 
+  /**
+   * Upvote a post.
+   */
+  async upvote(postId: string): Promise<boolean> {
+    try {
+      const url = `${this.config.moltbookApiUrl}/api/v1/posts/${postId}/upvote`;
+      const init: RequestInit = {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.config.bearerToken}`,
+        },
+      };
+
+      const response = this.rateLimiter
+        ? await throttledFetch(url, init, { rateLimiter: this.rateLimiter, serviceName: "Moltbook" })
+        : await fetch(url, init);
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Read the personalized feed (subscribed submolts + followed agents).
+   */
+  async readFeed(sort: string = "hot", limit: number = 25): Promise<FeedPost[]> {
+    try {
+      const url = `${this.config.moltbookApiUrl}/api/v1/feed?sort=${sort}&limit=${limit}`;
+      const init: RequestInit = {
+        headers: { Authorization: `Bearer ${this.config.bearerToken}` },
+      };
+
+      const response = this.rateLimiter
+        ? await throttledFetch(url, init, { rateLimiter: this.rateLimiter, serviceName: "Moltbook" })
+        : await fetch(url, init);
+
+      if (!response.ok) return [];
+      const data = await response.json() as Record<string, unknown>;
+      return ((data.posts || []) as Record<string, unknown>[]).map((p) => ({
+        id: String(p.id || ""),
+        title: String(p.title || ""),
+        content: String(p.content || ""),
+        author: String((p.author as Record<string, unknown>)?.name || p.author || ""),
+        score: Number(p.upvotes || p.score || 0),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Follow an agent by their Moltbook name.
+   */
+  async followAgent(moltyName: string): Promise<boolean> {
+    try {
+      const url = `${this.config.moltbookApiUrl}/api/v1/agents/${encodeURIComponent(moltyName)}/follow`;
+      const init: RequestInit = {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.config.bearerToken}` },
+      };
+
+      const response = this.rateLimiter
+        ? await throttledFetch(url, init, { rateLimiter: this.rateLimiter, serviceName: "Moltbook" })
+        : await fetch(url, init);
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // --- Post Templates ---
 
   /**
@@ -200,7 +279,7 @@ export class MoltbookPublisher {
     const stakeStr = formatMON(tournament.entryStake);
     return {
       title: `[NEW] ${tournament.name} — ${stakeStr} MON Entry`,
-      body: [
+      content: [
         `A new tournament has been created in the ArenaForge!`,
         ``,
         `**Format**: ${tournament.format === 0 ? "Swiss System" : "Single Elimination"}`,
@@ -210,7 +289,6 @@ export class MoltbookPublisher {
         ``,
         `Register now and put your strategy to the test.`,
       ].join("\n"),
-      flair: "Tournament",
       priority: 8,
     };
   }
@@ -231,7 +309,7 @@ export class MoltbookPublisher {
 
     return {
       title: `[MATCH] ${player1Handle} vs ${player2Handle} — ${gameTypeName}`,
-      body: [
+      content: [
         `Match #${matchId} is about to begin!`,
         ``,
         `| Player | ELO |`,
@@ -243,7 +321,6 @@ export class MoltbookPublisher {
           ? `${favored} is favored with a ${eloDiff}-point ELO advantage.`
           : `This is a closely-rated match — could go either way.`,
       ].join("\n"),
-      flair: "Match",
       priority: 5,
     };
   }
@@ -255,7 +332,7 @@ export class MoltbookPublisher {
     const upsetTag = result.isUpset ? " [UPSET]" : "";
     return {
       title: `[RESULT]${upsetTag} ${winnerHandle} defeats ${loserHandle}`,
-      body: [
+      content: [
         `Match #${result.matchId} is complete!`,
         ``,
         `**Winner**: ${winnerHandle}`,
@@ -264,7 +341,6 @@ export class MoltbookPublisher {
         ``,
         `Game type: ${gameTypeName(result.gameType)}`,
       ].join("\n"),
-      flair: "Result",
       priority: 6,
     };
   }
@@ -279,14 +355,13 @@ export class MoltbookPublisher {
   ): QueuedPost {
     return {
       title: `[EVOLUTION] Tournament #${tournamentId} — Round ${round} Adaptations`,
-      body: [
+      content: [
         `The arena has evolved its parameters after round ${round}:`,
         ``,
         ...mutationSummaries.map((s) => `- ${s}`),
         ``,
         `The environment adapts. Can you?`,
       ].join("\n"),
-      flair: "Evolution",
       priority: 7,
     };
   }
@@ -306,7 +381,7 @@ export class MoltbookPublisher {
 
     return {
       title: `[COMPLETE] ${tournament.name} — Winner: ${winnerHandle}`,
-      body: [
+      content: [
         `Tournament #${tournament.id} has concluded!`,
         ``,
         `**Champion**: ${winnerHandle}`,
@@ -317,7 +392,6 @@ export class MoltbookPublisher {
         `|------|-------|--------|-----|`,
         rows,
       ].join("\n"),
-      flair: "Tournament",
       priority: 9,
     };
   }
@@ -328,8 +402,7 @@ export class MoltbookPublisher {
   milestonePost(title: string, description: string): QueuedPost {
     return {
       title: `[MILESTONE] ${title}`,
-      body: description,
-      flair: "Milestone",
+      content: description,
       priority: 4,
     };
   }
@@ -337,18 +410,24 @@ export class MoltbookPublisher {
   // --- Internal ---
 
   private async submitPost(post: QueuedPost): Promise<void> {
-    const url = `${this.config.moltbookApiUrl}/api/v1/threads`;
+    const url = `${this.config.moltbookApiUrl}/api/v1/posts`;
+    const payload: Record<string, string> = {
+      title: post.title,
+      content: post.content,
+    };
+    // Use post-level submolt, or fall back to default submolt
+    const submolt = post.submolt || this.config.defaultSubmolt;
+    if (submolt) {
+      payload.submolt = submolt;
+    }
+
     const init: RequestInit = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.config.bearerToken}`,
       },
-      body: JSON.stringify({
-        title: post.title,
-        body: post.body,
-        flair: post.flair,
-      }),
+      body: JSON.stringify(payload),
     };
 
     const response = this.rateLimiter

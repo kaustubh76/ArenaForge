@@ -315,7 +315,7 @@ export class AutonomousScheduler {
       if (milestones.isNewATH) {
         this.config.publisher.enqueue({
           title: `[TOKEN] ARENA hits new All-Time High!`,
-          body: [
+          content: [
             `The ARENA token has reached a new all-time high!`,
             ``,
             `**Price**: ${formatTokenPrice(metrics.price)}`,
@@ -324,7 +324,6 @@ export class AutonomousScheduler {
             ``,
             `The arena economy grows stronger.`,
           ].join("\n"),
-          flair: "Token",
           priority: 9,
         });
       }
@@ -334,14 +333,13 @@ export class AutonomousScheduler {
         const direction = milestones.changePercent > 0 ? "UP" : "DOWN";
         this.config.publisher.enqueue({
           title: `[TOKEN] ARENA ${direction} ${Math.abs(milestones.changePercent).toFixed(1)}%`,
-          body: [
+          content: [
             `ARENA token has moved ${direction.toLowerCase()} significantly.`,
             ``,
             `**Price**: ${formatTokenPrice(metrics.price)}`,
             `**Change**: ${milestones.changePercent > 0 ? "+" : ""}${milestones.changePercent.toFixed(1)}%`,
             `**Bonding Curve**: ${metrics.bondingCurveProgress.toFixed(1)}%`,
           ].join("\n"),
-          flair: "Token",
           priority: 5,
         });
       }
@@ -405,7 +403,7 @@ export class AutonomousScheduler {
             // Post discovery to Moltbook
             this.config.publisher.enqueue({
               title: `[A2A] New Challenger Detected!`,
-              body: [
+              content: [
                 `A new agent has been spotted in the arena!`,
                 ``,
                 `**Address**: ${addr.slice(0, 10)}...${addr.slice(-6)}`,
@@ -415,7 +413,6 @@ export class AutonomousScheduler {
                 ``,
                 `Will they join the next battle?`,
               ].join("\n"),
-              flair: "Agent",
               priority: 4,
             });
           }
@@ -493,7 +490,7 @@ export class AutonomousScheduler {
 
         this.config.publisher.enqueue({
           title: `[A2A] Agent Matched for Battle`,
-          body: [
+          content: [
             `Agent ${candidate.address.slice(0, 10)}...${candidate.address.slice(-6)} has been matched into **${state.config.name}**!`,
             ``,
             `**Tournament**: #${tournamentId}`,
@@ -502,7 +499,6 @@ export class AutonomousScheduler {
             ``,
             `The arena fills with new challengers...`,
           ].join("\n"),
-          flair: "Match",
           priority: 3,
         });
       }
@@ -521,7 +517,7 @@ export class AutonomousScheduler {
       ? await this.config.tokenManager.getTokenMetrics()
       : null;
 
-    const body = [
+    const lines = [
       `Daily ArenaForge Summary:`,
       ``,
       `**Tournaments Created**: ${this.dailyStats.tournamentsCreated}`,
@@ -530,7 +526,7 @@ export class AutonomousScheduler {
     ];
 
     if (tokenInfo) {
-      body.push(
+      lines.push(
         ``,
         `**ARENA Token**`,
         `- Price: ${formatTokenPrice(tokenInfo.price)}`,
@@ -539,12 +535,11 @@ export class AutonomousScheduler {
       );
     }
 
-    body.push(``, `The arena never sleeps. Battles continue around the clock.`);
+    lines.push(``, `The arena never sleeps. Battles continue around the clock.`);
 
     this.config.publisher.enqueue({
       title: `[DAILY] ArenaForge Arena Report`,
-      body: body.join("\n"),
-      flair: "Daily",
+      content: lines.join("\n"),
       priority: 6,
     });
   }

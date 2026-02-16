@@ -11,6 +11,7 @@ import {
   fetchTournamentParticipants, fetchAgentsFromTournaments,
 } from '@/lib/contracts';
 import { indexedDBStorage, isCacheFresh, isOnline } from '@/lib/indexeddb-storage';
+import { fetchGraphQL } from '@/lib/api';
 
 // =========================================================================
 // Format-Specific Data Builders
@@ -292,6 +293,7 @@ interface ArenaState {
   setPrizePoolFilter: (min: number | null, max: number | null) => void;
   setOfflineStatus: (offline: boolean) => void;
   fetchFromChain: (forceRefresh?: boolean) => Promise<boolean>;
+  fetchFromGraphQL: () => Promise<boolean>;
 }
 
 export const useArenaStore = create<ArenaState>()(
@@ -338,6 +340,70 @@ export const useArenaStore = create<ArenaState>()(
       setPrizePoolFilter: (min, max) => set({ prizePoolMin: min, prizePoolMax: max }),
       setOfflineStatus: (offline) => set({ isOffline: offline }),
 
+      fetchFromGraphQL: async () => {
+        try {
+          const { data } = await fetchGraphQL<{ tournaments: Array<Record<string, unknown>> }>(`{
+            tournaments {
+              id
+              name
+              gameType
+              format
+              status
+              entryStake
+              maxParticipants
+              currentParticipants
+              prizePool
+              startTime
+              roundCount
+              currentRound
+            }
+          }`);
+
+          if (data?.tournaments && data.tournaments.length > 0) {
+            // Convert GraphQL enum strings back to numeric values
+            const gameTypeMap: Record<string, number> = {
+              ORACLE_DUEL: 0, STRATEGY_ARENA: 1, AUCTION_WARS: 2, QUIZ_BOWL: 3,
+            };
+            const formatMap: Record<string, number> = {
+              SWISS_SYSTEM: 0, SINGLE_ELIMINATION: 1, DOUBLE_ELIMINATION: 2,
+              ROUND_ROBIN: 3, BEST_OF_N: 4, ROYAL_RUMBLE: 5, PENTATHLON: 6,
+            };
+            const statusMap: Record<string, number> = {
+              OPEN: 0, ACTIVE: 1, COMPLETED: 2, CANCELLED: 3, PAUSED: 4,
+            };
+
+            const gqlTournaments: Tournament[] = data.tournaments.map((t: Record<string, unknown>) => ({
+              id: t.id as number,
+              name: t.name as string,
+              gameType: (gameTypeMap[t.gameType as string] ?? 0) as GameType,
+              format: (formatMap[t.format as string] ?? 0) as TournamentFormat,
+              status: (statusMap[t.status as string] ?? 0) as TournamentStatus,
+              entryStake: String(t.entryStake || '0'),
+              maxParticipants: t.maxParticipants as number,
+              currentParticipants: t.currentParticipants as number,
+              prizePool: String(t.prizePool || '0'),
+              startTime: t.startTime as number,
+              roundCount: t.roundCount as number,
+              currentRound: t.currentRound as number,
+              parametersHash: String(t.parametersHash || ''),
+            }));
+
+            set({
+              tournaments: gqlTournaments,
+              loading: false,
+              lastFetchTimestamp: Date.now(),
+              usingCachedData: false,
+            });
+            return true;
+          }
+
+          return false;
+        } catch (e) {
+          console.debug('[arenaStore] GraphQL fetch failed:', e);
+          return false;
+        }
+      },
+
       fetchFromChain: async (forceRefresh = false) => {
         const { lastFetchTimestamp, tournaments, isOffline } = get();
 
@@ -360,6 +426,14 @@ export const useArenaStore = create<ArenaState>()(
         }
 
         set({ loading: true, error: null, usingCachedData: false });
+
+        // Try GraphQL first for fast loading — fall through to chain reads on failure
+        const gqlSuccess = await get().fetchFromGraphQL();
+        if (gqlSuccess && get().tournaments.length > 0) {
+          // GraphQL gave us basic tournament data; now fetch details from chain
+          // in the background for richer data (matches, participants, brackets)
+        }
+
         try {
           const fetchedTournaments = await fetchAllTournaments();
 

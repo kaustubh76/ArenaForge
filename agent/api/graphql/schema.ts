@@ -126,6 +126,7 @@ export const typeDefs = `#graphql
     previousParamsHash: String!
     newParamsHash: String!
     mutations: [Mutation!]!
+    metrics: EvolutionMetrics
     timestamp: Int!
   }
 
@@ -135,6 +136,14 @@ export const typeDefs = `#graphql
     increment: Float
     strategy: String
     reason: String!
+  }
+
+  type EvolutionMetrics {
+    averageStakeBehavior: String!
+    dominantStrategy: String!
+    strategyDistribution: String!
+    averageMatchDuration: Float!
+    drawRate: Float!
   }
 
   # Activity events for subscriptions

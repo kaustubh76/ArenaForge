@@ -16,7 +16,7 @@ import { Breadcrumbs } from '@/components/arcade/Breadcrumbs';
 import { FreshnessIndicator } from '@/components/arcade/FreshnessIndicator';
 
 export function EvolutionDashboard() {
-  const { records, selectedTournamentId, loading, error, selectTournament, getFilteredRecords, fetchFromChain } = useEvolutionStore();
+  const { records, selectedTournamentId, loading, error, selectTournament, getFilteredRecords, fetchFromChain, fetchFromGraphQL } = useEvolutionStore();
   const { tournaments } = useArenaStore();
   const [errorDismissed, setErrorDismissed] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -31,10 +31,17 @@ export function EvolutionDashboard() {
     if (records.length > 0 && !lastUpdated) setLastUpdated(Date.now());
   }, [records.length]);
 
-  // Auto-fetch on mount
+  // Auto-fetch on mount — tries chain first, falls back to GraphQL
   useEffect(() => {
     fetchFromChain();
   }, [fetchFromChain]);
+
+  // Re-fetch when tournament selection changes
+  useEffect(() => {
+    if (selectedTournamentId !== null) {
+      fetchFromGraphQL(selectedTournamentId);
+    }
+  }, [selectedTournamentId, fetchFromGraphQL]);
 
   // Auto-refresh every 30 seconds when page is visible
   useEffect(() => {

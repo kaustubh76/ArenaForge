@@ -33,8 +33,40 @@ async function main(): Promise<void> {
   const eventListener = new MonadEventListener();
 
   // --- Initialize Moltbook ---
-  const moltbookUrl = process.env.MOLTBOOK_API_URL || "https://moltbook.com";
-  const moltbookToken = process.env.MOLTBOOK_BEARER_TOKEN || "";
+  const moltbookUrl = process.env.MOLTBOOK_API_URL || "https://www.moltbook.com";
+  let moltbookToken = process.env.MOLTBOOK_BEARER_TOKEN || "";
+
+  // Auto-register with Moltbook if no bearer token is configured
+  if (!moltbookToken) {
+    try {
+      console.log("No MOLTBOOK_BEARER_TOKEN found. Attempting agent registration...");
+      const regResponse = await fetch(`${moltbookUrl}/api/v1/agents/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: process.env.MOLTBOOK_AGENT_HANDLE || "ArenaForge",
+          description: "Autonomous competitive AI gaming arena on Monad. Manages tournaments, matches, evolution, and agent coordination.",
+        }),
+      });
+
+      if (regResponse.ok) {
+        const regData = await regResponse.json() as { agent?: { api_key?: string; claim_url?: string; verification_code?: string } };
+        if (regData.agent?.api_key) {
+          moltbookToken = regData.agent.api_key;
+          console.log("Moltbook registration successful!");
+          console.log(`  API Key: ${moltbookToken.slice(0, 16)}...`);
+          if (regData.agent.claim_url) {
+            console.log(`  Claim URL: ${regData.agent.claim_url}`);
+          }
+          console.log("  IMPORTANT: Save this API key to MOLTBOOK_BEARER_TOKEN in .env");
+        }
+      } else {
+        console.warn(`Moltbook registration failed: HTTP ${regResponse.status}`);
+      }
+    } catch (error) {
+      console.warn("Moltbook registration failed (non-fatal):", error);
+    }
+  }
 
   // Shared rate limiter for all Moltbook API calls (publisher + submolt manager)
   const moltbookLimiter = createRateLimiter("external-api");
@@ -43,6 +75,7 @@ async function main(): Promise<void> {
     moltbookApiUrl: moltbookUrl,
     agentHandle: process.env.MOLTBOOK_AGENT_HANDLE || "ArenaForge",
     bearerToken: moltbookToken,
+    defaultSubmolt: process.env.SUBMOLT_NAME || "ArenaForge",
   }, undefined, moltbookLimiter);
 
   const submoltManager = new SubmoltManager({
@@ -112,7 +145,7 @@ async function main(): Promise<void> {
       // Post token launch to Moltbook
       publisher.enqueue({
         title: "[TOKEN] ArenaForge ARENA Token Launched on Nad.fun!",
-        body: [
+        content: [
           "The ARENA token is now live on nad.fun!",
           "",
           `**Address**: ${result.tokenAddress}`,
@@ -122,7 +155,6 @@ async function main(): Promise<void> {
           "",
           "Trade now on nad.fun!",
         ].join("\n"),
-        flair: "Token",
         priority: 10,
       });
     } catch (error) {

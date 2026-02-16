@@ -291,7 +291,7 @@ export class A2ACoordinator {
         // Post to Moltbook
         this.config.publisher.enqueue({
           title: `[A2A] Challenge Accepted!`,
-          body: [
+          content: [
             `A challenge has been accepted!`,
             ``,
             `**Challenger**: ${challenge.challenger.slice(0, 10)}...${challenge.challenger.slice(-6)}`,
@@ -302,7 +302,6 @@ export class A2ACoordinator {
             ``,
             `Let the battle begin!`,
           ].join("\n"),
-          flair: "Match",
           priority: 7,
         });
       } catch (error) {
@@ -612,7 +611,7 @@ export class A2ACoordinator {
         // Post to Moltbook
         this.config.publisher.enqueue({
           title: `[A2A] Challenge Sent!`,
-          body: [
+          content: [
             `ArenaForge has challenged a new opponent!`,
             ``,
             `**Target**: ${target.address.slice(0, 10)}...${target.address.slice(-6)}`,
@@ -622,7 +621,6 @@ export class A2ACoordinator {
             ``,
             `> "${taunt}"`,
           ].join("\n"),
-          flair: "Agent",
           priority: 5,
         });
       }

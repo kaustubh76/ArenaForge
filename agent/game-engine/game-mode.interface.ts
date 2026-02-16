@@ -374,7 +374,7 @@ export interface RoundData {
 
 export interface QueuedPost {
   title: string;
-  body: string;
-  flair: string;
+  content: string;
+  submolt?: string;
   priority: number;
 }
