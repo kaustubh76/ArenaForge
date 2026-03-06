@@ -19,16 +19,25 @@ const StrategyArenaEvents: Abi = [
   { type: "event", name: "MoveRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }, { name: "move", type: "uint8", indexed: false }] },
 ];
 
+const SpectatorBettingEvents: Abi = [
+  { type: "event", name: "BetPlaced", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "bettor", type: "address", indexed: true }, { name: "predictedWinner", type: "address", indexed: false }, { name: "amount", type: "uint256", indexed: false }] },
+  { type: "event", name: "BettingOpened", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "player1", type: "address", indexed: false }, { name: "player2", type: "address", indexed: false }] },
+  { type: "event", name: "BettingClosed", inputs: [{ name: "matchId", type: "uint256", indexed: true }] },
+  { type: "event", name: "BetsSettled", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "winner", type: "address", indexed: false }] },
+];
+
 export class MonadEventListener {
   private coreAddress: `0x${string}`;
   private registryAddress: `0x${string}`;
   private strategyAddress: `0x${string}`;
+  private bettingAddress: `0x${string}` | null;
   private unwatchers: (() => void)[] = [];
 
   constructor() {
     this.coreAddress = process.env.ARENA_CORE_ADDRESS as `0x${string}`;
     this.registryAddress = process.env.MATCH_REGISTRY_ADDRESS as `0x${string}`;
     this.strategyAddress = process.env.STRATEGY_ARENA_ADDRESS as `0x${string}`;
+    this.bettingAddress = (process.env.SPECTATOR_BETTING_ADDRESS?.trim() as `0x${string}`) || null;
   }
 
   watchRegistrations(callback: (agent: string, handle: string) => void): void {
@@ -85,6 +94,54 @@ export class MonadEventListener {
         for (const log of logs) {
           const args = (log as any).args as { matchId: bigint; round: bigint; player: string };
           callback(Number(args.matchId), Number(args.round), args.player);
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchBetPlaced(callback: (matchId: number, bettor: string, predictedWinner: string, amount: bigint) => void): void {
+    if (!this.bettingAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.bettingAddress,
+      abi: SpectatorBettingEvents,
+      eventName: "BetPlaced",
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const args = (log as any).args as { matchId: bigint; bettor: string; predictedWinner: string; amount: bigint };
+          callback(Number(args.matchId), args.bettor, args.predictedWinner, args.amount);
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchBettingOpened(callback: (matchId: number, player1: string, player2: string) => void): void {
+    if (!this.bettingAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.bettingAddress,
+      abi: SpectatorBettingEvents,
+      eventName: "BettingOpened",
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const args = (log as any).args as { matchId: bigint; player1: string; player2: string };
+          callback(Number(args.matchId), args.player1, args.player2);
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchBetsSettled(callback: (matchId: number, winner: string) => void): void {
+    if (!this.bettingAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.bettingAddress,
+      abi: SpectatorBettingEvents,
+      eventName: "BetsSettled",
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const args = (log as any).args as { matchId: bigint; winner: string };
+          callback(Number(args.matchId), args.winner);
         }
       },
     });

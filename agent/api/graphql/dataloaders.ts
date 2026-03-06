@@ -4,7 +4,6 @@ import DataLoader from "dataloader";
 import type { MonadContractClient } from "../../monad/contract-client";
 import type { MatchStore } from "../../persistence/match-store";
 import { normalizeAddress } from "../../utils/normalize";
-import { getSeededAgent } from "../../autonomous/scheduler";
 
 export interface DataLoaders {
   agentLoader: DataLoader<string, AgentData | null>;
@@ -99,19 +98,7 @@ export function createDataLoaders(
             console.debug(`[DataLoader] Contract getAgent failed for ${addr.slice(0, 10)}...:`, err);
           }
 
-          // Fallback: check seeded agent cache
-          const seeded = getSeededAgent(addr);
-          if (seeded) {
-            return {
-              address: normalizeAddress(addr),
-              moltbookHandle: seeded.moltbookHandle,
-              elo: seeded.elo,
-              matchesPlayed: seeded.matchesPlayed,
-              wins: seeded.wins,
-              losses: seeded.losses,
-              registered: true,
-            };
-          }
+          // No fallback — only real on-chain agents
           return null;
         })
       );
@@ -160,23 +147,23 @@ export function createDataLoaders(
         ids.map(async (id: number) => {
           // Try SQLite store first (for completed matches)
           if (matchStore) {
-            const result = matchStore.getMatch(id);
-            if (result) {
+            const raw = matchStore.getMatchRaw(id);
+            if (raw) {
               return {
-                id: result.matchId,
-                tournamentId: result.tournamentId,
-                round: result.round,
-                player1: result.loser ?? "",
-                player2: result.winner ?? "",
-                winner: result.winner,
+                id: raw.result.matchId,
+                tournamentId: raw.result.tournamentId,
+                round: raw.result.round,
+                player1: raw.player1,
+                player2: raw.player2,
+                winner: raw.result.winner,
                 resultHash: "",
                 timestamp: 0,
                 startTime: 0,
                 status: 2, // Completed
-                gameType: result.gameType,
-                isDraw: result.isDraw,
-                isUpset: result.isUpset,
-                duration: result.duration,
+                gameType: raw.result.gameType,
+                isDraw: raw.result.isDraw,
+                isUpset: raw.result.isUpset,
+                duration: raw.result.duration,
               };
             }
           }
@@ -184,9 +171,16 @@ export function createDataLoaders(
           // Fallback to contract for live/in-progress matches
           try {
             const match = await contractClient.getMatch(id) as Record<string, unknown>;
+            const tournamentId = Number(match.tournamentId);
+            // Resolve gameType from tournament data
+            let gameType = 0;
+            try {
+              const t = await tournamentLoader.load(tournamentId);
+              if (t) gameType = t.gameType;
+            } catch {}
             return {
               id,
-              tournamentId: Number(match.tournamentId),
+              tournamentId,
               round: Number(match.round),
               player1: String(match.player1),
               player2: String(match.player2),
@@ -195,7 +189,7 @@ export function createDataLoaders(
               timestamp: Number(match.timestamp),
               startTime: Number(match.startTime ?? 0),
               status: Number(match.status),
-              gameType: 0, // Not stored in contract
+              gameType,
               isDraw: false,
               isUpset: false,
               duration: Number(match.duration ?? 0),
@@ -215,22 +209,26 @@ export function createDataLoaders(
       if (matchStore) {
         return tournamentIds.map((id: number) => {
           const results = matchStore.getMatchesByTournament(id);
-          return results.map((r) => ({
-            id: r.matchId,
-            tournamentId: r.tournamentId,
-            round: r.round,
-            player1: r.loser ?? "",
-            player2: r.winner ?? "",
-            winner: r.winner,
-            resultHash: "",
-            timestamp: 0,
-            startTime: 0,
-            status: 2,
-            gameType: r.gameType,
-            isDraw: r.isDraw,
-            isUpset: r.isUpset,
-            duration: r.duration,
-          }));
+          return results.map((r) => {
+            // Get raw data with preserved player order
+            const raw = matchStore.getMatchRaw(r.matchId);
+            return {
+              id: r.matchId,
+              tournamentId: r.tournamentId,
+              round: r.round,
+              player1: raw?.player1 ?? r.loser ?? "",
+              player2: raw?.player2 ?? r.winner ?? "",
+              winner: r.winner,
+              resultHash: "",
+              timestamp: 0,
+              startTime: 0,
+              status: 2,
+              gameType: r.gameType,
+              isDraw: r.isDraw,
+              isUpset: r.isUpset,
+              duration: r.duration,
+            };
+          });
         });
       }
       return tournamentIds.map(() => []);

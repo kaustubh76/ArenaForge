@@ -132,6 +132,17 @@ export class GraphQLServer {
       next();
     };
 
+    // Health check endpoint
+    app.get("/health", (_req, res) => {
+      const activeTournaments = this.config.arenaManager?.getActiveTournaments()?.size ?? 0;
+      res.json({
+        status: "ok",
+        uptime: process.uptime(),
+        activeTournaments,
+        timestamp: Date.now(),
+      });
+    });
+
     // Apply middleware
     app.use(
       "/graphql",

@@ -45,8 +45,8 @@ export const resolvers = {
       const limit = clampLimit(args.limit);
       const offset = clampOffset(args.offset);
 
-      // Cap iteration to prevent DoS on large tournament counts
-      const maxScan = Math.min(count, 500);
+      // Use actual tournament count from contract (no hardcoded limit)
+      const maxScan = count;
       for (let i = 1; i <= maxScan; i++) {
         const tournament = await context.loaders.tournamentLoader.load(i);
         if (!tournament) continue;
@@ -609,13 +609,53 @@ export const resolvers = {
       args: { address: string; status?: string; limit?: number },
       context: ResolverContext
     ) => {
-      // Would need SpectatorBetting.getUserBets() or indexer
-      return [];
+      if (!context.matchStore) return [];
+      const limit = clampLimit(args.limit, 50);
+      const bets = context.matchStore.getBetsByUser(args.address, args.status, limit);
+      return bets.map((b) => ({
+        matchId: b.matchId,
+        bettor: b.bettor,
+        predictedWinner: b.predictedWinner,
+        amount: b.amount,
+        status: b.status === "won" ? "WON" : b.status === "lost" ? "LOST" : b.status === "refunded" ? "REFUNDED" : "ACTIVE",
+        payout: b.payout,
+        timestamp: b.createdAt,
+      }));
     },
 
     bettorProfile: async (_: unknown, args: { address: string }, context: ResolverContext) => {
-      // Would need SpectatorBetting.getBettorProfile() or indexer
-      return null;
+      if (!context.matchStore) return null;
+      const allBets = context.matchStore.getBetsByUser(args.address, undefined, 10000);
+      if (allBets.length === 0) return null;
+
+      let wins = 0, losses = 0, totalWagered = BigInt(0), totalWon = BigInt(0), currentStreak = 0;
+      let streakType: "win" | "loss" | null = null;
+
+      for (const b of allBets) {
+        const amt = BigInt(b.amount || "0");
+        totalWagered += amt;
+        if (b.status === "won") {
+          wins++;
+          totalWon += BigInt(b.payout || "0");
+          if (streakType === "win") currentStreak++;
+          else { streakType = "win"; currentStreak = 1; }
+        } else if (b.status === "lost") {
+          losses++;
+          if (streakType === "loss") currentStreak--;
+          else { streakType = "loss"; currentStreak = -1; }
+        }
+      }
+
+      return {
+        address: args.address,
+        totalBets: allBets.length,
+        wins,
+        losses,
+        totalWagered: totalWagered.toString(),
+        totalWon: totalWon.toString(),
+        currentStreak,
+        winRate: allBets.length > 0 ? wins / allBets.length : 0,
+      };
     },
 
     topBettors: async (_: unknown, args: { limit?: number }, context: ResolverContext) => {
@@ -1084,8 +1124,26 @@ export const resolvers = {
       args: { limit?: number },
       context: ResolverContext
     ) => {
-      // Would need agent match index
-      return [];
+      if (!context.matchStore) return [];
+      const limit = clampLimit(args.limit, 10);
+      const matches = context.matchStore.getMatchesByAgent(parent.address);
+      return matches.slice(0, limit).map((r) => ({
+        id: r.matchId,
+        tournamentId: r.tournamentId,
+        round: r.round,
+        player1: r.loser ?? "",
+        player2: r.winner ?? "",
+        winner: r.winner,
+        resultHash: "",
+        timestamp: 0,
+        status: "COMPLETED",
+        gameType: gameTypeToEnum(r.gameType),
+        stats: {
+          duration: r.duration,
+          isUpset: r.isUpset,
+          isDraw: r.isDraw,
+        },
+      }));
     },
 
     tournaments: async (
@@ -1093,8 +1151,31 @@ export const resolvers = {
       args: { limit?: number },
       context: ResolverContext
     ) => {
-      // Would need agent tournament index
-      return [];
+      const limit = clampLimit(args.limit, 10);
+      const addr = parent.address.toLowerCase();
+      const result: Array<Record<string, unknown>> = [];
+
+      try {
+        const count = await context.contractClient.getTournamentCount();
+        for (let i = 1; i <= count && result.length < limit; i++) {
+          const participants = await context.loaders.tournamentParticipantsLoader.load(i);
+          if (participants.some((p) => p.toLowerCase() === addr)) {
+            const t = await context.loaders.tournamentLoader.load(i);
+            if (t) {
+              result.push({
+                ...t,
+                status: tournamentStatusToEnum(t.status),
+                gameType: gameTypeToEnum(t.gameType),
+                format: tournamentFormatToEnum(t.format),
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.debug(`[GraphQL] Agent.tournaments lookup failed:`, err);
+      }
+
+      return result;
     },
   },
 
@@ -1141,7 +1222,11 @@ export const resolvers = {
       context: ResolverContext
     ) => {
       if (!context.matchStore) return false;
-      context.matchStore.setAgentAvatar(args.address, args.avatarUrl);
+      // Validate avatar URL
+      const url = args.avatarUrl.trim();
+      if (url.length > 2048) throw new Error("Avatar URL too long (max 2048 characters)");
+      if (!/^(https?:\/\/|ipfs:\/\/)/.test(url)) throw new Error("Avatar URL must start with http://, https://, or ipfs://");
+      context.matchStore.setAgentAvatar(args.address, url);
       return true;
     },
 
@@ -1161,11 +1246,17 @@ export const resolvers = {
     ) => {
       if (!context.arenaManager) return null;
 
+      // Validate tournament name
+      const name = args.input.name.trim();
+      if (!name) throw new Error("Tournament name is required");
+      const byteLength = Buffer.byteLength(name, "utf8");
+      if (byteLength > 256) throw new Error(`Tournament name too long (${byteLength} bytes, max 256)`);
+
       const gameType = enumToGameType(args.input.gameType);
       const format = enumToTournamentFormat(args.input.format);
 
       const tournamentId = await context.arenaManager.createTournament({
-        name: args.input.name,
+        name,
         gameType,
         format,
         entryStake: BigInt(Math.floor(parseFloat(args.input.entryStake) * 1e18)),
@@ -1262,13 +1353,5 @@ export const resolvers = {
       };
     },
 
-    seedAgents: async (
-      _: unknown,
-      args: { count?: number },
-      context: ResolverContext
-    ) => {
-      if (!context.scheduler) throw new Error("Scheduler not available");
-      return context.scheduler.seedAgents(args.count ?? 16);
-    },
   },
 };
