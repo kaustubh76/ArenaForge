@@ -1,5 +1,13 @@
-import { getContract, type Abi } from "viem";
+import { getContract, type Abi, type Hash } from "viem";
 import { publicClient, walletClient } from "./rpc";
+
+/** Wait for tx receipt and throw if it failed */
+async function confirmTx(hash: Hash, label?: string): Promise<void> {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(`Transaction failed${label ? ` (${label})` : ""}: ${hash}`);
+  }
+}
 
 // ABI fragments for the contracts we interact with (JSON format for proper tuple support)
 const ArenaCoreAbi: Abi = [
@@ -14,7 +22,7 @@ const ArenaCoreAbi: Abi = [
   { type: "function", name: "updateElo", stateMutability: "nonpayable", inputs: [{ name: "agent", type: "address" }, { name: "newElo", type: "uint256" }, { name: "won", type: "bool" }], outputs: [] },
   { type: "function", name: "registerGameMode", stateMutability: "nonpayable", inputs: [{ name: "gameTypeId", type: "uint256" }, { name: "contractAddress", type: "address" }], outputs: [] },
   { type: "function", name: "getTournament", stateMutability: "view", inputs: [{ name: "id", type: "uint256" }], outputs: [{ name: "", type: "tuple", components: [{ name: "id", type: "uint256" }, { name: "name", type: "string" }, { name: "gameType", type: "uint8" }, { name: "format", type: "uint8" }, { name: "status", type: "uint8" }, { name: "entryStake", type: "uint256" }, { name: "maxParticipants", type: "uint256" }, { name: "currentParticipants", type: "uint256" }, { name: "prizePool", type: "uint256" }, { name: "startTime", type: "uint256" }, { name: "roundCount", type: "uint256" }, { name: "currentRound", type: "uint256" }, { name: "parametersHash", type: "bytes32" }] }] },
-  { type: "function", name: "getAgent", stateMutability: "view", inputs: [{ name: "agent", type: "address" }], outputs: [{ name: "", type: "tuple", components: [{ name: "agentAddress", type: "address" }, { name: "moltbookHandle", type: "string" }, { name: "elo", type: "uint256" }, { name: "matchesPlayed", type: "uint256" }, { name: "wins", type: "uint256" }, { name: "losses", type: "uint256" }, { name: "registered", type: "bool" }] }] },
+  { type: "function", name: "getAgent", stateMutability: "view", inputs: [{ name: "agent", type: "address" }], outputs: [{ name: "", type: "tuple", components: [{ name: "agentAddress", type: "address" }, { name: "moltbookHandle", type: "string" }, { name: "avatarURI", type: "string" }, { name: "elo", type: "uint256" }, { name: "matchesPlayed", type: "uint256" }, { name: "wins", type: "uint256" }, { name: "losses", type: "uint256" }, { name: "currentStreak", type: "int256" }, { name: "longestWinStreak", type: "uint256" }, { name: "registered", type: "bool" }] }] },
   { type: "function", name: "getTournamentParticipants", stateMutability: "view", inputs: [{ name: "tournamentId", type: "uint256" }], outputs: [{ name: "", type: "address[]" }] },
   { type: "function", name: "isParticipant", stateMutability: "view", inputs: [{ name: "tournamentId", type: "uint256" }, { name: "agent", type: "address" }], outputs: [{ name: "", type: "bool" }] },
   { type: "function", name: "tournamentCounter", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
@@ -65,6 +73,28 @@ const StrategyArenaAbi: Abi = [
   { type: "event", name: "MoveRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }, { name: "move", type: "uint8", indexed: false }] },
 ];
 
+const AuctionWarsAbi: Abi = [
+  { type: "function", name: "initMatch", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "players", type: "address[]" }, { name: "totalRounds", type: "uint256" }], outputs: [] },
+  { type: "function", name: "startAuctionRound", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "mysteryBoxHash", type: "bytes32" }, { name: "biddingDuration", type: "uint256" }, { name: "revealDuration", type: "uint256" }], outputs: [] },
+  { type: "function", name: "commitBid", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "roundNum", type: "uint256" }, { name: "bidHash", type: "bytes32" }], outputs: [] },
+  { type: "function", name: "revealBid", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "roundNum", type: "uint256" }, { name: "amount", type: "uint256" }, { name: "salt", type: "bytes32" }], outputs: [] },
+  { type: "function", name: "resolveAuction", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "roundNum", type: "uint256" }, { name: "actualValue", type: "uint256" }], outputs: [] },
+  { type: "function", name: "getScore", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "player", type: "address" }], outputs: [{ name: "", type: "int256" }] },
+  { type: "function", name: "getPlayers", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "address[]" }] },
+  { type: "function", name: "getCurrentRound", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+];
+
+const QuizBowlAbi: Abi = [
+  { type: "function", name: "initMatch", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "players", type: "address[]" }, { name: "totalQuestions", type: "uint256" }, { name: "maxAnswerTime", type: "uint256" }], outputs: [] },
+  { type: "function", name: "postQuestion", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "questionHash", type: "bytes32" }], outputs: [] },
+  { type: "function", name: "commitAnswer", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "questionIndex", type: "uint256" }, { name: "answerHash", type: "bytes32" }], outputs: [] },
+  { type: "function", name: "revealAnswer", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "questionIndex", type: "uint256" }, { name: "answer", type: "uint256" }, { name: "salt", type: "bytes32" }], outputs: [] },
+  { type: "function", name: "resolveQuestion", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "questionIndex", type: "uint256" }, { name: "correctAnswer", type: "uint256" }], outputs: [] },
+  { type: "function", name: "getScore", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "player", type: "address" }], outputs: [{ name: "", type: "int256" }] },
+  { type: "function", name: "getPlayers", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "address[]" }] },
+  { type: "function", name: "getCurrentQuestion", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+];
+
 // Phase 2: Seasonal Rankings ABI
 const SeasonalRankingsAbi: Abi = [
   { type: "function", name: "recordSeasonalMatch", stateMutability: "nonpayable", inputs: [{ name: "winner", type: "address" }, { name: "loser", type: "address" }, { name: "eloChange", type: "int256" }], outputs: [] },
@@ -97,6 +127,8 @@ export class MonadContractClient {
   private matchRegistry;
   private oracleDuel;
   private strategyArena;
+  private auctionWars;
+  private quizBowl;
   // Phase 2 contracts
   private seasonalRankings;
   private spectatorBetting;
@@ -110,6 +142,8 @@ export class MonadContractClient {
     const registryAddr = process.env.MATCH_REGISTRY_ADDRESS?.trim() as `0x${string}`;
     const oracleAddr = process.env.ORACLE_DUEL_ADDRESS?.trim() as `0x${string}`;
     const strategyAddr = process.env.STRATEGY_ARENA_ADDRESS?.trim() as `0x${string}`;
+    const auctionAddr = process.env.AUCTION_WARS_ADDRESS?.trim() as `0x${string}`;
+    const quizAddr = process.env.QUIZ_BOWL_ADDRESS?.trim() as `0x${string}`;
     // Phase 2 addresses
     const seasonalAddr = process.env.SEASONAL_RANKINGS_ADDRESS?.trim() as `0x${string}` | undefined;
     const bettingAddr = process.env.SPECTATOR_BETTING_ADDRESS?.trim() as `0x${string}` | undefined;
@@ -141,6 +175,18 @@ export class MonadContractClient {
     this.strategyArena = getContract({
       address: strategyAddr,
       abi: StrategyArenaAbi,
+      client: { public: publicClient, wallet: walletClient },
+    });
+
+    this.auctionWars = getContract({
+      address: auctionAddr,
+      abi: AuctionWarsAbi,
+      client: { public: publicClient, wallet: walletClient },
+    });
+
+    this.quizBowl = getContract({
+      address: quizAddr,
+      abi: QuizBowlAbi,
       client: { public: publicClient, wallet: walletClient },
     });
 
@@ -183,37 +229,37 @@ export class MonadContractClient {
     const hash = await this.arenaCore.write.createTournament([
       name, gameType, format, entryStake, maxParticipants, roundCount, parametersHash,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "createTournament");
     return hash;
   }
 
   async startTournament(tournamentId: number): Promise<void> {
     const hash = await this.arenaCore.write.startTournament([BigInt(tournamentId)]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "startTournament");
   }
 
   async completeTournament(tournamentId: number, winner: string): Promise<void> {
     const hash = await this.arenaCore.write.completeTournament([
       BigInt(tournamentId), winner as `0x${string}`,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "completeTournament");
   }
 
   async advanceRound(tournamentId: number): Promise<void> {
     const hash = await this.arenaCore.write.advanceRound([BigInt(tournamentId)]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "advanceRound");
   }
 
   async evolveParameters(tournamentId: number, newHash: `0x${string}`): Promise<void> {
     const hash = await this.arenaCore.write.evolveParameters([BigInt(tournamentId), newHash]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "evolveParameters");
   }
 
   async updateElo(agent: string, newElo: number, won: boolean): Promise<void> {
     const hash = await this.arenaCore.write.updateElo([
       agent as `0x${string}`, BigInt(newElo), won,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "updateElo");
   }
 
   // --- Escrow Write ---
@@ -222,14 +268,14 @@ export class MonadContractClient {
     const hash = await this.escrow.write.lockForMatch([
       BigInt(tournamentId), agent1 as `0x${string}`, agent2 as `0x${string}`,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "lockForMatch");
   }
 
   async distributePrize(tournamentId: number, winner: string, amount: bigint): Promise<void> {
     const hash = await this.escrow.write.distributePrize([
       BigInt(tournamentId), winner as `0x${string}`, amount,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "distributePrize");
   }
 
   async batchDistribute(
@@ -242,7 +288,7 @@ export class MonadContractClient {
       recipients as `0x${string}`[],
       amounts,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "batchDistribute");
   }
 
   // --- MatchRegistry Write ---
@@ -257,20 +303,20 @@ export class MonadContractClient {
       BigInt(tournamentId), BigInt(round),
       player1 as `0x${string}`, player2 as `0x${string}`,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "createMatch");
     return hash;
   }
 
   async startMatch(matchId: number): Promise<void> {
     const hash = await this.matchRegistry.write.startMatch([BigInt(matchId)]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "startMatch");
   }
 
   async recordResult(matchId: number, winner: string, resultHash: `0x${string}`): Promise<void> {
     const hash = await this.matchRegistry.write.recordResult([
       BigInt(matchId), winner as `0x${string}`, resultHash,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "recordResult");
   }
 
   // --- OracleDuel Write ---
@@ -287,12 +333,68 @@ export class MonadContractClient {
       BigInt(matchId), tokenAddress as `0x${string}`, snapshotPrice,
       BigInt(durationSeconds), bullPlayer as `0x${string}`, bearPlayer as `0x${string}`,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "initDuel");
   }
 
   async resolveDuel(matchId: number, currentPrice: bigint): Promise<void> {
     const hash = await this.oracleDuel.write.resolveDuel([BigInt(matchId), currentPrice]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "resolveDuel");
+  }
+
+  // --- AuctionWars Write ---
+
+  async initAuctionMatch(matchId: number, players: string[], totalRounds: number): Promise<void> {
+    const hash = await this.auctionWars.write.initMatch([
+      BigInt(matchId), players as `0x${string}`[], BigInt(totalRounds),
+    ]);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error(`initAuctionMatch tx failed: ${hash}`);
+    console.log(`[Chain] Initialized AuctionWars match ${matchId}`);
+  }
+
+  async resolveAuctionRound(matchId: number, roundNum: number, actualValue: bigint): Promise<void> {
+    const hash = await this.auctionWars.write.resolveAuction([
+      BigInt(matchId), BigInt(roundNum), actualValue,
+    ]);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error(`resolveAuction tx failed: ${hash}`);
+    console.log(`[Chain] Resolved AuctionWars match ${matchId} round ${roundNum}`);
+  }
+
+  async getAuctionScore(matchId: number, player: string): Promise<bigint> {
+    return await this.auctionWars.read.getScore([BigInt(matchId), player as `0x${string}`]) as bigint;
+  }
+
+  async getAuctionCurrentRound(matchId: number): Promise<number> {
+    return Number(await this.auctionWars.read.getCurrentRound([BigInt(matchId)]));
+  }
+
+  // --- QuizBowl Write ---
+
+  async initQuizMatch(matchId: number, players: string[], totalQuestions: number, maxAnswerTime: number): Promise<void> {
+    const hash = await this.quizBowl.write.initMatch([
+      BigInt(matchId), players as `0x${string}`[], BigInt(totalQuestions), BigInt(maxAnswerTime),
+    ]);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error(`initQuizMatch tx failed: ${hash}`);
+    console.log(`[Chain] Initialized QuizBowl match ${matchId}`);
+  }
+
+  async resolveQuizQuestion(matchId: number, questionIndex: number, correctAnswer: number): Promise<void> {
+    const hash = await this.quizBowl.write.resolveQuestion([
+      BigInt(matchId), BigInt(questionIndex), BigInt(correctAnswer),
+    ]);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error(`resolveQuestion tx failed: ${hash}`);
+    console.log(`[Chain] Resolved QuizBowl match ${matchId} question ${questionIndex}`);
+  }
+
+  async getQuizScore(matchId: number, player: string): Promise<bigint> {
+    return await this.quizBowl.read.getScore([BigInt(matchId), player as `0x${string}`]) as bigint;
+  }
+
+  async getQuizCurrentQuestion(matchId: number): Promise<number> {
+    return Number(await this.quizBowl.read.getCurrentQuestion([BigInt(matchId)]));
   }
 
   // --- Read Operations ---
@@ -351,7 +453,7 @@ export class MonadContractClient {
       loser as `0x${string}`,
       BigInt(eloChange),
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "recordSeasonalMatch");
     console.log(`[Chain] Recorded seasonal match: winner=${winner}, eloChange=${eloChange}`);
   }
 
@@ -361,7 +463,7 @@ export class MonadContractClient {
       return;
     }
     const hash = await this.seasonalRankings.write.startNewSeason([]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "startNewSeason");
     console.log("[Chain] Started new season");
   }
 
@@ -371,7 +473,7 @@ export class MonadContractClient {
       return;
     }
     const hash = await this.seasonalRankings.write.endSeason([]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "endSeason");
     console.log("[Chain] Ended current season");
   }
 
@@ -381,7 +483,7 @@ export class MonadContractClient {
       return;
     }
     const hash = await this.seasonalRankings.write.distributeSeasonRewards([BigInt(seasonId)]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "distributeSeasonRewards");
     console.log(`[Chain] Distributed rewards for season ${seasonId}`);
   }
 
@@ -441,7 +543,7 @@ export class MonadContractClient {
       player1 as `0x${string}`,
       player2 as `0x${string}`,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "openBetting");
     console.log(`[Chain] Opened betting for match ${matchId}`);
   }
 
@@ -451,7 +553,7 @@ export class MonadContractClient {
       return;
     }
     const hash = await this.spectatorBetting.write.closeBetting([BigInt(matchId)]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "closeBetting");
     console.log(`[Chain] Closed betting for match ${matchId}`);
   }
 
@@ -464,7 +566,7 @@ export class MonadContractClient {
       BigInt(matchId),
       actualWinner as `0x${string}`,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "settleBets");
     console.log(`[Chain] Settled bets for match ${matchId}, winner: ${actualWinner}`);
   }
 
@@ -474,7 +576,7 @@ export class MonadContractClient {
       return;
     }
     const hash = await this.spectatorBetting.write.refundMatch([BigInt(matchId)]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "refundMatch");
     console.log(`[Chain] Refunded bets for cancelled match ${matchId}`);
   }
 
@@ -522,7 +624,7 @@ export class MonadContractClient {
       BigInt(matchId),
       stateHash,
     ]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirmTx(hash, "storeRoundState");
     console.log(`[Chain] Stored round state for match ${matchId}`);
   }
 
