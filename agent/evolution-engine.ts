@@ -256,6 +256,105 @@ export class EvolutionEngine {
       }
     }
 
+    // Rule 6: Tit-for-tat dominant — introduce noise via round count variation
+    if (metrics.dominantStrategy === "tit_for_tat" && gameType === GT.StrategyArena) {
+      mutations.push({
+        type: "scale",
+        factor: 0.9,
+        strategy: "strategyCooperateDefect",
+        reason: "Tit-for-tat dominant — reducing sucker payoff to penalize predictability",
+      });
+      mutations.push({
+        type: "increment",
+        increment: 1,
+        strategy: "strategyRoundCount",
+        reason: "Tit-for-tat dominant — adding round to increase variance",
+      });
+    }
+
+    // Rule 7: Long matches — reduce complexity to prevent stalemates
+    if (metrics.averageMatchDuration > 120) {
+      if (gameType === GT.StrategyArena) {
+        mutations.push({
+          type: "increment",
+          increment: -1,
+          strategy: "strategyRoundCount",
+          reason: "Matches too long — reducing rounds to speed up resolution",
+        });
+      }
+      if (gameType === GT.QuizBowl) {
+        mutations.push({
+          type: "scale",
+          factor: 0.8,
+          strategy: "quizAnswerTime",
+          reason: "Matches too long — tightening answer windows",
+        });
+      }
+      if (gameType === GT.AuctionWars) {
+        mutations.push({
+          type: "increment",
+          increment: -1,
+          strategy: "auctionBoxCount",
+          reason: "Matches too long — reducing auction rounds",
+        });
+      }
+    }
+
+    // Rule 8: ELO distribution clustering — increase payoff spread
+    if (metrics.drawRate > 0.15 && metrics.drawRate <= 0.3 && gameType === GT.StrategyArena) {
+      const ccPayoff = currentParams.strategyCooperateCooperate ?? 3;
+      const ddPayoff = currentParams.strategyDefectDefect ?? 1;
+      if (ccPayoff - ddPayoff < 3) {
+        mutations.push({
+          type: "scale",
+          factor: 1.1,
+          strategy: "strategyCooperateCooperate",
+          reason: "Moderate draw rate — widening payoff spread for better differentiation",
+        });
+      }
+    }
+
+    // Rule 9: QuizBowl speed bonus tuning
+    if (gameType === GT.QuizBowl) {
+      const speedBonus = currentParams.quizSpeedBonusMax ?? 50;
+      if (metrics.averageMatchDuration < 20 && speedBonus > 20) {
+        mutations.push({
+          type: "scale",
+          factor: 0.7,
+          strategy: "quizSpeedBonusMax",
+          reason: "Quiz matches too fast — reducing speed bonus to encourage accuracy",
+        });
+      }
+      if (metrics.drawRate > 0.25) {
+        mutations.push({
+          type: "scale",
+          factor: 1.3,
+          strategy: "quizSpeedBonusMax",
+          reason: "High draw rate in quiz — increasing speed bonus as tiebreaker",
+        });
+      }
+    }
+
+    // Rule 10: AuctionWars hint tuning
+    if (gameType === GT.AuctionWars) {
+      if (metrics.drawRate > 0.2) {
+        mutations.push({
+          type: "increment",
+          increment: -1,
+          strategy: "auctionHintCount",
+          reason: "High draw rate in auctions — reducing hints to increase uncertainty",
+        });
+      }
+      if (metrics.dominantStrategy === "conservative_bidding") {
+        mutations.push({
+          type: "scale",
+          factor: 0.85,
+          strategy: "auctionMinBidPercent",
+          reason: "Conservative bidding dominant — lowering floor to enable aggressive strategies",
+        });
+      }
+    }
+
     return mutations;
   }
 

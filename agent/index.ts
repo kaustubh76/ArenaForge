@@ -190,6 +190,27 @@ async function main(): Promise<void> {
     console.log(`[Event] Move committed: Match #${matchId} R${round} by ${player.slice(0, 10)}`);
   });
 
+  // Betting event listeners — persist to SQLite
+  const betsMatchStore = getMatchStore();
+
+  eventListener.watchBettingOpened((matchId, player1, player2) => {
+    console.log(`[Event] Betting opened: Match #${matchId} (${player1.slice(0, 10)} vs ${player2.slice(0, 10)})`);
+  });
+
+  eventListener.watchBetPlaced((matchId, bettor, predictedWinner, amount) => {
+    console.log(`[Event] Bet placed: Match #${matchId} by ${bettor.slice(0, 10)} for ${predictedWinner.slice(0, 10)} (${amount})`);
+    if (betsMatchStore) {
+      betsMatchStore.saveBet(matchId, bettor, predictedWinner, amount.toString());
+    }
+  });
+
+  eventListener.watchBetsSettled((matchId, winner) => {
+    console.log(`[Event] Bets settled: Match #${matchId}, winner: ${winner.slice(0, 10)}`);
+    if (betsMatchStore) {
+      betsMatchStore.settleBets(matchId, winner);
+    }
+  });
+
   console.log("Event listeners active");
 
   // --- Initialize Autonomous Scheduler (created before API so it's available in GraphQL context) ---

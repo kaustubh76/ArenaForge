@@ -10,6 +10,7 @@ import type {
 import { GameType } from "./game-mode.interface";
 import { keccak256, toBytes } from "viem";
 import { SubmoltManager } from "../moltbook/submolt-manager";
+import { MonadContractClient } from "../monad/contract-client";
 
 interface QuizState {
   matchId: number;
@@ -34,11 +35,13 @@ export class QuizBowlEngine implements GameMode {
   readonly gameType = GameType.QuizBowl;
   private matches = new Map<number, QuizState>();
   private submoltManager: SubmoltManager | null;
+  private contractClient: MonadContractClient | null;
   // Track used question indices per match to prevent duplicates
   private usedQuestions = new Map<number, Set<string>>();
 
-  constructor(submoltManager?: SubmoltManager) {
+  constructor(submoltManager?: SubmoltManager, contractClient?: MonadContractClient) {
     this.submoltManager = submoltManager ?? null;
+    this.contractClient = contractClient ?? null;
   }
 
   async initMatch(
@@ -83,6 +86,15 @@ export class QuizBowlEngine implements GameMode {
     }
 
     this.matches.set(matchId, state);
+
+    // Write to on-chain QuizBowl contract
+    if (this.contractClient) {
+      try {
+        await this.contractClient.initQuizMatch(matchId, players, questionCount, answerTime);
+      } catch (e) {
+        console.warn(`[QuizBowl] On-chain initMatch failed for match #${matchId}:`, e);
+      }
+    }
   }
 
   async processAction(
@@ -332,6 +344,12 @@ export class QuizBowlEngine implements GameMode {
         const prev = state.scores.get(player) || 0;
         state.scores.set(player, prev + score);
       }
+    }
+
+    // Write question result to on-chain contract
+    if (this.contractClient) {
+      this.contractClient.resolveQuizQuestion(state.matchId, qIdx, question.correctAnswer)
+        .catch((e) => console.warn(`[QuizBowl] On-chain resolveQuestion failed:`, e));
     }
 
     // Advance to next question

@@ -11,6 +11,7 @@ import type {
 } from "./game-mode.interface";
 import { GameType } from "./game-mode.interface";
 import { NadFunClient } from "../monad/nadfun-client";
+import { MonadContractClient } from "../monad/contract-client";
 import { keccak256, toBytes, encodePacked } from "viem";
 
 interface AuctionRound {
@@ -42,9 +43,11 @@ export class AuctionWarsEngine implements GameMode {
   readonly gameType = GameType.AuctionWars;
   private matches = new Map<number, AuctionState>();
   private nadFunClient: NadFunClient;
+  private contractClient: MonadContractClient | null;
 
-  constructor(nadFunClient: NadFunClient) {
+  constructor(nadFunClient: NadFunClient, contractClient?: MonadContractClient) {
     this.nadFunClient = nadFunClient;
+    this.contractClient = contractClient ?? null;
   }
 
   async initMatch(
@@ -95,6 +98,15 @@ export class AuctionWarsEngine implements GameMode {
     };
 
     this.matches.set(matchId, state);
+
+    // Write to on-chain AuctionWars contract
+    if (this.contractClient) {
+      try {
+        await this.contractClient.initAuctionMatch(matchId, players, totalRounds);
+      } catch (e) {
+        console.warn(`[AuctionWars] On-chain initMatch failed for match #${matchId}:`, e);
+      }
+    }
   }
 
   async processAction(
@@ -324,6 +336,12 @@ export class AuctionWarsEngine implements GameMode {
 
     round.winner = bestPlayer;
     round.resolved = true;
+
+    // Write round result to on-chain contract
+    if (this.contractClient) {
+      this.contractClient.resolveAuctionRound(state.matchId, round.roundNumber, actualValue)
+        .catch((e) => console.warn(`[AuctionWars] On-chain resolveAuction failed:`, e));
+    }
 
     // Advance to next round
     if (state.currentRound < state.totalRounds) {

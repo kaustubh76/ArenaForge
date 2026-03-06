@@ -114,8 +114,8 @@ export class ArenaManager {
       new OracleDuelEngine(config.contractClient, config.nadFunClient)
     );
     this.engines.set(GameType.StrategyArena, new StrategyArenaEngine());
-    this.engines.set(GameType.AuctionWars, new AuctionWarsEngine(config.nadFunClient));
-    this.engines.set(GameType.QuizBowl, new QuizBowlEngine());
+    this.engines.set(GameType.AuctionWars, new AuctionWarsEngine(config.nadFunClient, config.contractClient));
+    this.engines.set(GameType.QuizBowl, new QuizBowlEngine(undefined, config.contractClient));
   }
 
   /**
@@ -187,6 +187,9 @@ export class ArenaManager {
 
       // 4. Check for new tournaments to manage
       await this.discoverTournaments();
+
+      // 5. Retry unsettled bets
+      await this.sweepUnsettledBets();
     } catch (error) {
       console.error("[ArenaManager] Tick error:", error);
     }
@@ -965,6 +968,26 @@ export class ArenaManager {
       }
     } catch (error) {
       console.error("[ArenaManager] Discovery error:", error);
+    }
+  }
+
+  /**
+   * Retry settling bets for completed matches that still have active bets.
+   */
+  private async sweepUnsettledBets(): Promise<void> {
+    if (!this.matchStore) return;
+    const unsettledMatchIds = this.matchStore.getUnsettledBetMatchIds();
+    for (const matchId of unsettledMatchIds) {
+      const match = this.matchStore.getMatch(matchId);
+      if (match && match.winner) {
+        try {
+          await this.contractClient.settleBets(matchId, match.winner);
+          this.matchStore.settleBets(matchId, match.winner);
+          console.log(`[ArenaManager] Retried settle bets for match #${matchId}`);
+        } catch (e) {
+          // Will retry next tick
+        }
+      }
     }
   }
 

@@ -118,8 +118,6 @@ export class AutonomousScheduler {
   private running = false;
   private ticking = false; // Mutex: prevents concurrent tick execution
   private lastScannedTournament = 0;
-  private matchHistorySeeded = false;
-
   // A2A: Track discovered agents across ticks
   private knownAgents: Map<string, DiscoveredAgentInfo> = new Map();
 
@@ -235,10 +233,7 @@ export class AutonomousScheduler {
       await this.discoverAndInviteAgents();
     }
 
-    // 3b. Seed realistic match history on first discovery (once only)
-    if (!this.matchHistorySeeded && this.knownAgents.size >= 4) {
-      this.seedMatchHistory();
-    }
+    // Match history now comes from real tournament matches only (no seeding)
 
     // 4. Post daily summary (every 12 ticks at 5min interval = ~1 hour, or every 24h)
     if (this.tickCount % 288 === 0) {
@@ -572,195 +567,6 @@ export class AutonomousScheduler {
     return this.coordinator;
   }
 
-  /**
-   * Seed realistic match history for discovered on-chain agents.
-   * Generates completed match results across all game types so that
-   * analytics, leaderboards, and game type stats are populated.
-   */
-  private seedMatchHistory(): void {
-    const matchStore = this.config.matchStore;
-    if (!matchStore) return;
-
-    this.matchHistorySeeded = true;
-    const agents = Array.from(this.knownAgents.values());
-    if (agents.length < 2) return;
-
-    const gameTypes = [
-      GameType.OracleDuel,
-      GameType.StrategyArena,
-      GameType.AuctionWars,
-      GameType.QuizBowl,
-    ];
-
-    let matchId = 1000; // Start from 1000 to avoid collisions
-    let seeded = 0;
-    const now = Math.floor(Date.now() / 1000);
-
-    // Generate ~40 matches across random agent pairs and game types
-    for (let i = 0; i < 40; i++) {
-      const a1 = agents[Math.floor(Math.random() * agents.length)];
-      let a2 = agents[Math.floor(Math.random() * agents.length)];
-      while (a2.address === a1.address) {
-        a2 = agents[Math.floor(Math.random() * agents.length)];
-      }
-
-      const gameType = gameTypes[Math.floor(Math.random() * gameTypes.length)];
-      const isDraw = Math.random() < 0.15;
-      const winner = isDraw ? null : (Math.random() < 0.5 ? a1.address : a2.address);
-      const loser = isDraw ? a1.address : (winner === a1.address ? a2.address : a1.address);
-      const duration = 30 + Math.floor(Math.random() * 270); // 30-300 seconds
-      const isUpset = !isDraw && Math.random() < 0.2;
-      const tournamentId = Math.floor(Math.random() * 7) + 1;
-      const round = Math.floor(Math.random() * 3) + 1;
-
-      // Build game-specific stats
-      const stats: Record<string, unknown> = {};
-      if (gameType === GameType.StrategyArena) {
-        const rounds = [];
-        let p1Score = 0, p2Score = 0;
-        for (let r = 0; r < 5; r++) {
-          const p1Move = Math.random() < 0.6 ? 0 : 1; // cooperate / defect
-          const p2Move = Math.random() < 0.55 ? 0 : 1;
-          const p1Pay = p1Move === 0 && p2Move === 0 ? 6000 : p1Move === 1 && p2Move === 0 ? 10000 : p1Move === 0 && p2Move === 1 ? 0 : 2000;
-          const p2Pay = p2Move === 0 && p1Move === 0 ? 6000 : p2Move === 1 && p1Move === 0 ? 10000 : p2Move === 0 && p1Move === 1 ? 0 : 2000;
-          p1Score += p1Pay;
-          p2Score += p2Pay;
-          rounds.push({ round: r + 1, player1Move: p1Move, player2Move: p2Move, player1Payoff: p1Pay, player2Payoff: p2Pay });
-        }
-        stats.rounds = rounds;
-        stats.finalScore = { [a1.address]: p1Score, [a2.address]: p2Score };
-      } else if (gameType === GameType.QuizBowl) {
-        const questions = [];
-        for (let q = 0; q < 10; q++) {
-          const correct = Math.floor(Math.random() * 4);
-          questions.push({
-            index: q,
-            correctAnswer: correct,
-            category: ["math", "science", "history", "crypto"][Math.floor(Math.random() * 4)],
-            difficulty: Math.floor(Math.random() * 3) + 1,
-            playerAnswers: {
-              [a1.address]: Math.random() < 0.6 ? correct : (correct + 1) % 4,
-              [a2.address]: Math.random() < 0.55 ? correct : (correct + 2) % 4,
-            },
-          });
-        }
-        stats.questions = questions;
-      }
-
-      try {
-        matchStore.saveMatchResult({
-          matchId: matchId++,
-          tournamentId,
-          round,
-          winner,
-          loser,
-          isDraw,
-          isUpset,
-          gameType,
-          tournamentStage: `round_${round}`,
-          player1Actions: [],
-          player2Actions: [],
-          stats,
-          duration,
-        });
-        seeded++;
-      } catch {
-        // Ignore duplicate ID errors
-      }
-    }
-
-    console.log(`[Scheduler] Seeded ${seeded} match history records for ${agents.length} on-chain agents`);
-  }
-
-  /**
-   * Seed simulated agents into the discovered agents pool.
-   * Used to populate the arena with AI agents for demonstration.
-   * Returns the number of newly seeded agents.
-   */
-  async seedAgents(count: number = 16): Promise<number> {
-    const handles = [
-      "CryptoWolf", "NeuralNinja", "QuantumFox", "DeepOracle",
-      "AlphaStrike", "BetaMind", "GammaPulse", "DeltaForce",
-      "OmegaBot", "SigmaStrat", "ThetaPrime", "ZetaCore",
-      "NovaFlare", "LunarTide", "SolarBlaze", "VoidWalker",
-      "IronLogic", "StealthNode", "RapidFire", "FrostByte",
-      "NeonDrift", "CyberHawk", "BlitzKing", "ShadowCalc",
-      "EchoGrid", "PixelStorm", "VectorPush", "HexMaster",
-      "ByteForge", "ChainReaper", "WarpDrive", "TurboMind",
-    ];
-
-    let seeded = 0;
-
-    for (let i = 0; i < count && i < handles.length; i++) {
-      // Generate a deterministic pseudo-address from handle
-      const addrHex = Array.from(handles[i])
-        .map((c) => c.charCodeAt(0).toString(16).padStart(2, "0"))
-        .join("")
-        .padEnd(40, "0")
-        .slice(0, 40);
-      const address = normalizeAddress(`0x${addrHex}`);
-      const key = address.toLowerCase();
-
-      if (this.knownAgents.has(key)) continue;
-
-      // Generate varied stats
-      const elo = 900 + Math.floor(Math.random() * 700); // 900-1600
-      const matchesPlayed = 5 + Math.floor(Math.random() * 80); // 5-84
-      const winRate = 0.3 + Math.random() * 0.5; // 30%-80%
-      const wins = Math.floor(matchesPlayed * winRate);
-
-      this.knownAgents.set(key, {
-        address,
-        discoveredAt: Date.now() - Math.floor(Math.random() * 86400000),
-        fromTournament: 1,
-        matchesPlayed,
-        elo,
-      });
-
-      // Store in seeded agents cache (for resolver/dataloader fallback)
-      seededAgentCache.set(key, {
-        address,
-        moltbookHandle: handles[i],
-        elo,
-        peakElo: elo + Math.floor(Math.random() * 100),
-        matchesPlayed,
-        wins,
-        losses: matchesPlayed - wins,
-        registered: true,
-      });
-
-      seeded++;
-    }
-
-    // After seeding, auto-populate open tournaments
-    if (seeded > 0) {
-      console.log(`[Scheduler] Seeded ${seeded} simulated agents (total: ${this.knownAgents.size})`);
-      await this.autoPopulateTournaments();
-    }
-
-    return seeded;
-  }
-}
-
-/**
- * In-memory cache of seeded agent data for resolver/dataloader fallback.
- * When the contract doesn't know about an agent, we check here.
- */
-export interface SeededAgentData {
-  address: string;
-  moltbookHandle: string;
-  elo: number;
-  peakElo: number;
-  matchesPlayed: number;
-  wins: number;
-  losses: number;
-  registered: boolean;
-}
-
-export const seededAgentCache = new Map<string, SeededAgentData>();
-
-export function getSeededAgent(address: string): SeededAgentData | null {
-  return seededAgentCache.get(address.toLowerCase()) ?? null;
 }
 
 function formatTokenPrice(weiStr: string): string {
