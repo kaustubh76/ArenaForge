@@ -33,49 +33,18 @@ interface GameActionState {
   submitPrediction: (matchId: number) => Promise<boolean>;
 }
 
-// Extend window type for ethereum provider
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-    };
-  }
-}
-
-// Helper to get wallet client for write operations
+// Helper to get wallet client for write operations (uses wagmi)
 async function getWalletClient() {
-  // This requires wallet connection via wagmi/RainbowKit
-  // For now we'll try to use window.ethereum if available
-  if (typeof window !== 'undefined' && window.ethereum) {
-    const { createWalletClient, custom } = await import('viem');
-    const rpcUrl = import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:8545';
-    const chainId = Number(import.meta.env.VITE_CHAIN_ID || '31337');
-    const isLocal = chainId === 31337;
+  const { getWalletClient: wagmiGetWalletClient } = await import('@wagmi/core');
+  const { config } = await import('@/lib/wagmi');
 
-    const { defineChain } = await import('viem');
-    const chain = defineChain({
-      id: chainId,
-      name: isLocal ? 'Localhost (Anvil)' : 'Monad Testnet',
-      nativeCurrency: {
-        decimals: 18,
-        name: isLocal ? 'ETH' : 'MON',
-        symbol: isLocal ? 'ETH' : 'MON',
-      },
-      rpcUrls: { default: { http: [rpcUrl] } },
-    });
+  const walletClient = await wagmiGetWalletClient(config);
+  if (!walletClient) throw new Error('No wallet connected. Please connect your wallet via RainbowKit.');
 
-    const walletClient = createWalletClient({
-      chain,
-      transport: custom(window.ethereum),
-    });
+  const [account] = await walletClient.getAddresses();
+  if (!account) throw new Error('No wallet connected');
 
-    const [account] = await walletClient.getAddresses();
-    if (!account) throw new Error('No wallet connected');
-
-    return { walletClient, account };
-  }
-  throw new Error('No wallet provider found. Please connect your wallet.');
+  return { walletClient, account };
 }
 
 // Generate random salt for commit-reveal

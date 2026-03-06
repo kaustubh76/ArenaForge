@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { EvolutionRecord } from '@/types/arena';
-import { fetchEvolutionRecords, isConfigured } from '@/lib/contracts';
 import { fetchGraphQL } from '@/lib/api';
 
 interface EvolutionState {
@@ -8,7 +7,6 @@ interface EvolutionState {
   selectedTournamentId: number | null;
   loading: boolean;
   error: string | null;
-  lastFetchBlock: bigint;
 
   getFilteredRecords: () => EvolutionRecord[];
   selectTournament: (id: number | null) => void;
@@ -22,7 +20,6 @@ export const useEvolutionStore = create<EvolutionState>((set, get) => ({
   selectedTournamentId: null,
   loading: false,
   error: null,
-  lastFetchBlock: BigInt(0),
 
   getFilteredRecords: () => {
     const { records, selectedTournamentId } = get();
@@ -111,48 +108,8 @@ export const useEvolutionStore = create<EvolutionState>((set, get) => ({
   },
 
   fetchFromChain: async () => {
-    if (!isConfigured()) {
-      // Try GraphQL fallback instead of failing
-      return get().fetchFromGraphQL();
-    }
-
-    set({ loading: true, error: null });
-    try {
-      const { lastFetchBlock, records: existingRecords } = get();
-
-      // Fetch evolution events from chain
-      const newRecords = await fetchEvolutionRecords(lastFetchBlock);
-
-      // If chain returned nothing, try GraphQL
-      if (newRecords.length === 0 && existingRecords.length === 0) {
-        set({ loading: false });
-        return get().fetchFromGraphQL();
-      }
-
-      // Merge with existing records, avoiding duplicates
-      const existingKeys = new Set(
-        existingRecords.map(r => `${r.tournamentId}-${r.round}-${r.newParamsHash}`)
-      );
-      const uniqueNew = newRecords.filter(
-        r => !existingKeys.has(`${r.tournamentId}-${r.round}-${r.newParamsHash}`)
-      );
-
-      const allRecords = [...existingRecords, ...uniqueNew].sort(
-        (a, b) => b.timestamp - a.timestamp
-      );
-
-      set({
-        records: allRecords,
-        loading: false,
-        lastFetchBlock: BigInt(Math.floor(Date.now() / 1000)),
-      });
-
-      return true;
-    } catch (e) {
-      console.error('[evolutionStore] Chain fetch failed, trying GraphQL:', e);
-      // Fallback to GraphQL
-      return get().fetchFromGraphQL();
-    }
+    // Evolution data now fetched via GraphQL (real data from backend)
+    return get().fetchFromGraphQL();
   },
 
   addRecord: (record) => {

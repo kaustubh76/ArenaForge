@@ -523,105 +523,67 @@ export { getClient };
 // Evolution data fetching from ParametersEvolved events
 // =========================================================================
 
-import type { EvolutionRecord, Mutation, EvolutionMetrics } from '@/types/arena';
-
-const ParametersEvolvedEvent = {
-  type: 'event',
-  name: 'ParametersEvolved',
-  inputs: [
-    { name: 'tournamentId', type: 'uint256', indexed: true },
-    { name: 'newParamsHash', type: 'bytes32', indexed: false },
-  ],
-} as const;
+import type { EvolutionRecord, Mutation } from '@/types/arena';
 
 export async function fetchEvolutionRecords(
-  fromBlock: bigint = BigInt(0),
-  toBlock?: bigint
+  tournamentId?: number
 ): Promise<EvolutionRecord[]> {
-  if (!ARENA_CORE) return [];
-
-  const client = await getClient();
-
   try {
-    const logs = await client.getLogs({
-      address: ARENA_CORE,
-      event: ParametersEvolvedEvent,
-      fromBlock,
-      toBlock: toBlock || 'latest',
-    });
+    // Fetch real evolution data from GraphQL backend
+    const tid = tournamentId ?? 0;
+    const { data } = await fetchGraphQL<{ evolutionHistory: Array<Record<string, unknown>> }>(`{
+      evolutionHistory(tournamentId: ${tid}) {
+        tournamentId
+        round
+        previousParamsHash
+        newParamsHash
+        mutations {
+          type
+          factor
+          increment
+          strategy
+          reason
+        }
+        metrics {
+          averageStakeBehavior
+          dominantStrategy
+          strategyDistribution
+          averageMatchDuration
+          drawRate
+        }
+        timestamp
+      }
+    }`);
 
-    const records: EvolutionRecord[] = [];
-    let prevHash = '0x0';
+    if (!data?.evolutionHistory) return [];
 
-    for (const log of logs) {
-      const tournamentId = Number(log.args.tournamentId);
-      const newParamsHash = log.args.newParamsHash as string;
-
-      // Create a basic evolution record from the event
-      // Note: Full mutation details would require indexer or off-chain storage
-      const record: EvolutionRecord = {
-        tournamentId,
-        round: records.filter(r => r.tournamentId === tournamentId).length + 1,
-        previousParamsHash: prevHash,
-        newParamsHash,
-        mutations: generateMockMutations(newParamsHash),
-        metrics: generateMockMetrics(),
-        timestamp: log.blockNumber ? Number(log.blockNumber) * 1000 : Date.now(),
-      };
-
-      records.push(record);
-      prevHash = newParamsHash;
-    }
-
-    return records;
+    return data.evolutionHistory.map((r: Record<string, unknown>) => ({
+      tournamentId: r.tournamentId as number,
+      round: r.round as number,
+      previousParamsHash: (r.previousParamsHash as string) || '0x0',
+      newParamsHash: (r.newParamsHash as string) || '0x0',
+      mutations: (r.mutations as Mutation[]) || [],
+      metrics: r.metrics ? {
+        averageStakeBehavior: (r.metrics as Record<string, unknown>).averageStakeBehavior as 'conservative' | 'moderate' | 'aggressive',
+        dominantStrategy: (r.metrics as Record<string, unknown>).dominantStrategy as string,
+        strategyDistribution: typeof (r.metrics as Record<string, unknown>).strategyDistribution === 'string'
+          ? JSON.parse((r.metrics as Record<string, unknown>).strategyDistribution as string)
+          : (r.metrics as Record<string, unknown>).strategyDistribution as Record<string, number>,
+        averageMatchDuration: (r.metrics as Record<string, unknown>).averageMatchDuration as number,
+        drawRate: (r.metrics as Record<string, unknown>).drawRate as number,
+      } : {
+        averageStakeBehavior: 'moderate' as const,
+        dominantStrategy: 'N/A',
+        strategyDistribution: {},
+        averageMatchDuration: 0,
+        drawRate: 0,
+      },
+      timestamp: (r.timestamp as number) * 1000,
+    }));
   } catch (e) {
     console.warn('[contracts] fetchEvolutionRecords failed:', e);
     return [];
   }
-}
-
-// Generate placeholder mutations based on hash (real data would come from indexer)
-function generateMockMutations(hash: string): Mutation[] {
-  const mutations: Mutation[] = [];
-  const hashNum = parseInt(hash.slice(2, 6), 16);
-
-  if (hashNum % 3 === 0) {
-    mutations.push({
-      type: 'scale',
-      factor: 1.15,
-      strategy: 'strategyDefectCooperate',
-      reason: 'Adjusted defection payoff based on player behavior',
-    });
-  }
-  if (hashNum % 5 === 0) {
-    mutations.push({
-      type: 'increment',
-      increment: 2,
-      strategy: 'strategyRoundCount',
-      reason: 'Increased round count for longer matches',
-    });
-  }
-  if (mutations.length === 0) {
-    mutations.push({
-      type: 'scale',
-      factor: 1.1,
-      strategy: 'strategyCooperateCooperate',
-      reason: 'Minor cooperation incentive adjustment',
-    });
-  }
-
-  return mutations;
-}
-
-// Generate placeholder metrics (real data would come from indexer)
-function generateMockMetrics(): EvolutionMetrics {
-  return {
-    averageStakeBehavior: 'moderate',
-    dominantStrategy: 'mixed',
-    strategyDistribution: { mixed: 4, tit_for_tat: 2, always_defect: 1 },
-    averageMatchDuration: 45,
-    drawRate: 0.15,
-  };
 }
 
 // =========================================================================
@@ -776,46 +738,18 @@ export async function fetchTierRewards(): Promise<TierReward[]> {
   }
 }
 
-// Helper to get wallet client for write operations
+// Helper to get wallet client for write operations (uses wagmi)
 async function getWalletClient() {
-  if (typeof window !== 'undefined' && window.ethereum) {
-    const { createWalletClient, custom, defineChain } = await import('viem');
-    const rpcUrl = import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:8545';
-    const chainId = Number(import.meta.env.VITE_CHAIN_ID || '31337');
-    const isLocal = chainId === 31337;
+  const { getWalletClient: wagmiGetWalletClient } = await import('@wagmi/core');
+  const { config } = await import('@/lib/wagmi');
 
-    const chain = defineChain({
-      id: chainId,
-      name: isLocal ? 'Localhost (Anvil)' : 'Monad Testnet',
-      nativeCurrency: {
-        decimals: 18,
-        name: isLocal ? 'ETH' : 'MON',
-        symbol: isLocal ? 'ETH' : 'MON',
-      },
-      rpcUrls: { default: { http: [rpcUrl] } },
-    });
+  const walletClient = await wagmiGetWalletClient(config);
+  if (!walletClient) throw new Error('No wallet connected. Please connect your wallet via RainbowKit.');
 
-    const walletClient = createWalletClient({
-      chain,
-      transport: custom(window.ethereum),
-    });
+  const [account] = await walletClient.getAddresses();
+  if (!account) throw new Error('No wallet connected');
 
-    const [account] = await walletClient.getAddresses();
-    if (!account) throw new Error('No wallet connected');
-
-    return { walletClient, account };
-  }
-  throw new Error('No wallet provider found. Please connect your wallet.');
-}
-
-// Extend window type for ethereum provider
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-    };
-  }
+  return { walletClient, account };
 }
 
 export async function claimSeasonReward(seasonId: number): Promise<boolean> {

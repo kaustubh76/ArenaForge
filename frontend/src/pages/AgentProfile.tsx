@@ -158,8 +158,56 @@ export function AgentProfile() {
     [agents, address]
   );
 
-  // Get match history for this agent
+  // Fetch recent matches + tournaments for this agent from GraphQL
+  const [gqlMatches, setGqlMatches] = useState<typeof allMatches>([]);
+  const [agentTournaments, setAgentTournaments] = useState<Array<{ id: number; name: string; gameType: number; status: string }>>([]);
+
+  useEffect(() => {
+    if (!address) return;
+    fetchGraphQL<any>(
+      `query($addr: String!) {
+        agentRecentMatches: matches(tournamentId: 0) { id tournamentId round player1 player2 winner timestamp status gameType }
+      }`,
+      { addr: address },
+    ).catch(() => {});
+
+    // Fetch agent-specific matches + tournaments via Agent type
+    fetchGraphQL<any>(
+      `query($addr: String!) {
+        agent(address: $addr) {
+          recentMatches(limit: 20) { id tournamentId round player1 player2 winner timestamp status gameType stats { duration isUpset isDraw } }
+          tournaments(limit: 10) { id name gameType status }
+        }
+      }`,
+      { addr: address },
+    ).then(({ data }) => {
+      if (data?.agent?.recentMatches) {
+        const matches = (data.agent.recentMatches as Array<Record<string, any>>).map((m) => ({
+          id: Number(m.id),
+          tournamentId: Number(m.tournamentId),
+          round: Number(m.round),
+          player1: String(m.player1 ?? ''),
+          player2: String(m.player2 ?? ''),
+          winner: m.winner ? String(m.winner) : null,
+          timestamp: Number(m.timestamp ?? 0),
+          status: Number(m.status ?? 2) as any,
+          gameType: typeof m.gameType === 'string' ? gameTypeStringToNumber(m.gameType) : Number(m.gameType),
+          resultHash: '',
+          duration: m.stats?.duration ?? 0,
+          isUpset: m.stats?.isUpset ?? false,
+          isDraw: m.stats?.isDraw ?? false,
+        }));
+        setGqlMatches(matches);
+      }
+      if (data?.agent?.tournaments) {
+        setAgentTournaments(data.agent.tournaments);
+      }
+    }).catch(() => {});
+  }, [address]);
+
+  // Get match history — prefer GraphQL data, fall back to local allMatches
   const matchHistory = useMemo(() => {
+    if (gqlMatches.length > 0) return gqlMatches;
     if (!address) return [];
     const addr = address.toLowerCase();
     return allMatches
@@ -168,7 +216,7 @@ export function AgentProfile() {
       )
       .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
       .slice(0, 20);
-  }, [allMatches, address]);
+  }, [gqlMatches, allMatches, address]);
 
   // ELO history visualization
   const eloHistory = useMemo(() => {
@@ -631,6 +679,39 @@ export function AgentProfile() {
           )}
         </div>
       </div>
+
+      {/* Tournaments Participated */}
+      {agentTournaments.length > 0 && (
+        <div className="arcade-card p-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+            <Trophy size={14} className="text-arcade-gold" style={{ filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.4))' }} />
+            Tournament History
+          </h2>
+          <div className="space-y-2">
+            {agentTournaments.map((t) => {
+              const gt = Number(t.gameType);
+              const gameTypeName = Object.values(GAME_TYPE_CONFIG)[gt]?.label ?? `Game ${gt}`;
+              const statusStr = String(t.status ?? 'OPEN');
+              return (
+                <Link
+                  key={t.id}
+                  to={`/tournament/${t.id}`}
+                  className="flex items-center justify-between p-2 rounded bg-surface-1 hover:bg-surface-2 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">#{t.id}</span>
+                    <span className="text-sm font-medium text-white">{t.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">{gameTypeName}</span>
+                    <GlowBadge color={statusStr === 'COMPLETED' ? 'green' : statusStr === 'ACTIVE' ? 'cyan' : 'purple'} label={statusStr} size="sm" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Agent Card + Export */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

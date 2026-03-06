@@ -4,13 +4,11 @@ import type { Bet, MatchPool, BettorProfile, BetStatus } from '@/types/arena';
 import { indexedDBStorage, isOnline } from '@/lib/indexeddb-storage';
 import {
   fetchMatchPool,
-  fetchUserBets,
-  fetchBettorProfile,
-  fetchTopBettors,
   placeBet as placeBetOnChain,
   claimBetWinnings,
   calculateOdds,
 } from '@/lib/contracts';
+import { fetchGraphQL } from '@/lib/api';
 
 interface BettingState {
   // Data
@@ -128,31 +126,87 @@ export const useBettingStore = create<BettingState>()(
         }
       },
 
-      // Fetch user's bets
+      // Fetch user's bets via GraphQL
       fetchMyBets: async (address: string) => {
         try {
-          const bets = await fetchUserBets(address);
-          set({ userBets: bets });
+          const { data } = await fetchGraphQL<{ userBets: Array<Record<string, unknown>> }>(
+            `query($addr: String!) { userBets(address: $addr, limit: 100) { matchId bettor predictedWinner amount status payout timestamp } }`,
+            { addr: address }
+          );
+          if (data?.userBets) {
+            const statusMap: Record<string, number> = { ACTIVE: 0, WON: 1, LOST: 2, REFUNDED: 3 };
+            const bets: Bet[] = data.userBets.map((b, i) => ({
+              id: i,
+              matchId: Number(b.matchId),
+              bettor: String(b.bettor),
+              predictedWinner: String(b.predictedWinner),
+              amount: String(b.amount),
+              odds: '1',
+              status: (statusMap[String(b.status)] ?? 0) as BetStatus,
+              payout: String(b.payout ?? '0'),
+              timestamp: Number(b.timestamp ?? 0),
+            }));
+            set({ userBets: bets });
+          }
         } catch (e) {
           console.error('[bettingStore] Failed to fetch bets:', e);
         }
       },
 
-      // Fetch user's bettor profile
+      // Fetch user's bettor profile via GraphQL
       fetchMyProfile: async (address: string) => {
         try {
-          const profile = await fetchBettorProfile(address);
-          set({ myBettorProfile: profile });
+          const { data } = await fetchGraphQL<{ bettorProfile: Record<string, unknown> | null }>(
+            `query($addr: String!) { bettorProfile(address: $addr) { address totalBets wins losses totalWagered totalWon currentStreak winRate } }`,
+            { addr: address }
+          );
+          if (data?.bettorProfile) {
+            const p = data.bettorProfile;
+            const totalWon = BigInt(String(p.totalWon ?? '0'));
+            const totalWagered = BigInt(String(p.totalWagered ?? '0'));
+            const netProfit = totalWon - totalWagered;
+            set({
+              myBettorProfile: {
+                address: String(p.address),
+                totalBets: Number(p.totalBets ?? 0),
+                wins: Number(p.wins ?? 0),
+                losses: Number(p.losses ?? 0),
+                totalWagered: String(p.totalWagered ?? '0'),
+                totalWon: String(p.totalWon ?? '0'),
+                netProfit: netProfit.toString(),
+                currentStreak: Number(p.currentStreak ?? 0),
+                longestWinStreak: 0,
+                winRate: Number(p.winRate ?? 0),
+              },
+            });
+          }
         } catch (e) {
           console.error('[bettingStore] Failed to fetch profile:', e);
         }
       },
 
-      // Fetch top bettors leaderboard
+      // Fetch top bettors leaderboard via GraphQL
       fetchTopBettorsLeaderboard: async (limit = 50) => {
         try {
-          const bettors = await fetchTopBettors(limit);
-          set({ topBettors: bettors });
+          const { data } = await fetchGraphQL<{ topBettors: Array<Record<string, unknown>> }>(
+            `query($limit: Int) { topBettors(limit: $limit) { address totalBets wins losses totalWagered totalWon currentStreak winRate } }`,
+            { limit }
+          );
+          if (data?.topBettors) {
+            const bettors: BettorProfile[] = data.topBettors.map((p) => ({
+              address: String(p.address),
+              totalBets: Number(p.totalBets ?? 0),
+              wins: Number(p.wins ?? 0),
+              losses: Number(p.losses ?? 0),
+              totalWagered: String(p.totalWagered ?? '0'),
+              totalWon: String(p.totalWon ?? '0'),
+              netProfit: '0',
+              currentStreak: Number(p.currentStreak ?? 0),
+              longestWinStreak: 0,
+              winRate: Number(p.winRate ?? 0),
+            }));
+            set({ topBettors: bettors });
+          }
         } catch (e) {
           console.error('[bettingStore] Failed to fetch top bettors:', e);
         }
