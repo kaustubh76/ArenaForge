@@ -10,6 +10,11 @@ import type {
 
 const DB_PATH = process.env.ARENA_DB_PATH || "./arena-data.sqlite";
 
+/** JSON replacer that converts BigInt to Number for serialization */
+function bigIntReplacer(_key: string, value: unknown): unknown {
+  return typeof value === "bigint" ? Number(value) : value;
+}
+
 interface MatchRow {
   match_id: number;
   tournament_id: number;
@@ -218,6 +223,21 @@ export class MatchStore {
         avatar_url TEXT NOT NULL,
         updated_at INTEGER DEFAULT (strftime('%s','now'))
       );
+
+      -- Betting records (from on-chain events)
+      CREATE TABLE IF NOT EXISTS bets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id INTEGER NOT NULL,
+        bettor TEXT NOT NULL,
+        predicted_winner TEXT NOT NULL,
+        amount TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        payout TEXT DEFAULT '0',
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets(LOWER(bettor));
+      CREATE INDEX IF NOT EXISTS idx_bets_match ON bets(match_id);
     `);
 
     this.initialized = true;
@@ -234,17 +254,22 @@ export class MatchStore {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
+    // Store both players: derive p1/p2 from winner/loser, keeping consistent order
+    const players = [result.winner, result.loser].filter(Boolean).sort();
+    const p1 = players[0] || "";
+    const p2 = players[1] || players[0] || "";
+
     stmt.run(
       result.matchId,
       result.tournamentId,
       result.round,
-      result.loser ? (result.winner === result.loser ? "" : result.loser) : "",
-      result.winner || "",
+      p1,
+      p2,
       result.winner,
       result.isDraw ? 1 : 0,
       result.isUpset ? 1 : 0,
       result.gameType,
-      JSON.stringify(result.stats || {}),
+      JSON.stringify(result.stats || {}, bigIntReplacer),
       result.duration
     );
   }
@@ -274,6 +299,16 @@ export class MatchStore {
   }
 
   /**
+   * Get raw match row with player1/player2 preserved.
+   */
+  getMatchRaw(matchId: number): { player1: string; player2: string; result: MatchResult } | null {
+    const stmt = this.db.prepare(`SELECT * FROM matches WHERE match_id = ?`);
+    const row = stmt.get(matchId) as MatchRow | undefined;
+    if (!row) return null;
+    return { player1: row.player1, player2: row.player2, result: this.rowToMatchResult(row) };
+  }
+
+  /**
    * Get a specific match by ID.
    */
   getMatch(matchId: number): MatchResult | null {
@@ -294,9 +329,9 @@ export class MatchStore {
 
     stmt.run(
       tournamentId,
-      JSON.stringify(state.config),
-      JSON.stringify(state.participants),
-      JSON.stringify(state.rounds),
+      JSON.stringify(state.config, bigIntReplacer),
+      JSON.stringify(state.participants, bigIntReplacer),
+      JSON.stringify(state.rounds, bigIntReplacer),
       state.currentRound,
       state.status
     );
@@ -328,7 +363,7 @@ export class MatchStore {
   getActiveTournamentIds(): number[] {
     const stmt = this.db.prepare(`
       SELECT tournament_id FROM tournament_state
-      WHERE status IN ('open', 'active', 'completing')
+      WHERE status IN ('open', 'active', 'completing', 'paused')
     `);
 
     const rows = stmt.all() as Array<{ tournament_id: number }>;
@@ -499,8 +534,8 @@ export class MatchStore {
     `);
     stmt.run(
       tournamentId,
-      JSON.stringify(bracket.rounds),
-      bracket.losersRounds ? JSON.stringify(bracket.losersRounds) : null,
+      JSON.stringify(bracket.rounds, bigIntReplacer),
+      bracket.losersRounds ? JSON.stringify(bracket.losersRounds, bigIntReplacer) : null,
       bracket.currentPhase ?? "winners"
     );
   }
@@ -919,6 +954,64 @@ export class MatchStore {
       VALUES (?, ?, strftime('%s','now'))
     `);
     stmt.run(address.toLowerCase(), avatarUrl);
+  }
+
+  // ============================================
+  // Betting Methods
+  // ============================================
+
+  saveBet(matchId: number, bettor: string, predictedWinner: string, amount: string): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO bets (match_id, bettor, predicted_winner, amount)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(matchId, bettor.toLowerCase(), predictedWinner.toLowerCase(), amount);
+  }
+
+  settleBets(matchId: number, winner: string): void {
+    // Mark winning bets
+    this.db.prepare(`
+      UPDATE bets SET status = 'won' WHERE match_id = ? AND LOWER(predicted_winner) = ?
+    `).run(matchId, winner.toLowerCase());
+    // Mark losing bets
+    this.db.prepare(`
+      UPDATE bets SET status = 'lost' WHERE match_id = ? AND status = 'active'
+    `).run(matchId);
+  }
+
+  getBetsByUser(address: string, status?: string, limit: number = 50): Array<{
+    matchId: number; bettor: string; predictedWinner: string; amount: string; status: string; payout: string; createdAt: number;
+  }> {
+    const addr = address.toLowerCase();
+    let sql = `SELECT * FROM bets WHERE LOWER(bettor) = ?`;
+    const params: unknown[] = [addr];
+    if (status) {
+      sql += ` AND status = ?`;
+      params.push(status);
+    }
+    sql += ` ORDER BY created_at DESC LIMIT ?`;
+    params.push(limit);
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as Array<{
+      id: number; match_id: number; bettor: string; predicted_winner: string; amount: string; status: string; payout: string; created_at: number;
+    }>;
+    return rows.map((r) => ({
+      matchId: r.match_id,
+      bettor: r.bettor,
+      predictedWinner: r.predicted_winner,
+      amount: r.amount,
+      status: r.status,
+      payout: r.payout,
+      createdAt: r.created_at,
+    }));
+  }
+
+  getUnsettledBetMatchIds(): number[] {
+    const rows = this.db.prepare(`
+      SELECT DISTINCT match_id FROM bets WHERE status = 'active'
+    `).all() as Array<{ match_id: number }>;
+    return rows.map((r) => r.match_id);
   }
 
   /**
