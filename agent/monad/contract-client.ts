@@ -397,6 +397,24 @@ export class MonadContractClient {
     return Number(await this.quizBowl.read.getCurrentQuestion([BigInt(matchId)]));
   }
 
+  // --- Strategy Arena Read ---
+
+  async getStrategyMatchState(matchId: number): Promise<{
+    player1: string; player2: string; totalRounds: bigint; currentRound: bigint;
+    player1Score: bigint; player2Score: bigint; initialized: boolean;
+  } | null> {
+    try {
+      const result = await this.strategyArena.read.getMatchState([BigInt(matchId)]) as {
+        player1: string; player2: string; totalRounds: bigint; currentRound: bigint;
+        player1Score: bigint; player2Score: bigint; commitDeadline: bigint; revealDeadline: bigint; initialized: boolean;
+      };
+      if (!result.initialized) return null;
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
   // --- Read Operations ---
 
   async getTournament(id: number) {
