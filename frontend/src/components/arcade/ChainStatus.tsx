@@ -14,9 +14,9 @@ export function ChainStatus() {
 
   if (!configured) {
     return (
-      <span className="inline-flex items-center gap-1.5" title="Running on mock data">
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-600" />
-        <span className="text-[9px] font-pixel text-gray-600 tracking-wider">MOCK</span>
+      <span className="inline-flex items-center gap-1.5" title="Direct chain reads unavailable — using API data">
+        <span className="w-1.5 h-1.5 rounded-full bg-arcade-gold/60" />
+        <span className="text-[9px] font-pixel text-arcade-gold/60 tracking-wider">API</span>
       </span>
     );
   }

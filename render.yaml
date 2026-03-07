@@ -36,6 +36,8 @@ services:
         sync: false
       - key: SPECTATOR_BETTING_ADDRESS
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: NADFUN_API_URL
         value: https://api.nadapp.net
       - key: CORS_ORIGIN
