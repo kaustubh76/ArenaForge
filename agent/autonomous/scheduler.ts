@@ -134,16 +134,20 @@ export class AutonomousScheduler {
 
   constructor(config: SchedulerConfig) {
     this.config = config;
+    if (!config.agentAddress) {
+      throw new Error("agentAddress is required for AutonomousScheduler");
+    }
     this.coordinator = new A2ACoordinator({
       arenaManager: config.arenaManager,
       publisher: config.publisher,
+      matchStore: config.matchStore ?? null,
       getKnownAgents: () =>
         Array.from(this.knownAgents.values()).map((a) => ({
           address: a.address,
           elo: a.elo,
           matchesPlayed: a.matchesPlayed,
         })),
-      agentAddress: normalizeAddress(config.agentAddress || "0x0000000000000000000000000000000000000000"),
+      agentAddress: normalizeAddress(config.agentAddress),
     });
   }
 

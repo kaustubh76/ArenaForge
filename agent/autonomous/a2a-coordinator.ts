@@ -69,6 +69,7 @@ interface DiscoveredAgentRef {
 interface A2ACoordinatorConfig {
   arenaManager: ArenaManager;
   publisher: MoltbookPublisher;
+  matchStore: import("../persistence/match-store").MatchStore | null;
   getKnownAgents: () => DiscoveredAgentRef[];
   agentAddress: string;
 }
@@ -161,23 +162,35 @@ export class A2ACoordinator {
       }
     }
 
-    // Create some inter-agent relationships
-    for (let i = 0; i < agents.length; i++) {
-      for (let j = i + 1; j < Math.min(agents.length, i + 3); j++) {
-        const a1 = agents[i].address.toLowerCase();
-        const a2 = agents[j].address.toLowerCase();
-        const key = [a1, a2].sort().join(":");
-        if (!this.relationships.has(key)) {
-          this.relationships.set(key, {
-            agent1: [a1, a2].sort()[0],
-            agent2: [a1, a2].sort()[1],
-            matchCount: Math.floor(Math.random() * 5) + 1,
-            agent1Wins: Math.floor(Math.random() * 3),
-            agent2Wins: Math.floor(Math.random() * 3),
-            isRival: Math.random() > 0.6,
-            isAlly: this.alliances.has(key),
-            lastInteraction: Math.floor(Date.now() / 1000),
-          });
+    // Build relationships from real match history
+    if (this.config.matchStore) {
+      for (let i = 0; i < agents.length; i++) {
+        for (let j = i + 1; j < agents.length; j++) {
+          const a1 = agents[i].address;
+          const a2 = agents[j].address;
+          const matches = this.config.matchStore.getMatchesBetweenAgents(a1, a2);
+          if (matches.length === 0) continue;
+          const sorted = [a1.toLowerCase(), a2.toLowerCase()].sort();
+          const key = sorted.join(":");
+          if (!this.relationships.has(key)) {
+            let wins1 = 0, wins2 = 0;
+            for (const m of matches) {
+              if (m.winner?.toLowerCase() === sorted[0]) wins1++;
+              else if (m.winner?.toLowerCase() === sorted[1]) wins2++;
+            }
+            // Rivalry if one agent dominates (>60% win rate) or they've played 3+ matches
+            const isRival = matches.length >= 3 || Math.abs(wins1 - wins2) >= 2;
+            this.relationships.set(key, {
+              agent1: sorted[0],
+              agent2: sorted[1],
+              matchCount: matches.length,
+              agent1Wins: wins1,
+              agent2Wins: wins2,
+              isRival,
+              isAlly: this.alliances.has(key),
+              lastInteraction: matches[0]?.createdAt ?? Math.floor(Date.now() / 1000),
+            });
+          }
         }
       }
     }
