@@ -416,17 +416,39 @@ export class AuctionWarsEngine implements GameMode {
       };
     }
 
-    // Fallback: synthetic mystery box
-    const syntheticValue = BigInt(Math.floor(Math.random() * 100)) * BigInt(1e18);
-    hints.push({ type: "category", value: "synthetic" });
+    // Fallback: retry NadFun token fetch before using synthetic
+    console.warn("[AuctionWars] Primary token lookup failed, retrying NadFun...");
+    try {
+      const retryToken = await this.nadFunClient.getRandomActiveToken();
+      if (retryToken) {
+        hints.push({ type: "category", value: retryToken.graduated ? "graduated" : "bonding_curve" });
+        hints.push({ type: "marketCapRange", value: categorizeMarketCap(retryToken.marketCap) });
+        return {
+          id: `box-${Date.now()}-${retryToken.address.slice(2, 10)}`,
+          tokenAddress: retryToken.address,
+          positionValue: retryToken.price,
+          hints,
+          createdAt: Math.floor(Date.now() / 1000),
+        };
+      }
+    } catch {
+      // Retry also failed
+    }
+
+    // Last resort: use a deterministic value based on timestamp (no random)
+    // This ensures reproducible results for the game round
+    const timestamp = Math.floor(Date.now() / 1000);
+    const deterministicValue = BigInt((timestamp % 100) + 1) * BigInt(1e18);
+    console.warn(`[AuctionWars] Using deterministic fallback value: ${deterministicValue / BigInt(1e18)} ETH`);
+    hints.push({ type: "category", value: "synthetic-fallback" });
     hints.push({ type: "marketCapRange", value: "unknown" });
 
     return {
-      id: `box-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      tokenAddress: "0x0000000000000000000000000000000000000000",
-      positionValue: syntheticValue,
+      id: `box-${timestamp}-fallback`,
+      tokenAddress: "0x0000000000000000000000000000000000000001",
+      positionValue: deterministicValue,
       hints,
-      createdAt: Math.floor(Date.now() / 1000),
+      createdAt: timestamp,
     };
   }
 }

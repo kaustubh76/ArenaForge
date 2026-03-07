@@ -192,6 +192,7 @@ export interface MatchResult {
   player2Actions: PlayerAction[];
   stats: Record<string, unknown>;
   duration: number;
+  createdAt?: number;
 }
 
 // --- Game-Specific Types ---
