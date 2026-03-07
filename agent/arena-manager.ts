@@ -8,6 +8,7 @@ import type {
   GameParameters,
   PlayerAction,
   MatchOutcome,
+  EvolutionRecord,
 } from "./game-engine/game-mode.interface";
 import {
   GameType,
@@ -72,7 +73,7 @@ export class ArenaManager {
   private evolution: EvolutionEngine;
   private tokenManager: TokenManager | null = null;
   private publisher: MoltbookPublisher;
-  private agentAddress: string;
+  private _agentAddress: string;
   private matchStore: MatchStore | null = null;
   private broadcaster: EventBroadcaster;
 
@@ -91,7 +92,7 @@ export class ArenaManager {
     this.matchmaker = new Matchmaker();
     this.evolution = new EvolutionEngine({ claudeService: config.claudeService });
     this.publisher = config.publisher;
-    this.agentAddress = config.agentAddress;
+    this._agentAddress = config.agentAddress;
     this.broadcaster = getEventBroadcaster();
 
     // Initialize persistence if enabled
@@ -116,6 +117,34 @@ export class ArenaManager {
     this.engines.set(GameType.StrategyArena, new StrategyArenaEngine());
     this.engines.set(GameType.AuctionWars, new AuctionWarsEngine(config.nadFunClient, config.contractClient));
     this.engines.set(GameType.QuizBowl, new QuizBowlEngine(undefined, config.contractClient));
+  }
+
+  /** Get the agent's wallet address. */
+  get agentAddress(): string {
+    return this._agentAddress;
+  }
+
+  /** Get evolution history for a tournament (real recorded data). */
+  getEvolutionHistory(tournamentId: number): EvolutionRecord[] {
+    // In-memory records first (current session)
+    const inMemory = this.evolution.getHistory(tournamentId);
+    if (inMemory.length > 0) return inMemory;
+
+    // Fall back to persisted records from SQLite
+    if (this.matchStore) {
+      const persisted = this.matchStore.getEvolutionRecords(tournamentId);
+      return persisted.map(r => ({
+        tournamentId: r.tournamentId,
+        round: r.round,
+        previousParamsHash: r.previousParamsHash,
+        newParamsHash: r.newParamsHash,
+        mutations: r.mutations as unknown as EvolutionRecord["mutations"],
+        metrics: r.metrics as unknown as EvolutionRecord["metrics"],
+        timestamp: r.timestamp,
+      }));
+    }
+
+    return [];
   }
 
   /**
@@ -556,6 +585,11 @@ export class ArenaManager {
           this.publisher.enqueue(
             this.publisher.evolutionReport(tournamentId, state.currentRound, summaries)
           );
+        }
+
+        // Persist evolution record to SQLite
+        if (this.matchStore) {
+          this.matchStore.saveEvolutionRecord(evolutionResult.record);
         }
 
         // Emit evolution event
