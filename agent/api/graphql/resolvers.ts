@@ -293,16 +293,46 @@ export const resolvers = {
       };
     },
 
-    // Evolution history — build from MatchStore data
+    // Evolution history — from real EvolutionEngine records
     evolutionHistory: async (
       _: unknown,
       args: { tournamentId: number },
       context: ResolverContext
     ) => {
+      // Use real evolution records from the ArenaManager's evolution engine
+      if (context.arenaManager) {
+        const records = context.arenaManager.getEvolutionHistory(args.tournamentId);
+        if (records.length > 0) {
+          return records.map(r => ({
+            tournamentId: r.tournamentId,
+            round: r.round,
+            previousParamsHash: r.previousParamsHash,
+            newParamsHash: r.newParamsHash,
+            mutations: r.mutations.map(m => ({
+              type: m.type,
+              factor: m.factor,
+              increment: m.increment,
+              strategy: m.strategy,
+              reason: m.reason,
+            })),
+            metrics: {
+              averageStakeBehavior: r.metrics.averageStakeBehavior,
+              dominantStrategy: r.metrics.dominantStrategy,
+              strategyDistribution: typeof r.metrics.strategyDistribution === "string"
+                ? r.metrics.strategyDistribution
+                : JSON.stringify(r.metrics.strategyDistribution),
+              averageMatchDuration: r.metrics.averageMatchDuration,
+              drawRate: r.metrics.drawRate,
+            },
+            timestamp: r.timestamp,
+          }));
+        }
+      }
+
+      // Fallback: derive from match store data (real match results, no fake hashes)
       const matchStore = context.matchStore;
       if (!matchStore) return [];
 
-      // If tournamentId is 0, get recent matches across all tournaments
       const matches = args.tournamentId > 0
         ? matchStore.getMatchesByTournament(args.tournamentId)
         : matchStore.getRecentMatches(100);
@@ -326,32 +356,34 @@ export const resolvers = {
       const dominantStrategy = Object.entries(gameTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "N/A";
       const stakeBehavior = avgDuration > 12 ? "aggressive" : avgDuration > 8 ? "moderate" : "conservative";
 
-      return matches.map((m, idx) => {
-        const gt = gameTypeNames[m.gameType] || "Unknown";
-        let mutationType: string;
-        let reason: string;
+      // Group matches by round for per-round evolution entries
+      const roundMap = new Map<number, typeof matches>();
+      for (const m of matches) {
+        const arr = roundMap.get(m.round) || [];
+        arr.push(m);
+        roundMap.set(m.round, arr);
+      }
 
-        if (m.isUpset) {
-          mutationType = "scale";
-          reason = `Upset in ${gt}: underdog won round ${m.round}`;
-        } else if (m.isDraw) {
-          mutationType = "shift";
-          reason = `Draw equilibrium in ${gt}: strategies converged`;
-        } else {
-          mutationType = idx % 2 === 0 ? "scale" : "shift";
-          reason = `${gt} round ${m.round}: ${m.winner ? "decisive victory" : "standard result"}`;
-        }
+      return Array.from(roundMap.entries()).map(([round, roundMatches]) => {
+        const roundDraws = roundMatches.filter(m => m.isDraw).length;
+        const roundUpsets = roundMatches.filter(m => m.isUpset).length;
+        const mutationType = roundUpsets > roundDraws ? "scale" : "shift";
+        const reason = roundUpsets > 0
+          ? `Round ${round}: ${roundUpsets} upset(s) triggered parameter scaling`
+          : roundDraws > 0
+          ? `Round ${round}: ${roundDraws} draw(s) — strategies converging`
+          : `Round ${round}: standard evolution step`;
 
         return {
-          tournamentId: m.tournamentId,
-          round: m.round,
-          previousParamsHash: `0x${(m.matchId * 31).toString(16).padStart(8, "0")}`,
-          newParamsHash: `0x${((m.matchId + 1) * 37).toString(16).padStart(8, "0")}`,
+          tournamentId: args.tournamentId,
+          round,
+          previousParamsHash: "",
+          newParamsHash: "",
           mutations: [{
             type: mutationType,
-            factor: m.isUpset ? 1.15 + Math.random() * 0.1 : 1.0 + Math.random() * 0.05,
-            increment: m.isDraw ? 0 : (m.isUpset ? 0.2 : 0.1),
-            strategy: gt,
+            factor: roundUpsets > 0 ? 1.15 : 1.0,
+            increment: roundUpsets > 0 ? 0.2 : 0.1,
+            strategy: dominantStrategy,
             reason,
           }],
           metrics: {
@@ -361,7 +393,7 @@ export const resolvers = {
             averageMatchDuration: avgDuration,
             drawRate: drawCount / matches.length,
           },
-          timestamp: Math.floor(Date.now() / 1000) - (matches.length - idx) * 300,
+          timestamp: roundMatches[0]?.createdAt ?? Math.floor(Date.now() / 1000),
         };
       });
     },
@@ -470,21 +502,48 @@ export const resolvers = {
     currentSeason: async (_: unknown, __: unknown, context: ResolverContext) => {
       const season = await context.contractClient.getCurrentSeason();
       if (!season) return null;
-      return {
-        ...season,
-        participantCount: 0, // Would need indexer
-      };
+
+      // Count unique participants from match store during this season
+      let participantCount = 0;
+      if (context.matchStore) {
+        const allMatches = context.matchStore.getRecentMatches(9999);
+        const uniqueAgents = new Set<string>();
+        for (const m of allMatches) {
+          const ts = m.createdAt ?? 0;
+          if (ts >= season.startTime && (season.endTime === 0 || ts <= season.endTime)) {
+            if (m.winner) uniqueAgents.add(m.winner.toLowerCase());
+            if (m.loser) uniqueAgents.add(m.loser.toLowerCase());
+          }
+        }
+        participantCount = uniqueAgents.size;
+      } else {
+        // Fallback: count discovered agents
+        participantCount = context.scheduler?.getDiscoveredAgents()?.length ?? 0;
+      }
+
+      return { ...season, participantCount };
     },
 
     season: async (_: unknown, args: { id: number }, context: ResolverContext) => {
       validateId(args.id, "season ID");
-      // For now, only return current season
       const season = await context.contractClient.getCurrentSeason();
       if (!season || season.id !== args.id) return null;
-      return {
-        ...season,
-        participantCount: 0,
-      };
+
+      let participantCount = 0;
+      if (context.matchStore) {
+        const allMatches = context.matchStore.getRecentMatches(9999);
+        const uniqueAgents = new Set<string>();
+        for (const m of allMatches) {
+          const ts = m.createdAt ?? 0;
+          if (ts >= season.startTime && (season.endTime === 0 || ts <= season.endTime)) {
+            if (m.winner) uniqueAgents.add(m.winner.toLowerCase());
+            if (m.loser) uniqueAgents.add(m.loser.toLowerCase());
+          }
+        }
+        participantCount = uniqueAgents.size;
+      }
+
+      return { ...season, participantCount };
     },
 
     seasonalProfile: async (
@@ -494,9 +553,46 @@ export const resolvers = {
     ) => {
       validateId(args.seasonId, "season ID");
       validateAddress(args.address);
-      // For now return mock data based on agent
+
+      // Get on-chain agent data for current ELO
       const agent = await context.loaders.agentLoader.load(args.address);
       if (!agent) return null;
+
+      // Get season time range to filter matches
+      const season = await context.contractClient.getCurrentSeason();
+      if (!season || season.id !== args.seasonId) return null;
+
+      // Compute real seasonal stats from match store
+      const addr = args.address.toLowerCase();
+      let seasonWins = 0;
+      let seasonLosses = 0;
+      let seasonMatches = 0;
+      let peakElo = agent.elo;
+
+      if (context.matchStore) {
+        const allMatches = context.matchStore.getMatchesByAgent(args.address);
+        // Filter to matches within the season time range
+        const seasonStart = season.startTime;
+        const seasonEnd = season.endTime;
+        for (const m of allMatches) {
+          const ts = m.createdAt ?? 0;
+          if (ts >= seasonStart && (seasonEnd === 0 || ts <= seasonEnd)) {
+            seasonMatches++;
+            if (m.winner && m.winner.toLowerCase() === addr) seasonWins++;
+            else if (!m.isDraw) seasonLosses++;
+          }
+        }
+        // Estimate peak ELO: current ELO + margin based on win rate
+        // A more accurate peak would require tracking ELO per match, but this is reasonable
+        if (seasonMatches > 0 && seasonWins > seasonLosses) {
+          peakElo = Math.max(agent.elo, agent.elo + Math.round((seasonWins - seasonLosses) * 4));
+        }
+      } else {
+        // Fallback to on-chain totals
+        seasonMatches = agent.matchesPlayed;
+        seasonWins = agent.wins;
+        seasonLosses = agent.losses;
+      }
 
       // Calculate tier based on ELO
       let tier = 0; // IRON
@@ -510,13 +606,13 @@ export const resolvers = {
         seasonId: args.seasonId,
         address: args.address,
         seasonalElo: agent.elo,
-        peakElo: agent.elo, // Use current ELO as peak (would need contract call for actual peak)
-        matchesPlayed: agent.matchesPlayed,
-        wins: agent.wins,
-        losses: agent.losses,
+        peakElo,
+        matchesPlayed: seasonMatches,
+        wins: seasonWins,
+        losses: seasonLosses,
         tier: rankTierToEnum(tier),
-        placementComplete: agent.matchesPlayed >= 5,
-        placementMatches: Math.min(agent.matchesPlayed, 5),
+        placementComplete: seasonMatches >= 5,
+        placementMatches: Math.min(seasonMatches, 5),
       };
     },
 
@@ -525,8 +621,11 @@ export const resolvers = {
       args: { seasonId: number },
       context: ResolverContext
     ) => {
-      // Would need user context - return null for now
-      return null;
+      // Use the arena agent's own address for its seasonal profile
+      const agentAddr = context.arenaManager?.agentAddress;
+      if (!agentAddr) return null;
+      // Delegate to seasonalProfile resolver
+      return resolvers.Query.seasonalProfile(null, { seasonId: args.seasonId, address: agentAddr }, context);
     },
 
     seasonalLeaderboard: async (
@@ -823,18 +922,58 @@ export const resolvers = {
         }
       }
 
-      // If no stats but we have on-chain metadata, generate stub rounds
-      if (rounds.length === 0 && metadata?.available) {
-        for (let i = 0; i < metadata.roundCount; i++) {
-          rounds.push({
-            roundNumber: i + 1,
-            player1Action: null,
-            player2Action: null,
-            player1Score: 0,
-            player2Score: 0,
-            timestamp: 0,
-            stateHash: metadata.roundHashes[i] ?? "",
-          });
+      // If no stats, try to get live game state from on-chain contracts
+      if (rounds.length === 0) {
+        try {
+          if (matchData.gameType === 1) {
+            // StrategyArena — fetch on-chain match state for scores
+            const state = await context.contractClient.getStrategyMatchState(args.matchId);
+            if (state) {
+              for (let i = 0; i < Number(state.currentRound); i++) {
+                rounds.push({
+                  roundNumber: i + 1,
+                  player1Action: null,
+                  player2Action: null,
+                  player1Score: i === Number(state.currentRound) - 1 ? Number(state.player1Score) : 0,
+                  player2Score: i === Number(state.currentRound) - 1 ? Number(state.player2Score) : 0,
+                  timestamp: 0,
+                  stateHash: metadata?.roundHashes?.[i] ?? "",
+                });
+              }
+            }
+          } else if (matchData.gameType === 0) {
+            // OracleDuel — fetch duel data
+            const duelRaw = await context.contractClient.getDuel(args.matchId);
+            if (duelRaw) {
+              const duel = duelRaw as { snapshotPrice: bigint; resolutionTime: bigint; resolved: boolean };
+              rounds.push({
+                roundNumber: 1,
+                player1Action: JSON.stringify({ position: "BULL", snapshotPrice: duel.snapshotPrice.toString() }),
+                player2Action: JSON.stringify({ position: "BEAR", snapshotPrice: duel.snapshotPrice.toString() }),
+                player1Score: matchData.winner === matchData.player1 ? 1 : 0,
+                player2Score: matchData.winner === matchData.player2 ? 1 : 0,
+                timestamp: Number(duel.resolutionTime),
+                stateHash: metadata?.roundHashes?.[0] ?? "",
+              });
+            }
+          }
+        } catch {
+          // On-chain state query failed — fall through to metadata stubs
+        }
+
+        // Last resort: if we have on-chain metadata but still no rounds, create stubs with hashes
+        if (rounds.length === 0 && metadata?.available) {
+          for (let i = 0; i < metadata.roundCount; i++) {
+            rounds.push({
+              roundNumber: i + 1,
+              player1Action: null,
+              player2Action: null,
+              player1Score: 0,
+              player2Score: 0,
+              timestamp: 0,
+              stateHash: metadata.roundHashes[i] ?? "",
+            });
+          }
         }
       }
 
@@ -1317,9 +1456,8 @@ export const resolvers = {
     ) => {
       if (!context.a2aCoordinator) throw new Error("A2A coordinator not available");
       const gameType = enumToGameType(args.gameType);
-      const agentAddress = context.arenaManager
-        ? "0x0000000000000000000000000000000000000000"
-        : "0x0000000000000000000000000000000000000000";
+      const agentAddress = context.arenaManager?.agentAddress;
+      if (!agentAddress) throw new Error("Agent address not available");
       const challenge = context.a2aCoordinator.sendChallenge(
         agentAddress,
         args.targetAgent,
