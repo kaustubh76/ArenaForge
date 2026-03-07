@@ -12,20 +12,21 @@ import {
 } from '@/types/arena';
 import { fetchGraphQL } from '@/lib/api';
 
-// Contract addresses from environment
-const ARENA_CORE = (import.meta.env.VITE_ARENA_CORE_ADDRESS || '') as `0x${string}`;
-const MATCH_REGISTRY = (import.meta.env.VITE_MATCH_REGISTRY_ADDRESS || '') as `0x${string}`;
-const ESCROW = (import.meta.env.VITE_ESCROW_ADDRESS || '') as `0x${string}`;
+// Contract addresses from environment (trim to avoid trailing whitespace/newlines)
+const trimAddr = (v: string | undefined) => (v || '').trim() as `0x${string}`;
+const ARENA_CORE = trimAddr(import.meta.env.VITE_ARENA_CORE_ADDRESS);
+const MATCH_REGISTRY = trimAddr(import.meta.env.VITE_MATCH_REGISTRY_ADDRESS);
+const ESCROW = trimAddr(import.meta.env.VITE_ESCROW_ADDRESS);
 
 // Game mode contract addresses
-const ORACLE_DUEL = (import.meta.env.VITE_ORACLE_DUEL_ADDRESS || '') as `0x${string}`;
-const STRATEGY_ARENA = (import.meta.env.VITE_STRATEGY_ARENA_ADDRESS || '') as `0x${string}`;
-const AUCTION_WARS = (import.meta.env.VITE_AUCTION_WARS_ADDRESS || '') as `0x${string}`;
-const QUIZ_BOWL = (import.meta.env.VITE_QUIZ_BOWL_ADDRESS || '') as `0x${string}`;
+const ORACLE_DUEL = trimAddr(import.meta.env.VITE_ORACLE_DUEL_ADDRESS);
+const STRATEGY_ARENA = trimAddr(import.meta.env.VITE_STRATEGY_ARENA_ADDRESS);
+const AUCTION_WARS = trimAddr(import.meta.env.VITE_AUCTION_WARS_ADDRESS);
+const QUIZ_BOWL = trimAddr(import.meta.env.VITE_QUIZ_BOWL_ADDRESS);
 
 // Phase 2 contract addresses
-const SEASONAL_RANKINGS = (import.meta.env.VITE_SEASONAL_RANKINGS_ADDRESS || '') as `0x${string}`;
-const SPECTATOR_BETTING = (import.meta.env.VITE_SPECTATOR_BETTING_ADDRESS || '') as `0x${string}`;
+const SEASONAL_RANKINGS = trimAddr(import.meta.env.VITE_SEASONAL_RANKINGS_ADDRESS);
+const SPECTATOR_BETTING = trimAddr(import.meta.env.VITE_SPECTATOR_BETTING_ADDRESS);
 
 // =========================================================================
 // Lazy viem client — only loaded when chain access is attempted
