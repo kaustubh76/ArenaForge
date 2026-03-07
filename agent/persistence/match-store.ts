@@ -238,6 +238,21 @@ export class MatchStore {
 
       CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets(LOWER(bettor));
       CREATE INDEX IF NOT EXISTS idx_bets_match ON bets(match_id);
+
+      -- Evolution records (persisted from EvolutionEngine)
+      CREATE TABLE IF NOT EXISTS evolution_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id INTEGER NOT NULL,
+        round INTEGER NOT NULL,
+        previous_params_hash TEXT NOT NULL,
+        new_params_hash TEXT NOT NULL,
+        mutations_json TEXT NOT NULL,
+        metrics_json TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        UNIQUE(tournament_id, round)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_evolution_tournament ON evolution_records(tournament_id);
     `);
 
     this.initialized = true;
@@ -1022,6 +1037,67 @@ export class MatchStore {
     console.log("[MatchStore] Database closed");
   }
 
+  // ============================================
+  // Evolution Record Methods
+  // ============================================
+
+  saveEvolutionRecord(record: {
+    tournamentId: number;
+    round: number;
+    previousParamsHash: string;
+    newParamsHash: string;
+    mutations: unknown[];
+    metrics: unknown;
+    timestamp: number;
+  }): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO evolution_records
+      (tournament_id, round, previous_params_hash, new_params_hash, mutations_json, metrics_json, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      record.tournamentId,
+      record.round,
+      record.previousParamsHash,
+      record.newParamsHash,
+      JSON.stringify(record.mutations),
+      JSON.stringify(record.metrics),
+      record.timestamp
+    );
+  }
+
+  getEvolutionRecords(tournamentId: number): Array<{
+    tournamentId: number;
+    round: number;
+    previousParamsHash: string;
+    newParamsHash: string;
+    mutations: unknown[];
+    metrics: Record<string, unknown>;
+    timestamp: number;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT * FROM evolution_records WHERE tournament_id = ? ORDER BY round ASC
+    `);
+    const rows = stmt.all(tournamentId) as Array<{
+      tournament_id: number;
+      round: number;
+      previous_params_hash: string;
+      new_params_hash: string;
+      mutations_json: string;
+      metrics_json: string;
+      timestamp: number;
+    }>;
+    return rows.map(r => ({
+      tournamentId: r.tournament_id,
+      round: r.round,
+      previousParamsHash: r.previous_params_hash,
+      newParamsHash: r.new_params_hash,
+      mutations: JSON.parse(r.mutations_json),
+      metrics: JSON.parse(r.metrics_json),
+      timestamp: r.timestamp,
+    }));
+  }
+
   private rowToMatchResult(row: MatchRow): MatchResult {
     return {
       matchId: row.match_id,
@@ -1037,6 +1113,7 @@ export class MatchStore {
       player2Actions: [],
       stats: JSON.parse(row.stats_json || "{}"),
       duration: row.duration,
+      createdAt: row.created_at,
     };
   }
 }
