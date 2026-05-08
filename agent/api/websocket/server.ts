@@ -13,6 +13,9 @@ import {
 } from "./handlers";
 import { getRoomStats } from "./rooms";
 import { buildCorsOrigin } from "../../utils/cors";
+import { getLogger } from "../../utils/logger";
+
+const log = getLogger("WSS");
 
 export interface WebSocketServerConfig {
   port?: number;
@@ -72,7 +75,23 @@ export class WebSocketServer {
    */
   private setupConnectionHandler(): void {
     this.io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
+      log.debug("Client connected", { socketId: socket.id });
+      socket.on("disconnect", (reason) => {
+        log.debug("Client disconnected", { socketId: socket.id, reason });
+      });
+      socket.on("error", (error) => {
+        log.warn("Socket error", { socketId: socket.id, error });
+      });
       setupSocketHandlers(this.io, socket);
+    });
+
+    // Server-level engine errors (transport upgrade failures, etc.)
+    this.io.engine.on("connection_error", (err: { code?: number; message?: string; context?: unknown }) => {
+      log.warn("Engine connection_error", {
+        code: err.code,
+        message: err.message,
+        context: err.context,
+      });
     });
   }
 
@@ -95,14 +114,12 @@ export class WebSocketServer {
    */
   start(): Promise<void> {
     if (!this.ownsHttpServer) {
-      console.log("[WebSocket] Attached to shared HTTP server (single-port mode)");
+      log.info("Attached to shared HTTP server (single-port mode)");
       return Promise.resolve();
     }
     return new Promise((resolve) => {
       this.httpServer.listen(this.config.port, () => {
-        console.log(
-          `[WebSocket] Server listening on port ${this.config.port}`
-        );
+        log.info("WebSocket server listening", { port: this.config.port });
         resolve();
       });
     });
@@ -126,7 +143,7 @@ export class WebSocketServer {
     if (!this.ownsHttpServer) {
       // In shared mode, just close Socket.IO without closing the HTTP server
       this.io.close();
-      console.log("[WebSocket] Server stopped (shared mode)");
+      log.info("WebSocket server stopped (shared mode)");
       return;
     }
 
@@ -135,7 +152,7 @@ export class WebSocketServer {
         if (err) {
           reject(err);
         } else {
-          console.log("[WebSocket] Server stopped");
+          log.info("WebSocket server stopped");
           resolve();
         }
       });

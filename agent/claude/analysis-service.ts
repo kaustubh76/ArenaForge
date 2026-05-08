@@ -1,5 +1,8 @@
 import { ClaudeClient, ThinkingResponse } from "./client";
 import { stableJsonKey } from "../utils/normalize";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("ClaudeAnalysis");
 import {
   EVOLUTION_SYSTEM_PROMPT,
   COMMENTARY_SYSTEM_PROMPT,

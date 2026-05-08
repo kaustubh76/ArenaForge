@@ -19,10 +19,14 @@ export function buildCorsOrigin(): (string | RegExp)[] {
   if (envOrigins) {
     for (const origin of envOrigins) {
       if (origin.includes("*")) {
-        // Convert wildcard pattern to regex: https://*.vercel.app → /^https:\/\/.*\.vercel\.app$/
+        // Convert wildcard pattern to regex. Each `*` matches a single
+        // subdomain segment, NOT arbitrary characters: `https://*.vercel.app`
+        // matches `https://app.vercel.app` but not
+        // `https://evil-app.vercel.app.attacker.com`. Use `[^.]+` instead of
+        // `.*` to constrain matching to one DNS label.
         const escaped = origin
           .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-          .replace(/\*/g, ".*");
+          .replace(/\*/g, "[^.]+");
         origins.push(new RegExp(`^${escaped}$`));
       } else {
         origins.push(origin);

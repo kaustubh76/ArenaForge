@@ -50,3 +50,20 @@ services:
         value: "true"
       - key: AUTO_AGENT_DISCOVERY
         value: "true"
+      # Slice #8: admin token gating destructive GraphQL mutations
+      # (createTournament, pauseTournament, resumeTournament). Leave unset to
+      # disable the admin-only path entirely (closed by default).
+      - key: ARENA_ADMIN_TOKEN
+        sync: false
+      # Slice #9: when true, the agent creates a hardcoded "Genesis"
+      # tournament on first boot if no tournaments exist on chain. Off by
+      # default in production deploys.
+      - key: BOOTSTRAP_SEED_TOURNAMENT
+        value: "false"
+      # Slice #2: structured logging knobs.
+      # LOG_LEVEL: debug | info | warn | error | silent (default info)
+      # LOG_FORMAT: json | pretty (default json when stdout is not a TTY)
+      - key: LOG_LEVEL
+        value: "info"
+      - key: LOG_FORMAT
+        value: "json"

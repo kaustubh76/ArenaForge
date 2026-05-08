@@ -26,8 +26,6 @@ import {
   defineChain,
   parseEther,
   formatEther,
-  type WalletClient,
-  type PublicClient,
   type Abi,
 } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
@@ -90,11 +88,51 @@ const MatchRegistryAbi: Abi = [
 // Helpers
 // =========================================================================
 
-async function waitTx(pub: PublicClient, hash: `0x${string}`): Promise<void> {
+type AnyPublicClient = ReturnType<typeof createPublicClient>;
+async function waitTx(pub: AnyPublicClient, hash: `0x${string}`): Promise<void> {
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") {
     throw new Error(`Transaction reverted: ${hash}`);
   }
+}
+
+/**
+ * viem v2 requires `chain` to be present on every writeContract call when
+ * the wallet client's chain type isn't narrowly typed. This wrapper bakes
+ * the testnet chain in so the call sites stay readable.
+ */
+type AnyWallet = ReturnType<typeof createWalletClient>;
+async function writeOnTestnet(
+  wallet: AnyWallet,
+  params: {
+    address: `0x${string}`;
+    abi: Abi;
+    functionName: string;
+    args?: readonly unknown[];
+    value?: bigint;
+  }
+): Promise<`0x${string}`> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return await wallet.writeContract({ ...(params as any), chain: monadTestnet });
+}
+
+/**
+ * Twin of writeOnTestnet for read calls. viem v2 (recent versions) requires
+ * `authorizationList` to satisfy the EIP-7702 typing surface; passing an
+ * empty array is the canonical "no auth" form. Wrapping centralizes the
+ * cast so the call sites stay readable.
+ */
+async function readOnTestnet<T = unknown>(
+  pub: AnyPublicClient,
+  params: {
+    address: `0x${string}`;
+    abi: Abi;
+    functionName: string;
+    args?: readonly unknown[];
+  }
+): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (await pub.readContract({ ...(params as any), authorizationList: [] })) as T;
 }
 
 // =========================================================================
@@ -138,7 +176,11 @@ async function main(): Promise<void> {
     { handle: "Arena_Delta", key: generatePrivateKey() },
   ];
 
-  const agentWallets: WalletClient[] = [];
+  // Inferred wallet client type so the chain binding from createWalletClient
+  // flows through each writeContract call. The previous explicit
+  // `WalletClient[]` annotation widened the type and caused viem to demand
+  // an explicit `chain:` on every write.
+  const agentWallets: ReturnType<typeof createWalletClient>[] = [];
   const agentAddresses: `0x${string}`[] = [];
 
   for (const agent of agents) {
@@ -161,9 +203,14 @@ async function main(): Promise<void> {
   const fundAmount = parseEther("0.1"); // 0.02 MON stake + 0.08 MON gas buffer
 
   for (let i = 0; i < agents.length; i++) {
-    const fundHash = await deployer.sendTransaction({
+    // viem v2 requires explicit chain + kzg on send when the wallet client's
+    // chain isn't narrowly typed. Cast to any for the same reason as
+    // writeOnTestnet — the chain is correctly bound by createWalletClient.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fundHash = await (deployer.sendTransaction as any)({
       to: agentAddresses[i],
       value: fundAmount,
+      chain: monadTestnet,
     });
     await waitTx(publicClient, fundHash);
     console.log(`  Funded ${agents[i].handle} with 0.1 MON`);
@@ -175,7 +222,7 @@ async function main(): Promise<void> {
   console.log("\n--- Step 3: Register Agents ---");
 
   for (let i = 0; i < agents.length; i++) {
-    const regHash = await agentWallets[i].writeContract({
+    const regHash = await writeOnTestnet(agentWallets[i], {
       address: coreAddr,
       abi: ArenaCoreAbi,
       functionName: "registerAgent",
@@ -184,7 +231,7 @@ async function main(): Promise<void> {
     await waitTx(publicClient, regHash);
 
     // Verify registration
-    const agentData = await publicClient.readContract({
+    const agentData = await readOnTestnet(publicClient, {
       address: coreAddr,
       abi: ArenaCoreAbi,
       functionName: "getAgent",
@@ -207,7 +254,7 @@ async function main(): Promise<void> {
   const entryStake = parseEther("0.02"); // 0.02 MON entry
   const paramsHash1 = keccak256(encodePacked(["string"], ["strategy_arena_championship_v1"]));
 
-  const create1Hash = await deployer.writeContract({
+  const create1Hash = await writeOnTestnet(deployer, {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "createTournament",
@@ -223,7 +270,7 @@ async function main(): Promise<void> {
   });
   await waitTx(publicClient, create1Hash);
 
-  const tournament1Id = await publicClient.readContract({
+  const tournament1Id = await readOnTestnet(publicClient, {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "tournamentCounter",
@@ -238,7 +285,7 @@ async function main(): Promise<void> {
   console.log("\n--- Step 5: Agents Join Tournament 1 ---");
 
   // Agent Alpha joins
-  const join1Hash = await agentWallets[0].writeContract({
+  const join1Hash = await writeOnTestnet(agentWallets[0], {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "joinTournament",
@@ -249,7 +296,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ ${agents[0].handle} joined Tournament #${tournament1Id}`);
 
   // Agent Beta joins
-  const join2Hash = await agentWallets[1].writeContract({
+  const join2Hash = await writeOnTestnet(agentWallets[1], {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "joinTournament",
@@ -260,7 +307,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ ${agents[1].handle} joined Tournament #${tournament1Id}`);
 
   // Verify prize pool
-  const pool1 = await publicClient.readContract({
+  const pool1 = await readOnTestnet(publicClient, {
     address: escrowAddr,
     abi: WagerEscrowAbi,
     functionName: "tournamentPools",
@@ -273,7 +320,7 @@ async function main(): Promise<void> {
   // =========================================================================
   console.log("\n--- Step 6: Start Tournament 1 ---");
 
-  const start1Hash = await deployer.writeContract({
+  const start1Hash = await writeOnTestnet(deployer, {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "startTournament",
@@ -287,7 +334,7 @@ async function main(): Promise<void> {
   // =========================================================================
   console.log("\n--- Step 7: Create Match 1 ---");
 
-  const match1CreateHash = await deployer.writeContract({
+  const match1CreateHash = await writeOnTestnet(deployer, {
     address: registryAddr,
     abi: MatchRegistryAbi,
     functionName: "createMatch",
@@ -295,7 +342,7 @@ async function main(): Promise<void> {
   });
   await waitTx(publicClient, match1CreateHash);
 
-  const match1Id = await publicClient.readContract({
+  const match1Id = await readOnTestnet(publicClient, {
     address: registryAddr,
     abi: MatchRegistryAbi,
     functionName: "matchCounter",
@@ -303,7 +350,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ Created Match #${match1Id}: ${agents[0].handle} vs ${agents[1].handle}`);
 
   // Lock escrow for match
-  const lock1Hash = await deployer.writeContract({
+  const lock1Hash = await writeOnTestnet(deployer, {
     address: escrowAddr,
     abi: WagerEscrowAbi,
     functionName: "lockForMatch",
@@ -313,7 +360,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ Escrow locked for Match #${match1Id}`);
 
   // Start match
-  const startMatch1Hash = await deployer.writeContract({
+  const startMatch1Hash = await writeOnTestnet(deployer, {
     address: registryAddr,
     abi: MatchRegistryAbi,
     functionName: "startMatch",
@@ -329,7 +376,7 @@ async function main(): Promise<void> {
 
   const paramsHash2 = keccak256(encodePacked(["string"], ["oracle_duel_masters_v1"]));
 
-  const create2Hash = await deployer.writeContract({
+  const create2Hash = await writeOnTestnet(deployer, {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "createTournament",
@@ -345,7 +392,7 @@ async function main(): Promise<void> {
   });
   await waitTx(publicClient, create2Hash);
 
-  const tournament2Id = await publicClient.readContract({
+  const tournament2Id = await readOnTestnet(publicClient, {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "tournamentCounter",
@@ -360,7 +407,7 @@ async function main(): Promise<void> {
   console.log("\n--- Step 9: Agents Join Tournament 2 ---");
 
   // Agent Gamma joins
-  const join3Hash = await agentWallets[2].writeContract({
+  const join3Hash = await writeOnTestnet(agentWallets[2], {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "joinTournament",
@@ -371,7 +418,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ ${agents[2].handle} joined Tournament #${tournament2Id}`);
 
   // Agent Delta joins
-  const join4Hash = await agentWallets[3].writeContract({
+  const join4Hash = await writeOnTestnet(agentWallets[3], {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "joinTournament",
@@ -382,7 +429,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ ${agents[3].handle} joined Tournament #${tournament2Id}`);
 
   // Verify prize pool
-  const pool2 = await publicClient.readContract({
+  const pool2 = await readOnTestnet(publicClient, {
     address: escrowAddr,
     abi: WagerEscrowAbi,
     functionName: "tournamentPools",
@@ -395,7 +442,7 @@ async function main(): Promise<void> {
   // =========================================================================
   console.log("\n--- Step 10: Start Tournament 2 ---");
 
-  const start2Hash = await deployer.writeContract({
+  const start2Hash = await writeOnTestnet(deployer, {
     address: coreAddr,
     abi: ArenaCoreAbi,
     functionName: "startTournament",
@@ -409,7 +456,7 @@ async function main(): Promise<void> {
   // =========================================================================
   console.log("\n--- Step 11: Create Match 2 ---");
 
-  const match2CreateHash = await deployer.writeContract({
+  const match2CreateHash = await writeOnTestnet(deployer, {
     address: registryAddr,
     abi: MatchRegistryAbi,
     functionName: "createMatch",
@@ -417,7 +464,7 @@ async function main(): Promise<void> {
   });
   await waitTx(publicClient, match2CreateHash);
 
-  const match2Id = await publicClient.readContract({
+  const match2Id = await readOnTestnet(publicClient, {
     address: registryAddr,
     abi: MatchRegistryAbi,
     functionName: "matchCounter",
@@ -425,7 +472,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ Created Match #${match2Id}: ${agents[2].handle} vs ${agents[3].handle}`);
 
   // Lock escrow for match
-  const lock2Hash = await deployer.writeContract({
+  const lock2Hash = await writeOnTestnet(deployer, {
     address: escrowAddr,
     abi: WagerEscrowAbi,
     functionName: "lockForMatch",
@@ -435,7 +482,7 @@ async function main(): Promise<void> {
   console.log(`  ✓ Escrow locked for Match #${match2Id}`);
 
   // Start match
-  const startMatch2Hash = await deployer.writeContract({
+  const startMatch2Hash = await writeOnTestnet(deployer, {
     address: registryAddr,
     abi: MatchRegistryAbi,
     functionName: "startMatch",

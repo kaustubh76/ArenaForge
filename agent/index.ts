@@ -15,10 +15,16 @@ import type { TournamentConfig } from "./game-engine/game-mode.interface";
 import { ClaudeAnalysisService, setClaudeAnalysisService } from "./claude";
 import { startApiServers, stopApiServers } from "./api";
 import { getMatchStore } from "./persistence";
-import { createRateLimiter } from "./utils/rate-limiter";
+import { createRateLimiter, destroyAllRateLimiters } from "./utils/rate-limiter";
 import { buildCorsOrigin } from "./utils/cors";
+import { getLogger } from "./utils/logger";
+import { makeSingleFlight } from "./utils/single-flight";
+
+const heartbeatLog = getLogger("Heartbeat");
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
+// Warn if a single tick exceeds this — likely an RPC stall starving the loop.
+const HEARTBEAT_SLOW_TICK_MS = HEARTBEAT_INTERVAL * 4;
 
 async function main(): Promise<void> {
   console.log("=== ArenaForge Agent Starting ===");
@@ -272,36 +278,45 @@ async function main(): Promise<void> {
   }
 
   // --- Create Initial Tournament If None Exist ---
-  try {
-    const tournamentCount = await contractClient.getTournamentCount();
-    if (tournamentCount === 0) {
-      console.log("No tournaments found. Creating initial tournament...");
+  // Production deploys typically have tournaments pre-seeded by ops. Gate the
+  // hardcoded "Genesis" bootstrap behind BOOTSTRAP_SEED_TOURNAMENT=true so
+  // the agent doesn't create a real on-chain tournament against the
+  // operator's wallet on every fresh deploy.
+  const bootstrapEnabled = process.env.BOOTSTRAP_SEED_TOURNAMENT === "true";
+  if (bootstrapEnabled) {
+    try {
+      const tournamentCount = await contractClient.getTournamentCount();
+      if (tournamentCount === 0) {
+        console.log("No tournaments found. Creating initial Genesis tournament (BOOTSTRAP_SEED_TOURNAMENT=true)...");
 
-      const initialConfig: TournamentConfig = {
-        name: "ArenaForge Genesis Tournament",
-        gameType: GameType.StrategyArena,
-        format: TournamentFormat.SwissSystem,
-        entryStake: BigInt(1e17), // 0.1 MON
-        maxParticipants: 8,
-        roundCount: 3,
-        gameParameters: {
-          strategyRoundCount: 5,
-          strategyCooperateCooperate: 6000,
-          strategyDefectCooperate: 10000,
-          strategyCooperateDefect: 0,
-          strategyDefectDefect: 2000,
-          strategyCommitTimeout: 60,
-          strategyRevealTimeout: 30,
-        },
-      };
+        const initialConfig: TournamentConfig = {
+          name: "ArenaForge Genesis Tournament",
+          gameType: GameType.StrategyArena,
+          format: TournamentFormat.SwissSystem,
+          entryStake: BigInt(1e17), // 0.1 MON
+          maxParticipants: 8,
+          roundCount: 3,
+          gameParameters: {
+            strategyRoundCount: 5,
+            strategyCooperateCooperate: 6000,
+            strategyDefectCooperate: 10000,
+            strategyCooperateDefect: 0,
+            strategyDefectDefect: 2000,
+            strategyCommitTimeout: 60,
+            strategyRevealTimeout: 30,
+          },
+        };
 
-      await arenaManager.createTournament(initialConfig);
-      console.log("Initial tournament created");
-    } else {
-      console.log(`Found ${tournamentCount} existing tournament(s)`);
+        await arenaManager.createTournament(initialConfig);
+        console.log("Initial tournament created");
+      } else {
+        console.log(`Found ${tournamentCount} existing tournament(s)`);
+      }
+    } catch (error) {
+      console.error("Error checking/creating initial tournament:", error);
     }
-  } catch (error) {
-    console.error("Error checking/creating initial tournament:", error);
+  } else {
+    console.log("Skipping Genesis tournament bootstrap (set BOOTSTRAP_SEED_TOURNAMENT=true to enable)");
   }
 
   // --- Start Autonomous Scheduler (after API servers are up) ---
@@ -315,25 +330,29 @@ async function main(): Promise<void> {
   console.log("=== ArenaForge Agent Running ===\n");
 
   let tickCount = 0;
+  const singleFlight = makeSingleFlight({ tag: "Heartbeat", slowMs: HEARTBEAT_SLOW_TICK_MS });
 
   const heartbeat = async (): Promise<void> => {
-    tickCount++;
-    const activeTournaments = arenaManager.getActiveTournaments().size;
-    const activeMatches = arenaManager.getActiveMatchCount();
-
-    if (tickCount % 10 === 0) {
-      const tokenAddr = tokenManager?.getTokenAddress();
-      console.log(
-        `[Heartbeat #${tickCount}] Tournaments: ${activeTournaments} | Matches: ${activeMatches}${tokenAddr ? ` | Token: ${tokenAddr.slice(0, 10)}...` : ""}`
-      );
-    }
-
-    await arenaManager.tick();
+    await singleFlight.run(async () => {
+      tickCount++;
+      const activeTournaments = arenaManager.getActiveTournaments().size;
+      const activeMatches = arenaManager.getActiveMatchCount();
+      if (tickCount % 10 === 0) {
+        const tokenAddr = tokenManager?.getTokenAddress();
+        heartbeatLog.info("Heartbeat status", {
+          tickCount,
+          activeTournaments,
+          activeMatches,
+          tokenAddr: tokenAddr ? `${tokenAddr.slice(0, 10)}…` : null,
+        });
+      }
+      await arenaManager.tick();
+    });
   };
 
   const interval = setInterval(() => {
     heartbeat().catch((error) => {
-      console.error("[Heartbeat] Error:", error);
+      heartbeatLog.error("Heartbeat error (caught at interval)", { error });
     });
   }, HEARTBEAT_INTERVAL);
 
@@ -341,21 +360,25 @@ async function main(): Promise<void> {
   await heartbeat();
 
   // --- Graceful Shutdown ---
+  const shutdownLog = getLogger("Shutdown");
   const shutdown = async (): Promise<void> => {
-    console.log("\n=== ArenaForge Agent Shutting Down ===");
+    shutdownLog.info("ArenaForge Agent shutting down");
     clearInterval(interval);
     scheduler?.stop();
     eventListener.stopAll();
     await stopApiServers();
-    console.log("Cleanup complete. Goodbye.");
+    destroyAllRateLimiters();
+    shutdownLog.info("Cleanup complete");
     process.exit(0);
   };
 
-  process.on("SIGINT", () => shutdown().catch(console.error));
-  process.on("SIGTERM", () => shutdown().catch(console.error));
+  process.on("SIGINT", () => shutdown().catch((error) => shutdownLog.error("Shutdown failed", { error })));
+  process.on("SIGTERM", () => shutdown().catch((error) => shutdownLog.error("Shutdown failed", { error })));
 }
 
 main().catch((error) => {
+  // Logger may not be initialized; use console.error as a last resort.
+  // eslint-disable-next-line no-console
   console.error("Fatal error:", error);
   process.exit(1);
 });

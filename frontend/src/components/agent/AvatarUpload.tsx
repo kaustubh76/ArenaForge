@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Upload, Loader2, Check, X } from 'lucide-react';
+import { Upload, Loader2, Check, X, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import { AgentAvatar } from './AgentAvatar';
 
@@ -10,27 +10,39 @@ interface AvatarUploadProps {
   disabled?: boolean;
 }
 
-// Note: In production, you would use a service like NFT.Storage, Pinata, or Web3.Storage
-// This is a simplified implementation that shows the UI flow
-async function uploadToIPFS(file: File): Promise<string> {
-  // For now, create a local object URL as placeholder
-  // In production, replace with actual IPFS upload:
-  // const response = await fetch('https://api.nft.storage/upload', {
-  //   method: 'POST',
-  //   headers: { 'Authorization': `Bearer ${NFT_STORAGE_KEY}` },
-  //   body: file,
-  // });
-  // const data = await response.json();
-  // return `ipfs://${data.value.cid}`;
+// IPFS upload — only enabled when the operator has wired a real provider via
+// VITE_NFT_STORAGE_KEY (NFT.Storage). Earlier versions of this component
+// silently returned `data:image/...;base64,...` URLs, which then got written
+// to the on-chain avatar field via setAgentAvatar — that was a real mock path
+// shipping in the UI. We removed it; if no key is configured the upload UI
+// renders disabled with a clear message.
 
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Return data URL for local preview (replace with real IPFS in production)
-      resolve(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+const NFT_STORAGE_KEY = import.meta.env.VITE_NFT_STORAGE_KEY as string | undefined;
+const IPFS_UPLOADS_ENABLED = typeof NFT_STORAGE_KEY === 'string' && NFT_STORAGE_KEY.trim().length > 0;
+
+interface NftStorageResponse {
+  ok: boolean;
+  value?: { cid: string };
+  error?: { message: string };
+}
+
+async function uploadToIPFS(file: File): Promise<string> {
+  if (!IPFS_UPLOADS_ENABLED || !NFT_STORAGE_KEY) {
+    throw new Error('IPFS upload not configured (VITE_NFT_STORAGE_KEY missing)');
+  }
+  const response = await fetch('https://api.nft.storage/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NFT_STORAGE_KEY}`,
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
   });
+  const data = (await response.json().catch(() => ({}))) as NftStorageResponse;
+  if (!response.ok || !data.ok || !data.value?.cid) {
+    throw new Error(data.error?.message ?? `IPFS upload failed (HTTP ${response.status})`);
+  }
+  return `ipfs://${data.value.cid}`;
 }
 
 export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: AvatarUploadProps) {
@@ -40,11 +52,17 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const effectiveDisabled = disabled || !IPFS_UPLOADS_ENABLED;
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file
+    if (!IPFS_UPLOADS_ENABLED) {
+      setError('Avatar uploads are disabled — IPFS provider not configured');
+      return;
+    }
+
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
@@ -58,24 +76,25 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
     setSuccess(false);
     setUploading(true);
 
+    let previewUrl: string | null = null;
     try {
-      // Create preview
-      const previewUrl = URL.createObjectURL(file);
+      // Local preview only (revoked once we know the upload outcome). The
+      // preview blob URL is NEVER passed to onUpload — only the real IPFS URI
+      // returned by uploadToIPFS reaches the contract.
+      previewUrl = URL.createObjectURL(file);
       setPreview(previewUrl);
 
-      // Upload to IPFS
       const ipfsUri = await uploadToIPFS(file);
-
-      // Call the onUpload callback (e.g., to update contract)
       await onUpload(ipfsUri);
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError('Failed to upload avatar');
+      setError(err instanceof Error ? err.message : 'Failed to upload avatar');
       setPreview(null);
       console.error('Avatar upload error:', err);
     } finally {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
       setUploading(false);
     }
   };
@@ -109,7 +128,7 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
         {/* Upload overlay */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || uploading}
+          disabled={effectiveDisabled || uploading}
           className={clsx(
             'absolute inset-0 rounded-full flex items-center justify-center',
             'bg-black/60 opacity-0 hover:opacity-100 transition-all duration-200',
@@ -134,13 +153,14 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
-        disabled={disabled || uploading}
+        disabled={effectiveDisabled || uploading}
       />
 
       {/* Upload button */}
       <button
         onClick={() => fileInputRef.current?.click()}
-        disabled={disabled || uploading}
+        disabled={effectiveDisabled || uploading}
+        title={!IPFS_UPLOADS_ENABLED ? 'IPFS upload not configured (set VITE_NFT_STORAGE_KEY)' : undefined}
         className={clsx(
           'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
           success
@@ -175,12 +195,25 @@ export function AvatarUpload({ currentAvatarUrl, handle, onUpload, disabled }: A
         </div>
       )}
 
-      {/* Help text */}
-      <p className="text-[10px] text-text-muted text-center">
-        Supported: JPG, PNG, GIF (max 5MB)
-        <br />
-        Images are stored on IPFS
-      </p>
+      {/* Configuration warning when IPFS is not wired up */}
+      {!IPFS_UPLOADS_ENABLED && (
+        <div className="flex items-start gap-2 text-[10px] text-arcade-orange/80 max-w-[220px]">
+          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+          <span>
+            Avatar uploads are disabled. Set <code className="font-mono">VITE_NFT_STORAGE_KEY</code> in
+            the frontend env to enable IPFS uploads.
+          </span>
+        </div>
+      )}
+
+      {/* Help text (only shown when uploads are enabled) */}
+      {IPFS_UPLOADS_ENABLED && (
+        <p className="text-[10px] text-text-muted text-center">
+          Supported: JPG, PNG, GIF (max 5MB)
+          <br />
+          Images are stored on IPFS via NFT.Storage
+        </p>
+      )}
     </div>
   );
 }

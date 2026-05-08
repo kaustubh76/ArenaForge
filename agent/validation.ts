@@ -168,3 +168,28 @@ export function sanitizeTournamentName(name: string): string {
 export function formatValidationErrors(errors: ValidationError[]): string {
   return errors.map(e => `  - ${e.field}: ${e.message}`).join("\n");
 }
+
+/**
+ * Validate an avatar URL. Accepted schemes: http, https, ipfs.
+ * Rejects data: / blob: / file: explicitly so a frontend that hands us a
+ * base64 blob (e.g. an unconfigured IPFS uploader) can't smuggle huge text
+ * into the database row. Caller throws on the returned error message.
+ *
+ * Returns the trimmed URL if valid, or a string Error message if not.
+ */
+export function validateAvatarUrl(input: string): { ok: true; url: string } | { ok: false; error: string } {
+  if (typeof input !== "string") return { ok: false, error: "Avatar URL must be a string" };
+  const url = input.trim();
+  if (url.length === 0) return { ok: false, error: "Avatar URL is required" };
+  if (url.length > 2048) return { ok: false, error: "Avatar URL too long (max 2048 characters)" };
+  // Reject base64 / blob / filesystem schemes explicitly. These are common
+  // smuggle vectors for "fake IPFS" uploads where a frontend embeds a data:
+  // URL pretending to be a real CID.
+  if (/^(data|blob|file|javascript):/i.test(url)) {
+    return { ok: false, error: "Avatar URL scheme not allowed (got data:/blob:/file:/javascript:). Use http://, https://, or ipfs://." };
+  }
+  if (!/^(https?:\/\/|ipfs:\/\/)/i.test(url)) {
+    return { ok: false, error: "Avatar URL must start with http://, https://, or ipfs://" };
+  }
+  return { ok: true, url };
+}

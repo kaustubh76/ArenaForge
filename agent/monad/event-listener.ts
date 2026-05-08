@@ -1,5 +1,15 @@
 import { type Abi } from "viem";
 import { publicClient } from "./rpc";
+import {
+  AgentRegisteredArgs,
+  AgentJoinedTournamentArgs,
+  MatchCompletedArgs,
+  MoveCommittedArgs,
+  BetPlacedArgs,
+  BettingOpenedArgs,
+  BetsSettledArgs,
+  parseEventArgs,
+} from "../schemas/events";
 
 const ArenaCoreEvents: Abi = [
   { type: "event", name: "AgentRegistered", inputs: [{ name: "agent", type: "address", indexed: true }, { name: "moltbookHandle", type: "string", indexed: false }] },
@@ -46,8 +56,11 @@ export class MonadEventListener {
       abi: ArenaCoreEvents,
       eventName: "AgentRegistered",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { agent: string; moltbookHandle: string };
+        for (const entry of logs) {
+          const args = parseEventArgs(AgentRegisteredArgs, (entry as { args?: unknown }).args, {
+            event: "AgentRegistered",
+          });
+          if (!args) continue;
           callback(args.agent, args.moltbookHandle);
         }
       },
@@ -61,8 +74,11 @@ export class MonadEventListener {
       abi: ArenaCoreEvents,
       eventName: "AgentJoinedTournament",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { tournamentId: bigint; agent: string };
+        for (const entry of logs) {
+          const args = parseEventArgs(AgentJoinedTournamentArgs, (entry as { args?: unknown }).args, {
+            event: "AgentJoinedTournament",
+          });
+          if (!args) continue;
           callback(Number(args.tournamentId), args.agent);
         }
       },
@@ -76,8 +92,11 @@ export class MonadEventListener {
       abi: MatchRegistryEvents,
       eventName: "MatchCompleted",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { matchId: bigint; winner: string };
+        for (const entry of logs) {
+          const args = parseEventArgs(MatchCompletedArgs, (entry as { args?: unknown }).args, {
+            event: "MatchCompleted",
+          });
+          if (!args) continue;
           callback(Number(args.matchId), args.winner);
         }
       },
@@ -91,8 +110,11 @@ export class MonadEventListener {
       abi: StrategyArenaEvents,
       eventName: "MoveCommitted",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { matchId: bigint; round: bigint; player: string };
+        for (const entry of logs) {
+          const args = parseEventArgs(MoveCommittedArgs, (entry as { args?: unknown }).args, {
+            event: "MoveCommitted",
+          });
+          if (!args) continue;
           callback(Number(args.matchId), Number(args.round), args.player);
         }
       },
@@ -107,9 +129,12 @@ export class MonadEventListener {
       abi: SpectatorBettingEvents,
       eventName: "BetPlaced",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { matchId: bigint; bettor: string; predictedWinner: string; amount: bigint };
-          callback(Number(args.matchId), args.bettor, args.predictedWinner, args.amount);
+        for (const entry of logs) {
+          const args = parseEventArgs(BetPlacedArgs, (entry as { args?: unknown }).args, {
+            event: "BetPlaced",
+          });
+          if (!args) continue;
+          callback(Number(args.matchId), args.bettor, args.predictedWinner, BigInt(args.amount));
         }
       },
     });
@@ -123,8 +148,11 @@ export class MonadEventListener {
       abi: SpectatorBettingEvents,
       eventName: "BettingOpened",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { matchId: bigint; player1: string; player2: string };
+        for (const entry of logs) {
+          const args = parseEventArgs(BettingOpenedArgs, (entry as { args?: unknown }).args, {
+            event: "BettingOpened",
+          });
+          if (!args) continue;
           callback(Number(args.matchId), args.player1, args.player2);
         }
       },
@@ -139,8 +167,11 @@ export class MonadEventListener {
       abi: SpectatorBettingEvents,
       eventName: "BetsSettled",
       onLogs: (logs) => {
-        for (const log of logs) {
-          const args = (log as any).args as { matchId: bigint; winner: string };
+        for (const entry of logs) {
+          const args = parseEventArgs(BetsSettledArgs, (entry as { args?: unknown }).args, {
+            event: "BetsSettled",
+          });
+          if (!args) continue;
           callback(Number(args.matchId), args.winner);
         }
       },

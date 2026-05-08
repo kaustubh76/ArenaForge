@@ -2,11 +2,17 @@ import type { QueuedPost, MatchResult, Tournament } from "../game-engine/game-mo
 import type { ClaudeAnalysisService } from "../claude";
 import type { TokenBucketRateLimiter } from "../utils/rate-limiter";
 import { throttledFetch } from "../utils/throttled-fetch";
+import { sanitizeText, sanitizeHandle } from "../utils/sanitize";
 
 // Rate limits (matching Moltbook API limits)
 const POST_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between posts
 const COMMENT_COOLDOWN_MS = 20 * 1000; // 20 seconds between comments
 const DAILY_POST_LIMIT = 50;
+// Caps for outbound text — Moltbook accepts more, but agents that compose
+// from external/user-controlled handles benefit from a hard ceiling.
+const TITLE_MAX = 280;
+const CONTENT_MAX = 4000;
+const SUBMOLT_MAX = 64;
 
 interface PublisherConfig {
   moltbookApiUrl: string;
@@ -131,10 +137,18 @@ export class MoltbookPublisher {
   }
 
   /**
-   * Add a post to the priority queue.
+   * Add a post to the priority queue. All text fields are sanitized at this
+   * boundary so unsafe content (control chars, oversized blobs, sketchy
+   * handles) cannot flow through to the external Moltbook API.
    */
   enqueue(post: QueuedPost): void {
-    this.queue.push(post);
+    const safe: QueuedPost = {
+      title: sanitizeText(post.title, TITLE_MAX),
+      content: sanitizeText(post.content, CONTENT_MAX),
+      submolt: post.submolt ? sanitizeHandle(post.submolt).slice(0, SUBMOLT_MAX) : undefined,
+      priority: post.priority,
+    };
+    this.queue.push(safe);
     this.queue.sort((a, b) => b.priority - a.priority);
   }
 

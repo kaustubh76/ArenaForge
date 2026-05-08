@@ -7,7 +7,10 @@ import type {
   Bracket,
   GameType,
 } from "../game-engine/game-mode.interface";
+import { runMigrations } from "./migrations";
+import { getLogger } from "../utils/logger";
 
+const log = getLogger("MatchStore");
 const DB_PATH = process.env.ARENA_DB_PATH || "./arena-data.sqlite";
 
 /** JSON replacer that converts BigInt to Number for serialization */
@@ -122,141 +125,26 @@ export class MatchStore {
   private init(): void {
     if (this.initialized) return;
 
-    // Enable WAL mode for better concurrent access
+    // Enable WAL mode for better concurrent access. No-op on :memory: DBs.
     this.db.pragma("journal_mode = WAL");
 
-    // Create tables
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS matches (
-        match_id INTEGER PRIMARY KEY,
-        tournament_id INTEGER NOT NULL,
-        round INTEGER NOT NULL,
-        player1 TEXT NOT NULL,
-        player2 TEXT NOT NULL,
-        winner TEXT,
-        is_draw INTEGER DEFAULT 0,
-        is_upset INTEGER DEFAULT 0,
-        game_type INTEGER NOT NULL,
-        stats_json TEXT,
-        duration INTEGER DEFAULT 0,
-        created_at INTEGER DEFAULT (strftime('%s', 'now'))
-      );
-
-      CREATE TABLE IF NOT EXISTS tournament_state (
-        tournament_id INTEGER PRIMARY KEY,
-        config_json TEXT NOT NULL,
-        participants_json TEXT NOT NULL,
-        rounds_json TEXT NOT NULL,
-        current_round INTEGER DEFAULT 0,
-        status TEXT NOT NULL,
-        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_matches_tournament ON matches(tournament_id);
-      CREATE INDEX IF NOT EXISTS idx_matches_round ON matches(tournament_id, round);
-
-      -- Series tracking for Best-of-N format
-      CREATE TABLE IF NOT EXISTS series (
-        series_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tournament_id INTEGER NOT NULL,
-        player1 TEXT NOT NULL,
-        player2 TEXT NOT NULL,
-        wins_required INTEGER NOT NULL,
-        player1_wins INTEGER DEFAULT 0,
-        player2_wins INTEGER DEFAULT 0,
-        completed INTEGER DEFAULT 0,
-        winner TEXT,
-        created_at INTEGER DEFAULT (strftime('%s', 'now'))
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_series_tournament ON series(tournament_id);
-      CREATE INDEX IF NOT EXISTS idx_series_players ON series(player1, player2);
-
-      -- Bracket tracking for Double Elimination format
-      CREATE TABLE IF NOT EXISTS brackets (
-        bracket_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tournament_id INTEGER NOT NULL UNIQUE,
-        winners_bracket_json TEXT NOT NULL,
-        losers_bracket_json TEXT,
-        current_phase TEXT DEFAULT 'winners',
-        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_brackets_tournament ON brackets(tournament_id);
-
-      -- Pentathlon event scores
-      CREATE TABLE IF NOT EXISTS pentathlon_scores (
-        tournament_id INTEGER NOT NULL,
-        agent_address TEXT NOT NULL,
-        game_type INTEGER NOT NULL,
-        event_rank INTEGER NOT NULL,
-        points_earned INTEGER NOT NULL,
-        PRIMARY KEY (tournament_id, agent_address, game_type)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_pentathlon_tournament ON pentathlon_scores(tournament_id);
-
-      -- Round Robin standings
-      CREATE TABLE IF NOT EXISTS round_robin_standings (
-        tournament_id INTEGER NOT NULL,
-        agent_address TEXT NOT NULL,
-        wins INTEGER DEFAULT 0,
-        losses INTEGER DEFAULT 0,
-        draws INTEGER DEFAULT 0,
-        points INTEGER DEFAULT 0,
-        games_played INTEGER DEFAULT 0,
-        PRIMARY KEY (tournament_id, agent_address)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_rr_tournament ON round_robin_standings(tournament_id);
-
-      -- Agent bios
-      CREATE TABLE IF NOT EXISTS agent_bios (
-        address TEXT PRIMARY KEY,
-        bio TEXT NOT NULL DEFAULT '',
-        updated_at INTEGER DEFAULT (strftime('%s','now'))
-      );
-
-      -- Agent avatars
-      CREATE TABLE IF NOT EXISTS agent_avatars (
-        address TEXT PRIMARY KEY,
-        avatar_url TEXT NOT NULL,
-        updated_at INTEGER DEFAULT (strftime('%s','now'))
-      );
-
-      -- Betting records (from on-chain events)
-      CREATE TABLE IF NOT EXISTS bets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        match_id INTEGER NOT NULL,
-        bettor TEXT NOT NULL,
-        predicted_winner TEXT NOT NULL,
-        amount TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'active',
-        payout TEXT DEFAULT '0',
-        created_at INTEGER DEFAULT (strftime('%s', 'now'))
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets(LOWER(bettor));
-      CREATE INDEX IF NOT EXISTS idx_bets_match ON bets(match_id);
-
-      -- Evolution records (persisted from EvolutionEngine)
-      CREATE TABLE IF NOT EXISTS evolution_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tournament_id INTEGER NOT NULL,
-        round INTEGER NOT NULL,
-        previous_params_hash TEXT NOT NULL,
-        new_params_hash TEXT NOT NULL,
-        mutations_json TEXT NOT NULL,
-        metrics_json TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        UNIQUE(tournament_id, round)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_evolution_tournament ON evolution_records(tournament_id);
-    `);
+    // Run schema migrations. Tracked in `schema_version`. Idempotent: a DB
+    // already at the latest version is a no-op.
+    const result = runMigrations(this.db);
+    if (result.ranFrom !== result.ranTo) {
+      log.info("Schema migrated", result);
+    }
 
     this.initialized = true;
-    console.log("[MatchStore] Database initialized at", DB_PATH);
+    log.debug("MatchStore initialized", { dbPath: DB_PATH, schemaVersion: result.ranTo });
+  }
+
+  /** Current applied schema version. Returns 0 for an unmigrated DB. */
+  getSchemaVersion(): number {
+    const row = this.db
+      .prepare("SELECT MAX(version) as v FROM schema_version")
+      .get() as { v: number | null } | undefined;
+    return row?.v ?? 0;
   }
 
   /**
@@ -1034,7 +922,34 @@ export class MatchStore {
    */
   close(): void {
     this.db.close();
-    console.log("[MatchStore] Database closed");
+    log.debug("MatchStore database closed");
+  }
+
+  /**
+   * Hot-backup the database to `destPath` via SQLite's online-backup API.
+   * Safe to call while the store is in use — writes are paused page-by-page
+   * rather than for the full duration. Returns the absolute destination path
+   * on success.
+   *
+   * Operators wire this to a cron / scheduled job. Pair with a rotation
+   * policy (e.g. keep N days) to bound disk usage.
+   */
+  async backup(destPath: string): Promise<string> {
+    log.info("MatchStore backup starting", { destPath });
+    await this.db.backup(destPath);
+    log.info("MatchStore backup complete", { destPath });
+    return destPath;
+  }
+
+  /**
+   * Compact the DB into `destPath` using SQLite's `VACUUM INTO`. Produces a
+   * smaller file than `backup()` because it rewrites pages, but takes a
+   * write lock for the duration so use only during a quiet window.
+   */
+  vacuumInto(destPath: string): string {
+    this.db.exec(`VACUUM INTO '${destPath.replace(/'/g, "''")}'`);
+    log.info("MatchStore vacuumInto complete", { destPath });
+    return destPath;
   }
 
   // ============================================

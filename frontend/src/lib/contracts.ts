@@ -1,7 +1,9 @@
 /**
  * Frontend contract client — read-only access to ArenaForge contracts.
  * Chain is selected via VITE_CHAIN_ID (10143 = Monad Testnet, 31337 = Anvil).
- * Viem is lazily loaded to keep the main bundle small when running on mock data.
+ * Viem is lazily loaded so pages that don't need direct chain access (e.g.
+ * pages that read everything via GraphQL) avoid pulling viem into the
+ * initial bundle.
  */
 import {
   GameType,

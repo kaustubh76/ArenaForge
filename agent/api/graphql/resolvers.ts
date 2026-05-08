@@ -20,6 +20,12 @@ import type { AutonomousScheduler } from "../../autonomous/scheduler";
 import type { A2ACoordinator } from "../../autonomous/a2a-coordinator";
 import { normalizeAddress } from "../../utils/normalize";
 import { clampLimit, clampOffset, validateId, validateAddress } from "../../utils/validate";
+import { sanitizeText } from "../../utils/sanitize";
+import { type AuthContext, assertAdmin } from "../auth";
+import { getLogger } from "../../utils/logger";
+import { validateAvatarUrl } from "../../validation";
+
+const log = getLogger("Resolvers");
 
 export interface ResolverContext {
   loaders: DataLoaders;
@@ -29,6 +35,7 @@ export interface ResolverContext {
   tokenManager?: TokenManager;
   scheduler?: AutonomousScheduler;
   a2aCoordinator?: A2ACoordinator;
+  auth?: AuthContext;
 }
 
 export const resolvers = {
@@ -329,73 +336,15 @@ export const resolvers = {
         }
       }
 
-      // Fallback: derive from match store data (real match results, no fake hashes)
-      const matchStore = context.matchStore;
-      if (!matchStore) return [];
-
-      const matches = args.tournamentId > 0
-        ? matchStore.getMatchesByTournament(args.tournamentId)
-        : matchStore.getRecentMatches(100);
-      if (matches.length === 0) return [];
-
-      const gameTypeNames: Record<number, string> = { 0: "Oracle Duel", 1: "Strategy Arena", 2: "Auction Wars", 3: "Quiz Bowl" };
-
-      // Compute aggregate stats for metrics
-      const drawCount = matches.filter(m => m.isDraw).length;
-      const avgDuration = matches.reduce((s, m) => s + m.duration, 0) / matches.length;
-      const gameTypeCounts: Record<string, number> = {};
-      matches.forEach(m => {
-        const gt = gameTypeNames[m.gameType] || "Unknown";
-        gameTypeCounts[gt] = (gameTypeCounts[gt] || 0) + 1;
+      // No real on-chain evolution records exist for this tournament. Return
+      // an empty list rather than fabricating entries from match-result
+      // aggregates: those would carry empty paramsHashes and made-up
+      // mutation factors that look like real evolution events but aren't.
+      // Frontend renders an empty state when this is [].
+      log.debug("evolutionHistory: no on-chain records for tournament", {
+        tournamentId: args.tournamentId,
       });
-      const totalForDist = matches.length;
-      const strategyDistribution: Record<string, number> = {};
-      for (const [gt, count] of Object.entries(gameTypeCounts)) {
-        strategyDistribution[gt] = Math.round((count / totalForDist) * 100);
-      }
-      const dominantStrategy = Object.entries(gameTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "N/A";
-      const stakeBehavior = avgDuration > 12 ? "aggressive" : avgDuration > 8 ? "moderate" : "conservative";
-
-      // Group matches by round for per-round evolution entries
-      const roundMap = new Map<number, typeof matches>();
-      for (const m of matches) {
-        const arr = roundMap.get(m.round) || [];
-        arr.push(m);
-        roundMap.set(m.round, arr);
-      }
-
-      return Array.from(roundMap.entries()).map(([round, roundMatches]) => {
-        const roundDraws = roundMatches.filter(m => m.isDraw).length;
-        const roundUpsets = roundMatches.filter(m => m.isUpset).length;
-        const mutationType = roundUpsets > roundDraws ? "scale" : "shift";
-        const reason = roundUpsets > 0
-          ? `Round ${round}: ${roundUpsets} upset(s) triggered parameter scaling`
-          : roundDraws > 0
-          ? `Round ${round}: ${roundDraws} draw(s) — strategies converging`
-          : `Round ${round}: standard evolution step`;
-
-        return {
-          tournamentId: args.tournamentId,
-          round,
-          previousParamsHash: "",
-          newParamsHash: "",
-          mutations: [{
-            type: mutationType,
-            factor: roundUpsets > 0 ? 1.15 : 1.0,
-            increment: roundUpsets > 0 ? 0.2 : 0.1,
-            strategy: dominantStrategy,
-            reason,
-          }],
-          metrics: {
-            averageStakeBehavior: stakeBehavior,
-            dominantStrategy,
-            strategyDistribution: JSON.stringify(strategyDistribution),
-            averageMatchDuration: avgDuration,
-            drawRate: drawCount / matches.length,
-          },
-          timestamp: roundMatches[0]?.createdAt ?? Math.floor(Date.now() / 1000),
-        };
-      });
+      return [];
     },
 
     // Arena stats
@@ -957,23 +906,21 @@ export const resolvers = {
               });
             }
           }
-        } catch {
-          // On-chain state query failed — fall through to metadata stubs
+        } catch (error) {
+          log.warn("matchReplay: on-chain state query failed", { matchId: args.matchId, error });
         }
 
-        // Last resort: if we have on-chain metadata but still no rounds, create stubs with hashes
-        if (rounds.length === 0 && metadata?.available) {
-          for (let i = 0; i < metadata.roundCount; i++) {
-            rounds.push({
-              roundNumber: i + 1,
-              player1Action: null,
-              player2Action: null,
-              player1Score: 0,
-              player2Score: 0,
-              timestamp: 0,
-              stateHash: metadata.roundHashes[i] ?? "",
-            });
-          }
+        // No fabricated stub rounds. If on-chain state is unreachable AND we
+        // have no persisted match stats, the rounds list stays empty. The
+        // GraphQL `metadata` field still surfaces the on-chain hashes so a
+        // client can verify integrity later, but we do NOT manufacture
+        // round entries with null actions and zero scores.
+        if (rounds.length === 0) {
+          log.debug("matchReplay: no round data available", {
+            matchId: args.matchId,
+            metadataAvailable: metadata?.available ?? false,
+            metadataRoundCount: metadata?.roundCount ?? 0,
+          });
         }
       }
 
@@ -1324,6 +1271,7 @@ export const resolvers = {
       args: { id: number },
       context: ResolverContext
     ) => {
+      assertAdmin(context, "pauseTournament");
       validateId(args.id, "tournament ID");
       if (!context.arenaManager) return null;
       await context.arenaManager.pauseTournament(args.id);
@@ -1342,6 +1290,7 @@ export const resolvers = {
       args: { id: number },
       context: ResolverContext
     ) => {
+      assertAdmin(context, "resumeTournament");
       validateId(args.id, "tournament ID");
       if (!context.arenaManager) return null;
       await context.arenaManager.resumeTournament(args.id);
@@ -1361,11 +1310,9 @@ export const resolvers = {
       context: ResolverContext
     ) => {
       if (!context.matchStore) return false;
-      // Validate avatar URL
-      const url = args.avatarUrl.trim();
-      if (url.length > 2048) throw new Error("Avatar URL too long (max 2048 characters)");
-      if (!/^(https?:\/\/|ipfs:\/\/)/.test(url)) throw new Error("Avatar URL must start with http://, https://, or ipfs://");
-      context.matchStore.setAgentAvatar(args.address, url);
+      const result = validateAvatarUrl(args.avatarUrl);
+      if (!result.ok) throw new Error(result.error);
+      context.matchStore.setAgentAvatar(args.address, result.url);
       return true;
     },
 
@@ -1383,10 +1330,13 @@ export const resolvers = {
       },
       context: ResolverContext
     ) => {
+      assertAdmin(context, "createTournament");
       if (!context.arenaManager) return null;
 
-      // Validate tournament name
-      const name = args.input.name.trim();
+      // Sanitize + validate tournament name. sanitizeText strips control
+      // chars and normalizes whitespace; the existing length check then runs
+      // against the cleaned value.
+      const name = sanitizeText(args.input.name, 256);
       if (!name) throw new Error("Tournament name is required");
       const byteLength = Buffer.byteLength(name, "utf8");
       if (byteLength > 256) throw new Error(`Tournament name too long (${byteLength} bytes, max 256)`);

@@ -5,7 +5,10 @@
   "private": true,
   "scripts": {
     "build": "forge build",
-    "test": "forge test -vvv",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:contracts": "forge test -vvv",
     "test:gas": "forge test --gas-report",
     "deploy:local": "forge script script/Deploy.s.sol --broadcast --rpc-url http://127.0.0.1:8545",
     "deploy:testnet": "forge script script/Deploy.s.sol --broadcast --rpc-url ${MONAD_TESTNET_RPC_URL}",
@@ -20,6 +23,7 @@
     "test:e2e": "npx ts-node agent/test-local.ts",
     "test:testnet": "npx ts-node agent/test-testnet.ts",
     "setup:arena": "npx ts-node --transpile-only agent/setup-arena.ts",
+    "db:backup": "npx ts-node --transpile-only agent/scripts/backup-db.ts",
     "typecheck": "npx tsc --noEmit"
   },
   "dependencies": {
@@ -44,7 +48,12 @@
     "ts-node": "^10.9.0",
     "typescript": "^5.4.0",
     "viem": "^2.21.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.0",
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

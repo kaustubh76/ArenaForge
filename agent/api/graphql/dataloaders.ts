@@ -4,6 +4,10 @@ import DataLoader from "dataloader";
 import type { MonadContractClient } from "../../monad/contract-client";
 import type { MatchStore } from "../../persistence/match-store";
 import { normalizeAddress } from "../../utils/normalize";
+import { getLogger } from "../../utils/logger";
+import { AgentReadSchema, normalizeAgentRead } from "../../schemas/contracts";
+
+const log = getLogger("DataLoader");
 
 export interface DataLoaders {
   agentLoader: DataLoader<string, AgentData | null>;
@@ -67,35 +71,34 @@ export function createDataLoaders(
         addresses.map(async (addr: string) => {
           try {
             const raw = await contractClient.getAgent(addr);
-            const agent = raw as Record<string, unknown>;
-            if (agent) {
-              const handle = String(agent.moltbookHandle || addr.slice(0, 8));
-              // Contract struct may have swapped elo/matchesPlayed layout
-              // Detect swap: if matchesPlayed looks like an ELO (≥1000) and elo looks like a count (<1000)
-              let elo = Number(agent.elo ?? 1200);
-              let matchesPlayed = Number(agent.matchesPlayed ?? 0);
-              if (matchesPlayed >= 1000 && elo < 1000 && matchesPlayed > elo) {
-                // Values are swapped due to ABI/struct mismatch
-                [elo, matchesPlayed] = [matchesPlayed, elo];
-              }
-              const wins = Number(agent.wins ?? 0);
-              const losses = Number(agent.losses ?? 0);
-              // Treat agent as registered if it has a non-empty handle
-              const isRegistered = handle.length > 0 && handle !== addr.slice(0, 8);
-              if (isRegistered) {
-                return {
-                  address: normalizeAddress(addr),
-                  moltbookHandle: handle,
-                  elo: elo || 1200,
-                  matchesPlayed,
-                  wins,
-                  losses,
-                  registered: true,
-                };
-              }
+            const parsed = AgentReadSchema.safeParse(raw);
+            if (!parsed.success) {
+              log.warn("agentLoader: contract response failed schema validation", {
+                address: addr,
+                issues: parsed.error.issues,
+              });
+              return null;
             }
-          } catch (err) {
-            console.debug(`[DataLoader] Contract getAgent failed for ${addr.slice(0, 10)}...:`, err);
+            const { handle, elo, matchesPlayed, wins, losses } = normalizeAgentRead(parsed.data);
+            // Treat agent as registered only if it has a real handle
+            // (contract returns "" or sometimes a placeholder for unregistered).
+            const placeholder = addr.slice(0, 8);
+            const isRegistered = handle.length > 0 && handle !== placeholder;
+            if (isRegistered) {
+              return {
+                address: normalizeAddress(addr),
+                moltbookHandle: handle,
+                elo,
+                matchesPlayed,
+                wins,
+                losses,
+                registered: true,
+              };
+            }
+          } catch (error) {
+            // Unregistered agents legitimately throw on getAgent. Use debug
+            // level so the noise is gated behind LOG_LEVEL=debug.
+            log.debug("agentLoader: contract getAgent failed", { address: addr, error });
           }
 
           // No fallback — only real on-chain agents
@@ -131,7 +134,8 @@ export function createDataLoaders(
               currentRound: Number(tournament.currentRound),
               parametersHash: String(tournament.parametersHash ?? ""),
             };
-          } catch {
+          } catch (error) {
+            log.error("tournamentLoader: contract getTournament failed", { tournamentId: id, error });
             return null;
           }
         })
@@ -177,7 +181,13 @@ export function createDataLoaders(
             try {
               const t = await tournamentLoader.load(tournamentId);
               if (t) gameType = t.gameType;
-            } catch {}
+            } catch (error) {
+              log.warn("matchLoader: nested tournament load failed; defaulting gameType=0", {
+                matchId: id,
+                tournamentId,
+                error,
+              });
+            }
             return {
               id,
               tournamentId,
@@ -194,7 +204,8 @@ export function createDataLoaders(
               isUpset: false,
               duration: Number(match.duration ?? 0),
             };
-          } catch {
+          } catch (error) {
+            log.error("matchLoader: contract getMatch failed", { matchId: id, error });
             return null;
           }
         })
@@ -242,7 +253,11 @@ export function createDataLoaders(
         tournamentIds.map(async (id: number) => {
           try {
             return await contractClient.getTournamentParticipants(id);
-          } catch {
+          } catch (error) {
+            log.error("tournamentParticipantsLoader: contract read failed", {
+              tournamentId: id,
+              error,
+            });
             return [];
           }
         })

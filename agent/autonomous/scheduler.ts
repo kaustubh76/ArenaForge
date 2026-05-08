@@ -11,6 +11,9 @@ import type { MonadContractClient } from "../monad/contract-client";
 import type { MatchStore } from "../persistence/match-store";
 import { A2ACoordinator } from "./a2a-coordinator";
 import { normalizeAddress } from "../utils/normalize";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("Scheduler");
 
 interface SchedulerConfig {
   arenaManager: ArenaManager;
@@ -160,30 +163,20 @@ export class AutonomousScheduler {
     const intervalMs = this.config.intervalMs ?? 300_000; // 5 minutes default
     this.running = true;
 
-    console.log(
-      `[Scheduler] Autonomous mode started (interval: ${intervalMs / 1000}s)`
-    );
-    console.log(
-      `  Auto-create tournaments: ${this.config.autoCreateTournaments !== false}`
-    );
-    console.log(
-      `  Auto-token updates: ${this.config.autoTokenUpdates !== false}`
-    );
-    console.log(
-      `  Auto-agent discovery: ${this.config.autoAgentDiscovery !== false}`
-    );
+    log.info("Autonomous mode started", {
+      intervalSeconds: intervalMs / 1000,
+      autoCreateTournaments: this.config.autoCreateTournaments !== false,
+      autoTokenUpdates: this.config.autoTokenUpdates !== false,
+      autoAgentDiscovery: this.config.autoAgentDiscovery !== false,
+    });
 
     // Run first tick after a short delay (let other systems initialize)
     setTimeout(() => {
-      this.tick().catch((err) =>
-        console.error("[Scheduler] First tick error:", err)
-      );
+      this.tick().catch((error) => log.error("First tick error", { error }));
     }, 10_000);
 
     this.interval = setInterval(() => {
-      this.tick().catch((err) =>
-        console.error("[Scheduler] Tick error:", err)
-      );
+      this.tick().catch((error) => log.error("Tick error", { error }));
     }, intervalMs);
   }
 
@@ -196,7 +189,7 @@ export class AutonomousScheduler {
       this.interval = null;
     }
     this.running = false;
-    console.log("[Scheduler] Autonomous mode stopped");
+    log.info("Autonomous mode stopped");
   }
 
   /**
@@ -205,7 +198,7 @@ export class AutonomousScheduler {
    */
   private async tick(): Promise<void> {
     if (this.ticking) {
-      console.warn("[Scheduler] Tick skipped — previous tick still running");
+      log.warn("Tick skipped — previous tick still running", { tickCount: this.tickCount });
       return;
     }
     this.ticking = true;
@@ -220,7 +213,7 @@ export class AutonomousScheduler {
     this.tickCount++;
     this.checkDailyReset();
 
-    console.log(`[Scheduler] Tick #${this.tickCount}`);
+    log.debug("Tick", { tickCount: this.tickCount });
 
     // 1. Auto-create tournaments if needed
     if (this.config.autoCreateTournaments !== false) {
@@ -249,7 +242,7 @@ export class AutonomousScheduler {
     try {
       await this.coordinator.autonomousTick();
     } catch (error) {
-      console.error("[Scheduler] A2A coordinator tick error:", error);
+      log.error("A2A coordinator tick error", { error });
     }
 
     // 6. Drain Moltbook publish queue (respects internal rate limits)
@@ -290,11 +283,13 @@ export class AutonomousScheduler {
       this.formatIndex++;
       this.dailyStats.tournamentsCreated++;
 
-      console.log(
-        `[Scheduler] Auto-created tournament: ${config.name} (${GameType[gameType]}, ${TournamentFormat[format]})`
-      );
+      log.info("Auto-created tournament", {
+        name: config.name,
+        gameType: GameType[gameType],
+        format: TournamentFormat[format],
+      });
     } catch (error) {
-      console.error("[Scheduler] Failed to auto-create tournament:", error);
+      log.error("Failed to auto-create tournament", { error });
     }
   }
 
@@ -343,7 +338,7 @@ export class AutonomousScheduler {
         });
       }
     } catch (error) {
-      console.error("[Scheduler] Token milestone check failed:", error);
+      log.error("Token milestone check failed", { error });
     }
   }
 
@@ -382,8 +377,8 @@ export class AutonomousScheduler {
                 elo = rawElo || 1200;
                 matchesPlayed = rawMatches;
               }
-            } catch (err) {
-              console.debug(`[Scheduler] Agent data fetch failed for ${addr.slice(0, 10)}..., using defaults:`, err);
+            } catch (error) {
+              log.debug("Agent data fetch failed; using defaults", { address: addr, error });
             }
 
             this.knownAgents.set(key, {
@@ -395,9 +390,7 @@ export class AutonomousScheduler {
             });
             newDiscoveries++;
 
-            console.log(
-              `[Scheduler] A2A: Discovered agent ${addr.slice(0, 10)}... (ELO: ${elo}, tournament #${i})`
-            );
+            log.info("Discovered agent", { address: addr, elo, fromTournament: i });
 
             // Post discovery to Moltbook
             this.config.publisher.enqueue({
@@ -415,8 +408,8 @@ export class AutonomousScheduler {
               priority: 4,
             });
           }
-        } catch (err) {
-          console.debug(`[Scheduler] Tournament #${i} participant lookup failed:`, err);
+        } catch (error) {
+          log.debug("Tournament participant lookup failed", { tournamentId: i, error });
         }
       }
 
@@ -442,15 +435,13 @@ export class AutonomousScheduler {
       }
 
       if (newDiscoveries > 0) {
-        console.log(
-          `[Scheduler] A2A: Discovered ${newDiscoveries} new agent(s) (total known: ${this.knownAgents.size})`
-        );
+        log.info("Discovered new agents", { newDiscoveries, totalKnown: this.knownAgents.size });
       }
 
       // Auto-populate open tournaments with discovered agents
       await this.autoPopulateTournaments();
     } catch (error) {
-      console.error("[Scheduler] Agent discovery failed:", error);
+      log.error("Agent discovery failed", { error });
     }
   }
 
@@ -483,9 +474,7 @@ export class AutonomousScheduler {
           candidate.address
         );
 
-        console.log(
-          `[Scheduler] A2A: Auto-joined ${candidate.address.slice(0, 10)}... into tournament #${tournamentId}`
-        );
+        log.info("A2A auto-joined agent", { address: candidate.address, tournamentId });
 
         this.config.publisher.enqueue({
           title: `[A2A] Agent Matched for Battle`,

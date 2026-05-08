@@ -22,6 +22,10 @@ import { getEventBroadcaster } from "../../events";
 import { createRateLimiter, type TokenBucketRateLimiter } from "../../utils/rate-limiter";
 import { normalizeIP } from "../../utils/normalize";
 import { buildCorsOrigin } from "../../utils/cors";
+import { getAuthContext } from "../auth";
+import { getLogger } from "../../utils/logger";
+
+const log = getLogger("GraphQL");
 
 export interface GraphQLServerConfig {
   port?: number;
@@ -150,7 +154,7 @@ export class GraphQLServer {
       rateLimitMiddleware,
       express.json(),
       expressMiddleware(this.apolloServer, {
-        context: async (): Promise<ResolverContext> => ({
+        context: async ({ req }): Promise<ResolverContext> => ({
           loaders: createDataLoaders(this.config.contractClient, this.config.matchStore),
           contractClient: this.config.contractClient,
           matchStore: this.config.matchStore,
@@ -158,6 +162,7 @@ export class GraphQLServer {
           tokenManager: this.config.arenaManager?.getTokenManager() ?? undefined,
           scheduler: this.config.scheduler,
           a2aCoordinator: this.config.scheduler?.getA2ACoordinator(),
+          auth: getAuthContext(req),
         }),
       })
     );
@@ -168,9 +173,12 @@ export class GraphQLServer {
     // Start HTTP server
     return new Promise((resolve) => {
       this.httpServer!.listen(port, () => {
-        console.log(`[GraphQL] Server listening on port ${port}`);
-        console.log(`[GraphQL] Query endpoint: http://localhost:${port}/graphql`);
-        console.log(`[GraphQL] Subscription endpoint: ws://localhost:${port}/graphql`);
+        log.info("GraphQL server listening", {
+          port,
+          query: `http://localhost:${port}/graphql`,
+          subscription: `ws://localhost:${port}/graphql`,
+          adminAuth: process.env.ARENA_ADMIN_TOKEN ? "enabled" : "disabled (set ARENA_ADMIN_TOKEN to gate mutations)",
+        });
         resolve();
       });
     });
@@ -198,7 +206,7 @@ export class GraphQLServer {
         this.httpServer!.close((err) => {
           if (err) reject(err);
           else {
-            console.log("[GraphQL] Server stopped");
+            log.info("GraphQL server stopped");
             resolve();
           }
         });

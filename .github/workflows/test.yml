@@ -1,0 +1,59 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an older run on the same branch when a new one starts.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # The agent's `rpc.ts` requires a chain selection at module-load time.
+      # Tests don't import `rpc.ts` (they only touch pure utilities + the
+      # in-memory MatchStore), but typecheck and build do walk the whole
+      # source tree, so set USE_TESTNET=true here to keep boot-time
+      # validators happy. No real RPC traffic is generated in CI.
+      USE_TESTNET: "true"
+      MONAD_TESTNET_RPC_URL: "https://testnet-rpc.monad.xyz"
+      # Silence the structured logger during CI so test output stays clean.
+      LOG_LEVEL: "silent"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test -- --reporter=default
+
+      - name: Build agent
+        run: npm run agent:build
+
+      - name: Verify no test files leaked into dist
+        run: |
+          if find dist -name "*.test.*" 2>/dev/null | grep -q .; then
+            echo "::error::Test files found in dist/" >&2
+            find dist -name "*.test.*"
+            exit 1
+          fi
+          echo "✓ dist/ contains no test files"

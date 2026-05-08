@@ -5,6 +5,9 @@ import {
   parseEther,
 } from "@nadfun/sdk";
 import type { Address } from "viem";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("TokenManager");
 
 export interface TokenMetrics {
   address: string;
@@ -69,7 +72,7 @@ export class TokenManager {
       throw new Error(`Token already launched at ${this.tokenAddress}`);
     }
 
-    console.log("[TokenManager] Launching ARENA token on nad.fun...");
+    log.info("Launching ARENA token on nad.fun");
 
     // Generate a simple SVG logo as a Buffer for the token image
     const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
@@ -95,10 +98,11 @@ export class TokenManager {
 
     this.tokenAddress = result.tokenAddress;
 
-    console.log(`[TokenManager] ARENA token launched!`);
-    console.log(`  Address: ${result.tokenAddress}`);
-    console.log(`  Pool: ${result.poolAddress}`);
-    console.log(`  TX: ${result.transactionHash}`);
+    log.info("ARENA token launched", {
+      tokenAddress: result.tokenAddress,
+      poolAddress: result.poolAddress,
+      txHash: result.transactionHash,
+    });
 
     return {
       tokenAddress: result.tokenAddress,
@@ -158,7 +162,7 @@ export class TokenManager {
       this.lastMetricsFetch = now;
       return this.cachedMetrics;
     } catch (error) {
-      console.error("[TokenManager] Failed to fetch metrics:", error);
+      log.error("Failed to fetch metrics", { tokenAddress: this.tokenAddress, error });
       return this.cachedMetrics; // Return stale cache on error
     }
   }
@@ -175,7 +179,7 @@ export class TokenManager {
       slippagePercent: slippage,
     });
 
-    console.log(`[TokenManager] Bought tokens for ${amountInMON} MON. TX: ${txHash}`);
+    log.info("Bought tokens", { amountInMON: amountInMON.toString(), txHash });
     return txHash;
   }
 
@@ -191,7 +195,7 @@ export class TokenManager {
       slippagePercent: slippage,
     });
 
-    console.log(`[TokenManager] Sold ${amountInTokens} tokens. TX: ${txHash}`);
+    log.info("Sold tokens", { amountInTokens: amountInTokens.toString(), txHash });
     return txHash;
   }
 

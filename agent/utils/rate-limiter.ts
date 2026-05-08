@@ -18,6 +18,10 @@ interface Bucket {
 const CLEANUP_INTERVAL_MS = 60_000; // Clean stale entries every 60s
 const STALE_THRESHOLD_MS = 300_000; // Remove entries unused for 5 minutes
 
+// Process-global registry of live limiters so a graceful-shutdown handler
+// can release every cleanup timer in one call (see destroyAllRateLimiters).
+const REGISTRY = new Set<TokenBucketRateLimiter>();
+
 export class TokenBucketRateLimiter {
   private buckets = new Map<string, Bucket>();
   private config: RateLimiterConfig;
@@ -40,6 +44,8 @@ export class TokenBucketRateLimiter {
     if (this.cleanupTimer.unref) {
       this.cleanupTimer.unref();
     }
+
+    REGISTRY.add(this);
   }
 
   /**
@@ -114,14 +120,32 @@ export class TokenBucketRateLimiter {
     this.buckets.delete(key);
   }
 
-  /** Stop the cleanup timer */
+  /** Stop the cleanup timer and remove from the global registry. */
   destroy(): void {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
     this.buckets.clear();
+    REGISTRY.delete(this);
   }
+}
+
+/**
+ * Destroy every live rate limiter. Wire this into SIGINT/SIGTERM handlers
+ * so cleanup timers and bucket maps are released on a graceful shutdown.
+ * Idempotent: safe to call multiple times.
+ */
+export function destroyAllRateLimiters(): void {
+  // Snapshot before iterating; destroy() mutates the registry.
+  for (const limiter of [...REGISTRY]) {
+    limiter.destroy();
+  }
+}
+
+/** Test-only: count of live limiters. */
+export function __rateLimiterRegistrySize(): number {
+  return REGISTRY.size;
 }
 
 /** Create a rate limiter with a named preset configuration */

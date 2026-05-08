@@ -1,5 +1,9 @@
 import { getContract, type Abi, type Hash } from "viem";
 import { publicClient, walletClient } from "./rpc";
+import { getLogger } from "../utils/logger";
+import { requireAddress, optionalAddress } from "../utils/env";
+
+const log = getLogger("ContractClient");
 
 /** Wait for tx receipt and throw if it failed */
 async function confirmTx(hash: Hash, label?: string): Promise<void> {
@@ -137,16 +141,34 @@ export class MonadContractClient {
   constructor() {
     if (!walletClient) throw new Error("Wallet client not initialized");
 
-    const coreAddr = process.env.ARENA_CORE_ADDRESS?.trim() as `0x${string}`;
-    const escrowAddr = process.env.ESCROW_ADDRESS?.trim() as `0x${string}`;
-    const registryAddr = process.env.MATCH_REGISTRY_ADDRESS?.trim() as `0x${string}`;
-    const oracleAddr = process.env.ORACLE_DUEL_ADDRESS?.trim() as `0x${string}`;
-    const strategyAddr = process.env.STRATEGY_ARENA_ADDRESS?.trim() as `0x${string}`;
-    const auctionAddr = process.env.AUCTION_WARS_ADDRESS?.trim() as `0x${string}`;
-    const quizAddr = process.env.QUIZ_BOWL_ADDRESS?.trim() as `0x${string}`;
-    // Phase 2 addresses
-    const seasonalAddr = process.env.SEASONAL_RANKINGS_ADDRESS?.trim() as `0x${string}` | undefined;
-    const bettingAddr = process.env.SPECTATOR_BETTING_ADDRESS?.trim() as `0x${string}` | undefined;
+    // Boot-time validation: each required address must be present and a
+    // well-formed 0x-prefixed 40-char hex string. A misconfiguration here
+    // is the most common production failure mode — fail fast with a clear
+    // message rather than wait for the first contract call to error opaquely.
+    const coreAddr = requireAddress("ARENA_CORE_ADDRESS");
+    const escrowAddr = requireAddress("ESCROW_ADDRESS");
+    const registryAddr = requireAddress("MATCH_REGISTRY_ADDRESS");
+    const oracleAddr = requireAddress("ORACLE_DUEL_ADDRESS");
+    const strategyAddr = requireAddress("STRATEGY_ARENA_ADDRESS");
+    const auctionAddr = requireAddress("AUCTION_WARS_ADDRESS");
+    const quizAddr = requireAddress("QUIZ_BOWL_ADDRESS");
+    // Phase 2 addresses are optional (contracts may not be deployed yet),
+    // but a *malformed* value still throws so typos don't silently disable
+    // the feature.
+    const seasonalAddr = optionalAddress("SEASONAL_RANKINGS_ADDRESS");
+    const bettingAddr = optionalAddress("SPECTATOR_BETTING_ADDRESS");
+
+    log.info("Contract addresses validated", {
+      core: coreAddr,
+      escrow: escrowAddr,
+      registry: registryAddr,
+      oracle: oracleAddr,
+      strategy: strategyAddr,
+      auction: auctionAddr,
+      quiz: quizAddr,
+      seasonal: seasonalAddr ?? "(unset)",
+      betting: bettingAddr ?? "(unset)",
+    });
 
     this.arenaCore = getContract({
       address: coreAddr,
@@ -410,7 +432,8 @@ export class MonadContractClient {
       };
       if (!result.initialized) return null;
       return result;
-    } catch {
+    } catch (error) {
+      log.error("getStrategyMatchState failed", { matchId, error });
       return null;
     }
   }
@@ -542,7 +565,8 @@ export class MonadContractClient {
         rewardsDistributed: result.rewardsDistributed,
         totalPrizePool: (Number(result.totalPrizePool) / 1e18).toString(),
       };
-    } catch {
+    } catch (error) {
+      log.error("getCurrentSeason failed", { error });
       return null;
     }
   }
@@ -628,7 +652,8 @@ export class MonadContractClient {
         bettingOpen: result.bettingOpen,
         settled: result.settled,
       };
-    } catch {
+    } catch (error) {
+      log.error("getMatchPool failed", { matchId, error });
       return null;
     }
   }
@@ -655,7 +680,8 @@ export class MonadContractClient {
         roundCount: Number(count),
         available,
       };
-    } catch {
+    } catch (error) {
+      log.error("getReplayData failed", { matchId, error });
       return null;
     }
   }

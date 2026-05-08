@@ -35,6 +35,14 @@ import {
 } from "./validation";
 import { getMatchStore, type MatchStore } from "./persistence";
 import { getEventBroadcaster, type EventBroadcaster } from "./events";
+import { getLogger } from "./utils/logger";
+import { KeyedMutex } from "./utils/mutex";
+import {
+  parsePersistedMutations,
+  parsePersistedMetrics,
+} from "./schemas/persistence";
+
+const log = getLogger("ArenaManager");
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -42,7 +50,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Pr
       return await fn();
     } catch (err) {
       if (attempt === retries) throw err;
-      console.warn(`[withRetry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+      log.warn("withRetry: attempt failed, retrying", { attempt: attempt + 1, retries, delay, error: err });
       await new Promise(r => setTimeout(r, delay));
     }
   }
@@ -86,6 +94,13 @@ export class ArenaManager {
   // Active match tracking: matchId -> { tournamentId, gameType }
   private activeMatches: Map<number, { tournamentId: number; gameType: GameType }> = new Map();
 
+  // Per-tournament async lock. Two tick loops (heartbeat + autonomous
+  // scheduler) plus fire-and-forget calls to startTournament can land
+  // concurrently on the same tournament; this mutex serializes the critical
+  // section per tournamentId so state.status mutations are atomic. Different
+  // tournaments still proceed in parallel.
+  private locks = new KeyedMutex();
+
   constructor(config: ArenaManagerConfig) {
     this.contractClient = config.contractClient;
     this.nadFunClient = config.nadFunClient;
@@ -101,7 +116,7 @@ export class ArenaManager {
         this.matchStore = getMatchStore();
         this.restoreFromPersistence();
       } catch (err) {
-        console.warn("[ArenaManager] Persistence disabled:", err);
+        log.warn("Persistence disabled", { error: err });
         this.matchStore = null;
       }
     }
@@ -130,18 +145,36 @@ export class ArenaManager {
     const inMemory = this.evolution.getHistory(tournamentId);
     if (inMemory.length > 0) return inMemory;
 
-    // Fall back to persisted records from SQLite
+    // Fall back to persisted records from SQLite. Each row's mutations and
+    // metrics blobs are parsed against a Zod schema; rows that fail are
+    // skipped (with a warn log) instead of being cast blindly into memory.
     if (this.matchStore) {
       const persisted = this.matchStore.getEvolutionRecords(tournamentId);
-      return persisted.map(r => ({
-        tournamentId: r.tournamentId,
-        round: r.round,
-        previousParamsHash: r.previousParamsHash,
-        newParamsHash: r.newParamsHash,
-        mutations: r.mutations as unknown as EvolutionRecord["mutations"],
-        metrics: r.metrics as unknown as EvolutionRecord["metrics"],
-        timestamp: r.timestamp,
-      }));
+      const records: EvolutionRecord[] = [];
+      for (const r of persisted) {
+        const ctx = { tournamentId: r.tournamentId, round: r.round };
+        const mutations = parsePersistedMutations(r.mutations, ctx);
+        const metricsRaw = parsePersistedMetrics(r.metrics, ctx);
+        if (!mutations || !metricsRaw) continue;
+
+        // Convert strategyDistribution to a Map regardless of serialization
+        // shape (record-of-string-keys vs array-of-tuples).
+        const dist = metricsRaw.strategyDistribution;
+        const strategyDistribution = Array.isArray(dist)
+          ? new Map(dist)
+          : new Map(Object.entries(dist));
+
+        records.push({
+          tournamentId: r.tournamentId,
+          round: r.round,
+          previousParamsHash: r.previousParamsHash,
+          newParamsHash: r.newParamsHash,
+          mutations,
+          metrics: { ...metricsRaw, strategyDistribution },
+          timestamp: r.timestamp,
+        });
+      }
+      return records;
     }
 
     return [];
@@ -167,7 +200,7 @@ export class ArenaManager {
         console.log(`[ArenaManager] Restored ${activeTournamentIds.length} tournaments from persistence`);
       }
     } catch (err) {
-      console.error("[ArenaManager] Failed to restore from persistence:", err);
+      log.error("Failed to restore from persistence", { error: err });
     }
   }
 
@@ -180,7 +213,7 @@ export class ArenaManager {
     try {
       this.matchStore.saveTournamentState(tournamentId, state);
     } catch (err) {
-      console.warn(`[ArenaManager] Failed to persist tournament #${tournamentId}:`, err);
+      log.warn("Failed to persist tournament state", { tournamentId, error: err });
     }
   }
 
@@ -193,7 +226,7 @@ export class ArenaManager {
     try {
       this.matchStore.saveMatchResult(result);
     } catch (err) {
-      console.warn(`[ArenaManager] Failed to persist match #${result.matchId}:`, err);
+      log.warn("Failed to persist match result", { matchId: result.matchId, error: err });
     }
   }
 
@@ -220,7 +253,7 @@ export class ArenaManager {
       // 5. Retry unsettled bets
       await this.sweepUnsettledBets();
     } catch (error) {
-      console.error("[ArenaManager] Tick error:", error);
+      log.error("Tick error", { error });
     }
   }
 
@@ -232,7 +265,7 @@ export class ArenaManager {
     const validation = validateTournamentConfig(config);
     if (!validation.valid) {
       const errorDetails = formatValidationErrors(validation.errors);
-      console.error(`[ArenaManager] Invalid tournament config:\n${errorDetails}`);
+      log.error("Invalid tournament config", { errorDetails });
       throw new Error(`Invalid tournament configuration:\n${errorDetails}`);
     }
 
@@ -333,104 +366,126 @@ export class ArenaManager {
 
     // Auto-start if full
     if (state.participants.length >= state.config.maxParticipants) {
-      this.startTournament(tournamentId).catch(console.error);
+      this.startTournament(tournamentId).catch((error) => {
+        log.error("startTournament failed (background)", { tournamentId, error });
+      });
     }
   }
 
   // --- Tournament Lifecycle ---
 
   private async processTournament(id: number, state: TournamentState): Promise<void> {
-    switch (state.status) {
-      case "open":
-        // Waiting for participants — no action needed
-        break;
+    // Serialize per-tournament: tick() can race with manual pause/resume,
+    // start-on-fill from onParticipantJoined, and (eventually) admin actions.
+    return this.locks.run(id, async () => {
+      // Re-read state inside the lock so we don't act on a stale snapshot
+      // (a prior holder may have advanced status while we waited).
+      const fresh = this.tournaments.get(id);
+      if (!fresh) return;
+      switch (fresh.status) {
+        case "open":
+          // Waiting for participants — no action needed
+          break;
 
-      case "active":
-        await this.processActiveRound(id, state);
-        break;
+        case "active":
+          await this.processActiveRound(id, fresh);
+          break;
 
-      case "completing":
-        await this.completeTournament(id, state);
-        break;
+        case "completing":
+          await this.completeTournament(id, fresh);
+          break;
 
-      case "paused":
-        // No action while paused
-        break;
-    }
+        case "paused":
+          // No action while paused
+          break;
+      }
+    });
   }
 
   private async startTournament(tournamentId: number): Promise<void> {
-    const state = this.tournaments.get(tournamentId);
-    if (!state || state.status !== "open") return;
+    return this.locks.run(tournamentId, async () => {
+      const state = this.tournaments.get(tournamentId);
+      if (!state || state.status !== "open") return;
 
-    // Fetch ELO from chain for each participant
-    for (const p of state.participants) {
-      try {
-        const agent = await this.contractClient.getAgent(p.address) as Record<string, unknown>;
-        p.elo = Number(agent.elo ?? 1200);
-        p.handle = String(agent.moltbookHandle || p.address.slice(0, 8));
-      } catch {
-        // Keep defaults
+      // Fetch ELO from chain for each participant
+      for (const p of state.participants) {
+        try {
+          const agent = await this.contractClient.getAgent(p.address) as Record<string, unknown>;
+          p.elo = Number(agent.elo ?? 1200);
+          p.handle = String(agent.moltbookHandle || p.address.slice(0, 8));
+        } catch (error) {
+          // Keep defaults (ELO 1200, truncated address). Log so operators can
+          // see when on-chain agent metadata is unreachable during init.
+          log.warn("getAgent failed during participant ELO fetch; keeping defaults", {
+            address: p.address,
+            tournamentId,
+            error,
+          });
+        }
       }
-    }
 
-    // Start on-chain
-    await this.contractClient.startTournament(tournamentId);
+      // Start on-chain
+      await this.contractClient.startTournament(tournamentId);
 
-    state.status = "active";
-    state.currentRound = 1;
+      state.status = "active";
+      state.currentRound = 1;
 
-    // Emit tournament started event
-    this.broadcaster.emit("tournament:started", {
-      tournamentId,
-      name: state.config.name,
-      gameType: state.config.gameType,
-      format: state.config.format,
-      participants: [...state.participants],
-      timestamp: Date.now(),
+      // Emit tournament started event
+      this.broadcaster.emit("tournament:started", {
+        tournamentId,
+        name: state.config.name,
+        gameType: state.config.gameType,
+        format: state.config.format,
+        participants: [...state.participants],
+        timestamp: Date.now(),
+      });
+
+      // Generate first round pairings
+      await this.startRound(tournamentId, state);
+
+      console.log(`[ArenaManager] Tournament #${tournamentId} started with ${state.participants.length} participants`);
     });
-
-    // Generate first round pairings
-    await this.startRound(tournamentId, state);
-
-    console.log(`[ArenaManager] Tournament #${tournamentId} started with ${state.participants.length} participants`);
   }
 
   async pauseTournament(tournamentId: number): Promise<void> {
-    const state = this.tournaments.get(tournamentId);
-    if (!state || state.status !== "active") return;
+    return this.locks.run(tournamentId, async () => {
+      const state = this.tournaments.get(tournamentId);
+      if (!state || state.status !== "active") return;
 
-    state.status = "paused";
+      state.status = "paused";
 
-    this.broadcaster.emit("tournament:paused", {
-      tournamentId,
-      name: state.config.name,
-      currentRound: state.currentRound,
-      timestamp: Date.now(),
+      this.broadcaster.emit("tournament:paused", {
+        tournamentId,
+        name: state.config.name,
+        currentRound: state.currentRound,
+        timestamp: Date.now(),
+      });
+
+      this.persistTournamentState(tournamentId, state);
+      console.log(`[ArenaManager] Tournament #${tournamentId} paused at round ${state.currentRound}`);
     });
-
-    this.persistTournamentState(tournamentId, state);
-    console.log(`[ArenaManager] Tournament #${tournamentId} paused at round ${state.currentRound}`);
   }
 
   async resumeTournament(tournamentId: number): Promise<void> {
-    const state = this.tournaments.get(tournamentId);
-    if (!state || state.status !== "paused") return;
+    return this.locks.run(tournamentId, async () => {
+      const state = this.tournaments.get(tournamentId);
+      if (!state || state.status !== "paused") return;
 
-    state.status = "active";
+      state.status = "active";
 
-    this.broadcaster.emit("tournament:resumed", {
-      tournamentId,
-      name: state.config.name,
-      currentRound: state.currentRound,
-      timestamp: Date.now(),
+      this.broadcaster.emit("tournament:resumed", {
+        tournamentId,
+        name: state.config.name,
+        currentRound: state.currentRound,
+        timestamp: Date.now(),
+      });
+
+      this.persistTournamentState(tournamentId, state);
+      console.log(`[ArenaManager] Tournament #${tournamentId} resumed at round ${state.currentRound}`);
+
+      // Resume processing the active round (already inside the lock).
+      await this.processActiveRound(tournamentId, state);
     });
-
-    this.persistTournamentState(tournamentId, state);
-    console.log(`[ArenaManager] Tournament #${tournamentId} resumed at round ${state.currentRound}`);
-
-    // Resume processing the active round
-    await this.processActiveRound(tournamentId, state);
   }
 
   private async startRound(tournamentId: number, state: TournamentState): Promise<void> {
@@ -453,8 +508,8 @@ export class ArenaManager {
     for (const [p1, p2] of pairings) {
       try {
         await withRetry(() => this.createMatch(tournamentId, state, p1, p2));
-      } catch (err) {
-        console.error(`[ArenaManager] Failed to create match ${p1.slice(0, 10)} vs ${p2.slice(0, 10)}:`, err);
+      } catch (error) {
+        log.error("Failed to create match", { tournamentId, player1: p1, player2: p2, error });
       }
     }
   }
@@ -486,8 +541,8 @@ export class ArenaManager {
     // Phase 2: Open spectator betting for this match
     try {
       await this.contractClient.openBetting(matchId, player1, player2);
-    } catch (e) {
-      console.warn(`[ArenaManager] Failed to open betting for match #${matchId}:`, e);
+    } catch (error) {
+      log.warn("Failed to open betting for match", { matchId, error });
     }
 
     // Initialize in game engine
@@ -601,8 +656,8 @@ export class ArenaManager {
           newParamsHash: evolutionResult.record.newParamsHash,
           timestamp: Date.now(),
         });
-      } catch (err) {
-        console.error(`[ArenaManager] Evolution failed for tournament #${tournamentId}:`, err);
+      } catch (error) {
+        log.error("Evolution failed", { tournamentId, error });
       }
 
       // BATCHED: Collect all ELO updates, then execute in parallel
@@ -633,10 +688,10 @@ export class ArenaManager {
 
       // Execute all ELO updates in parallel with graceful failure handling
       if (eloUpdates.length > 0) {
-        const updatePromises = eloUpdates.map(({ address, newElo, isWin }) =>
+        const updatePromises = eloUpdates.map(({ address, newElo, isWin, matchId }) =>
           withRetry(() => this.contractClient.updateElo(address, newElo, isWin))
-            .catch((err) => {
-              console.error(`[ArenaManager] ELO update failed for ${address}:`, err);
+            .catch((error) => {
+              log.error("ELO update failed", { address, newElo, isWin, matchId, error });
               return null; // Continue despite individual failures
             })
         );
@@ -644,7 +699,7 @@ export class ArenaManager {
         const results = await Promise.allSettled(updatePromises);
         const failed = results.filter((r) => r.status === "rejected").length;
         if (failed > 0) {
-          console.warn(`[ArenaManager] ${failed}/${eloUpdates.length} ELO updates failed`);
+          log.warn("Batch ELO update had failures", { failed, total: eloUpdates.length });
         }
 
         // Emit ELO update events
@@ -669,8 +724,13 @@ export class ArenaManager {
             const eloChange = winner.newElo - winner.previousElo;
             seasonalPromises.push(
               this.contractClient.recordSeasonalMatch(winner.address, loser.address, eloChange)
-                .catch((err) => {
-                  console.warn(`[ArenaManager] Seasonal ranking update failed:`, err);
+                .catch((error) => {
+                  log.warn("recordSeasonalMatch failed", {
+                    winner: winner.address,
+                    loser: loser.address,
+                    eloChange,
+                    error,
+                  });
                 })
             );
           }
@@ -769,8 +829,11 @@ export class ArenaManager {
           }
         }
       }
-    } catch (err) {
-      console.error(`[ArenaManager] Prize distribution failed for tournament #${tournamentId}:`, err);
+    } catch (error) {
+      log.error("Prize distribution failed; tournament not marked complete (will retry next tick)", {
+        tournamentId,
+        error,
+      });
       return; // Don't mark as complete — will retry on next tick
     }
 
@@ -845,7 +908,7 @@ export class ArenaManager {
           await this.resolveMatch(matchId, info.tournamentId, engine);
         }
       } catch (error) {
-        console.error(`[ArenaManager] Error checking match #${matchId}:`, error);
+        log.error("Error checking match", { matchId, error });
       }
     }
   }
@@ -867,16 +930,16 @@ export class ArenaManager {
     // Phase 2: Close betting before settlement
     try {
       await this.contractClient.closeBetting(matchId);
-    } catch (e) {
-      console.warn(`[ArenaManager] Failed to close betting for match #${matchId}:`, e);
+    } catch (error) {
+      log.warn("Failed to close betting for match", { matchId, error });
     }
 
     // Phase 2: Settle spectator bets
     if (outcome.winner) {
       try {
         await this.contractClient.settleBets(matchId, outcome.winner);
-      } catch (e) {
-        console.warn(`[ArenaManager] Failed to settle bets for match #${matchId}:`, e);
+      } catch (error) {
+        log.warn("Failed to settle bets for match", { matchId, winner: outcome.winner, error });
       }
     }
 
@@ -884,8 +947,8 @@ export class ArenaManager {
     try {
       const replayStateHash = keccak256(toBytes(JSON.stringify(outcome.resultData)));
       await this.contractClient.storeRoundState(matchId, replayStateHash);
-    } catch (e) {
-      console.warn(`[ArenaManager] Failed to store replay state for match #${matchId}:`, e);
+    } catch (error) {
+      log.warn("Failed to store replay state for match", { matchId, error });
     }
 
     // Add to tournament round results
@@ -1001,7 +1064,7 @@ export class ArenaManager {
         }
       }
     } catch (error) {
-      console.error("[ArenaManager] Discovery error:", error);
+      log.error("Discovery error", { error });
     }
   }
 
@@ -1017,9 +1080,10 @@ export class ArenaManager {
         try {
           await this.contractClient.settleBets(matchId, match.winner);
           this.matchStore.settleBets(matchId, match.winner);
-          console.log(`[ArenaManager] Retried settle bets for match #${matchId}`);
-        } catch (e) {
-          // Will retry next tick
+          log.info("Retried settle bets", { matchId, winner: match.winner });
+        } catch (error) {
+          // Will retry next tick — log so the retry loop is visible.
+          log.warn("settleBets retry failed; will retry next tick", { matchId, error });
         }
       }
     }

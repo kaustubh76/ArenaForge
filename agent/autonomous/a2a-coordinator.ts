@@ -9,6 +9,9 @@ import {
 } from "../game-engine/game-mode.interface";
 import { getEventBroadcaster } from "../events";
 import { normalizeAddress } from "../utils/normalize";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("A2A");
 
 // --- Types ---
 
@@ -130,7 +133,7 @@ export class A2ACoordinator {
       GameType.QuizBowl,
     ];
 
-    console.log(`[A2A] Seeding initial activity with ${agents.length} agents...`);
+    log.info("Seeding initial A2A activity", { agentCount: agents.length });
 
     // Create a few challenges between discovered agents
     const maxChallenges = Math.min(agents.length, 4);
@@ -195,9 +198,12 @@ export class A2ACoordinator {
       }
     }
 
-    console.log(
-      `[A2A] Seeded: ${this.challenges.size} challenges, ${this.messages.length} messages, ${this.relationships.size} relationships, ${this.alliances.size} alliances`
-    );
+    log.info("Seeded A2A initial state", {
+      challenges: this.challenges.size,
+      messages: this.messages.length,
+      relationships: this.relationships.size,
+      alliances: this.alliances.size,
+    });
   }
 
   // --- Challenge Management ---
@@ -243,11 +249,17 @@ export class A2ACoordinator {
         status: "pending",
         timestamp: Math.floor(now / 1000),
       });
-    } catch (err) { console.debug("[A2A] Broadcaster not ready:", err); }
+    } catch (error) {
+      log.debug("Broadcaster not ready (sendChallenge)", { error });
+    }
 
-    console.log(
-      `[A2A] Challenge #${challenge.id}: ${from.slice(0, 10)}... → ${to.slice(0, 10)}... (${GameType[gameType]}, ${stake} MON)`
-    );
+    log.info("Challenge issued", {
+      challengeId: challenge.id,
+      from,
+      to,
+      gameType: GameType[gameType],
+      stake,
+    });
 
     return challenge;
   }
@@ -297,9 +309,7 @@ export class A2ACoordinator {
           challenge.challenged
         );
 
-        console.log(
-          `[A2A] Challenge #${challengeId} ACCEPTED → Tournament #${tournamentId}`
-        );
+        log.info("Challenge accepted → tournament created", { challengeId, tournamentId });
 
         // Post to Moltbook
         this.config.publisher.enqueue({
@@ -318,7 +328,7 @@ export class A2ACoordinator {
           priority: 7,
         });
       } catch (error) {
-        console.error(`[A2A] Failed to create tournament for challenge #${challengeId}:`, error);
+        log.error("Failed to create tournament for challenge", { challengeId, error });
       }
     } else {
       challenge.status = "declined";
@@ -330,7 +340,7 @@ export class A2ACoordinator {
         JSON.stringify({ challengeId })
       );
 
-      console.log(`[A2A] Challenge #${challengeId} DECLINED`);
+      log.info("Challenge declined", { challengeId });
     }
 
     // Emit status update
@@ -345,7 +355,9 @@ export class A2ACoordinator {
         status: challenge.status,
         timestamp: Math.floor(Date.now() / 1000),
       });
-    } catch (err) { console.debug("[A2A] Event emit failed:", err); }
+    } catch (error) {
+      log.debug("a2a:challenge event emit failed", { error });
+    }
 
     return challenge;
   }
@@ -386,7 +398,9 @@ export class A2ACoordinator {
         messageType: msg.messageType,
         timestamp: msg.timestamp,
       });
-    } catch (err) { console.debug("[A2A] Event emit failed:", err); }
+    } catch (error) {
+      log.debug("a2a:message event emit failed", { error });
+    }
 
     return msg;
   }
@@ -528,7 +542,7 @@ export class A2ACoordinator {
     for (const [id, challenge] of this.challenges) {
       if (challenge.status === "pending" && now > challenge.expiresAt) {
         challenge.status = "expired";
-        console.log(`[A2A] Challenge #${id} expired`);
+        log.info("Challenge expired", { challengeId: id });
       }
       // Evict non-pending challenges older than CHALLENGE_EVICTION_MS
       if (
@@ -672,7 +686,7 @@ export class A2ACoordinator {
             JSON.stringify({ reason: "Alliance formed" })
           );
 
-          console.log(`[A2A] Alliance formed with ${agent.address.slice(0, 10)}...`);
+          log.info("Alliance formed", { address: agent.address });
         }
       }
     }
