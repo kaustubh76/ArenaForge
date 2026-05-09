@@ -20,13 +20,41 @@ spectator-bet settlements — every empty page will fill.
 
 ---
 
-## A. Vercel — set env vars + redeploy
+## A. Vercel — redeploy (env vars now baked into vercel.json)
 
-In the Vercel dashboard for the `dist-sigma-five-61` project:
+**Commit `8554e10` baked all the `VITE_*` env vars into
+`frontend/vercel.json` `build.env`.** Vercel will pick those up
+automatically on the next build, so the dashboard step from earlier
+versions of this doc is no longer required.
 
-1. Go to **Settings → Environment Variables**.
-2. Add the following for **Production** (and Preview if you want preview
-   builds to work too):
+What you need to do:
+
+1. Visit the Vercel project that serves `dist-sigma-five-61`.
+2. **Deployments** tab → **⋯** on latest → **Redeploy** with
+   "Use existing build cache" **unchecked** so it rebuilds with
+   the new `vercel.json`.
+3. After ~1-2 min, verify the bundle no longer contains
+   `localhost:4000`:
+
+```bash
+curl -s https://dist-sigma-five-61.vercel.app/ | grep -oE 'src="[^"]+\.js"'
+# Then fetch that bundle and confirm the live URL:
+curl -s "https://dist-sigma-five-61.vercel.app/<bundle>" | grep -oE 'arenaforge-agent\.onrender\.com'
+```
+
+`npm run health:check` will also report `Deployed Frontend: PASS`
+("bundle points at live backend") instead of BROKEN.
+
+---
+
+### Legacy: setting env vars in the Vercel dashboard
+
+If you'd rather not bake env vars into the repo (e.g. you want to
+toggle staging vs prod backends), remove the `build.env` block from
+`vercel.json` and add these in the Vercel dashboard instead:
+
+1. **Settings → Environment Variables**.
+2. Add for **Production** (and Preview):
 
 | Variable | Value |
 |---|---|
@@ -52,19 +80,42 @@ After ~1-2 min, open the UI and check DevTools → Network → look for a POST
 to `arenaforge-agent.onrender.com/graphql`. You should see all the
 already-seeded data (31 tournaments, 34 agents, 10 A2A challenges).
 
-## B. Render — push the StrategyArena init patch + redeploy
+## B. Render — connect the GitHub webhook + redeploy
 
-**Already pushed as commits `4443a19`, `7cbe6d4`, `3a48bb0` on `main`.**
-If `https://arenaforge-agent.onrender.com/health` shows uptime > a few
-minutes after the push, Render's auto-deploy probably isn't wired:
+**8 commits are sitting on `main` waiting for Render to deploy them.**
+After 30+ minutes with no redeploy, the GitHub→Render webhook is
+**definitively not wired** (not just paused — the connection itself
+is missing). I added explicit `autoDeploy: true` and `branch: main`
+to `render.yaml` in commit `8554e10` to force this on the next sync,
+but that only works if Render is actively syncing the Blueprint.
+
+**Required fix (one-time, ~2 minutes):**
 
 1. Visit https://dashboard.render.com → arenaforge-agent.
 2. **Settings → Build & Deploy** — confirm:
-   - GitHub repo: `kaustubh76/ArenaForge`
+   - GitHub repo: `kaustubh76/ArenaForge` is connected.
    - Branch: `main`
    - "Auto-Deploy" toggle: **Yes**.
-3. If it's already on, click **Manual Deploy → Deploy latest commit**.
+   - If "GitHub" shows "Not connected" or similar, click **Connect**
+     and re-authorize the GitHub app for this repo.
+3. Click **Manual Deploy → Deploy latest commit** to apply the
+   accumulated commits.
 4. Watch the build log; ETA ~3 min.
+
+**How to confirm the deploy succeeded:**
+
+```bash
+npm run health:check
+```
+
+Expected `Strategy init fix` row should change from `NEEDS DATA`
+("no recent Strategy matches") or `BROKEN` ("0 initialized") to
+`PASS` ("N/N recent Strategy matches initialized — patch live")
+once the patched backend processes a fresh seed run.
+
+The `Match History (global)` row should change from `WARN` ("0 in
+GraphQL but N on-chain — resolver fallback not deployed") to `PASS`
+with a non-zero match count.
 
 The patch contents (already on `main`):
 - `agent/monad/contract-client.ts` — new `initStrategyMatch()` method.
