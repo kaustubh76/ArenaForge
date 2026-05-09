@@ -163,6 +163,10 @@ async function retryOnBackendRace<T>(
     "Pool not found",        // SpectatorBetting hasn't seen openBetting yet
     "Question not found",    // QuizBowl hasn't seen postQuestion yet
     "All questions posted",  // race past posting (try once more after backend ticks)
+    "Bidding closed",        // AuctionWars: backend's commit deadline elapsed before our bid
+    "Reveal closed",         // AuctionWars/StrategyArena: reveal deadline race
+    "Deadline passed",       // QuizBowl: question commit deadline race
+    "Round resolved",        // backend resolved before we got the second commit/reveal in
     "insufficient balance",  // Monad's known balance-check race after funding
   ];
   let lastErr: unknown = null;

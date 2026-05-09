@@ -319,9 +319,10 @@ async function probeOnChainMatches(): Promise<void> {
 }
 
 async function probeStrategyInit(): Promise<void> {
-  // Walk back from the latest match looking for one in a Strategy tournament,
-  // then check if the StrategyArena contract considers it initialized. If
-  // even one Strategy match is initialized, the patch is live.
+  // Walks the last N matches and checks whether the StrategyArena contract
+  // recognises them as initialised. Filters by MatchRegistry.timestamp so
+  // historical matches from setup-arena.ts (months old) don't mask the
+  // current state of the deployed backend patch.
   if (!registryAddr || !strategyAddr) {
     record("Strategy init fix", "(on-chain)", "WARN", "registry/strategy address unset, skipping");
     return;
@@ -334,41 +335,57 @@ async function probeStrategyInit(): Promise<void> {
       record("Strategy init fix", "(on-chain)", "NEEDS DATA", "no matches yet");
       return;
     }
-    // Look at last 20 matches; find a Strategy one and check its init flag
-    const scanFrom = counter > 20n ? counter - 20n + 1n : 1n;
-    let foundStrategy = false;
-    let initializedCount = 0;
-    let totalStrategyChecked = 0;
+    // Only consider matches created in the last 24 hours — historical
+    // matches from setup-arena.ts predate the recent backend patch and
+    // were initialised by a different code path, so they shouldn't count
+    // toward "is the patch live now".
+    const recentCutoff = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
+    const scanFrom = counter > 30n ? counter - 30n + 1n : 1n;
+    let recentStrategyMatches = 0;
+    let recentInitialized = 0;
+    let oldStrategyMatches = 0;
     for (let i = counter; i >= scanFrom; i--) {
       const m = await publicClient.readContract({
         address: registryAddr, abi: RegistryAbi, functionName: "getMatch",
         args: [i],
-      }) as { id: bigint; tournamentId: bigint; player1: `0x${string}`; status: number };
-      // Read tournament gameType to confirm it's a Strategy match
-      // (skip — we can just probe the strategy contract directly; if it
-      // returns initialized=true, it must be a strategy match)
+      }) as { id: bigint; timestamp: bigint; player1: `0x${string}`; status: number };
+      const isRecent = m.timestamp >= recentCutoff;
       try {
         const s = await publicClient.readContract({
           address: strategyAddr, abi: StrategyAbi, functionName: "getMatchState",
           args: [i],
         }) as { initialized: boolean; p1: `0x${string}` };
-        // Non-Strategy matches return all zeros (not initialized, p1=0x0)
-        if (s.p1 !== "0x0000000000000000000000000000000000000000") {
-          foundStrategy = true;
-          totalStrategyChecked++;
-          if (s.initialized) initializedCount++;
+        // Skip if MatchRegistry shows non-zero player addresses but
+        // StrategyArena state is empty — that match isn't a Strategy match.
+        // A Strategy match is identified by having any data in StrategyArena
+        // OR by being in a Strategy tournament (which we'd need to look up).
+        // Heuristic: if StrategyArena state has p1 set, OR if MatchRegistry
+        // shows the match COMPLETED with winner=0x0 and timestamp recent,
+        // it might be a forfeit-resolved Strategy match where init failed.
+        const hasStrategyState = s.p1 !== "0x0000000000000000000000000000000000000000";
+        if (hasStrategyState && isRecent) {
+          recentStrategyMatches++;
+          if (s.initialized) recentInitialized++;
+        } else if (hasStrategyState) {
+          oldStrategyMatches++;
         }
       } catch { /* skip */ }
     }
-    if (!foundStrategy) {
+    if (recentStrategyMatches === 0 && oldStrategyMatches === 0) {
       record("Strategy init fix", "(on-chain)", "NEEDS DATA",
-        `scanned last ${counter - scanFrom + 1n} matches, none registered with StrategyArena contract`);
-    } else if (initializedCount === 0) {
+        `no Strategy matches in last 30 records`);
+    } else if (recentStrategyMatches === 0) {
+      record("Strategy init fix", "(on-chain)", "NEEDS DATA",
+        `${oldStrategyMatches} historical Strategy matches but no recent ones — re-run seed:full to test live state`);
+    } else if (recentInitialized === 0) {
+      record("Strategy init fix", "(on-chain)", "BROKEN",
+        `${recentStrategyMatches} recent Strategy matches but 0 initialized — backend patch (4443a19) NOT deployed; matches will forfeit-resolve as draws`);
+    } else if (recentInitialized < recentStrategyMatches) {
       record("Strategy init fix", "(on-chain)", "WARN",
-        `${totalStrategyChecked} Strategy matches found but 0 initialized — backend patch (4443a19) not deployed yet`);
+        `${recentInitialized}/${recentStrategyMatches} recent Strategy matches initialized — partial deploy or transient init failures`);
     } else {
       record("Strategy init fix", "(on-chain)", "PASS",
-        `${initializedCount}/${totalStrategyChecked} recent Strategy matches initialized on-chain`);
+        `${recentInitialized}/${recentStrategyMatches} recent Strategy matches initialized — patch live`);
     }
   } catch (e: unknown) {
     record("Strategy init fix", "(on-chain)", "BROKEN", (e as Error).message?.slice(0, 100) ?? "unknown");
