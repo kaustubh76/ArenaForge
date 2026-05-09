@@ -138,7 +138,29 @@ const seed = createWalletClient({ chain: monadTestnet, transport: http(rpcUrl), 
 
 async function waitTx(hash: `0x${string}`): Promise<void> {
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (receipt.status !== "success") throw new Error(`Reverted: ${hash}`);
+  if (receipt.status !== "success") {
+    // Try to extract the revert reason via post-mortem eth_call. Without
+    // this we just see "Reverted: 0xHASH" which the retry-on-race wrapper
+    // can't classify, so retries never fire.
+    let reason = "(no reason — check explorer)";
+    try {
+      const tx = await publicClient.getTransaction({ hash });
+      await publicClient.call({
+        account: tx.from,
+        to: tx.to ?? undefined,
+        data: tx.input,
+        value: tx.value,
+        gas: tx.gas,
+        blockNumber: receipt.blockNumber,
+      });
+    } catch (e: unknown) {
+      const msg = (e as { shortMessage?: string }).shortMessage
+        ?? (e as Error).message
+        ?? String(e);
+      reason = msg.split("\n")[0].slice(0, 200);
+    }
+    throw new Error(`Reverted: ${reason} (tx ${hash})`);
+  }
 }
 
 /**

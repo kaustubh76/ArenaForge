@@ -5,5 +5,23 @@
   "installCommand": "npm install --legacy-peer-deps",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "build": {
+    "env": {
+      "VITE_GRAPHQL_URL": "https://arenaforge-agent.onrender.com/graphql",
+      "VITE_GRAPHQL_WS_URL": "wss://arenaforge-agent.onrender.com/graphql",
+      "VITE_WS_URL": "https://arenaforge-agent.onrender.com",
+      "VITE_RPC_URL": "https://testnet-rpc.monad.xyz",
+      "VITE_CHAIN_ID": "10143",
+      "VITE_ARENA_CORE_ADDRESS": "0x40A0618897A09bDbE508A2c99E0d731dA261abA7",
+      "VITE_ESCROW_ADDRESS": "0xeeA528049FaC4fA6af4C7c1f5EC80cC7DCE3B070",
+      "VITE_MATCH_REGISTRY_ADDRESS": "0x0B2b20BE36490E0E39F6f0d574c348dF934ccf49",
+      "VITE_ORACLE_DUEL_ADDRESS": "0x34a14a16a7D1177E2a97360B4cb9C4152c418826",
+      "VITE_STRATEGY_ARENA_ADDRESS": "0xb8d381230FC7c0fDDf967FdDD64613b277ffdAF9",
+      "VITE_AUCTION_WARS_ADDRESS": "0x90a01653c253b6776eA3aFD9e49739aaB9001AA5",
+      "VITE_QUIZ_BOWL_ADDRESS": "0x9A712e70b20e7dcfCa45f36051A6810db04A751B",
+      "VITE_SEASONAL_RANKINGS_ADDRESS": "0x71cb9924930090e48Cbb25B9A68A653ac43c2b20",
+      "VITE_SPECTATOR_BETTING_ADDRESS": "0xeBe1DB030bBFC5bCdD38593C69e4899887D2e487"
+    }
+  }
 }

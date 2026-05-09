@@ -7,6 +7,8 @@ services:
     runtime: node
     region: oregon
     plan: free
+    autoDeploy: true
+    branch: main
     buildCommand: npm install && npx tsc --outDir dist
     startCommand: node dist/agent/index.js
     envVars:
