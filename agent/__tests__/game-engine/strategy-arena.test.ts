@@ -67,3 +67,57 @@ describe("StrategyArenaEngine — multi-round payoff accumulation", () => {
     expect(p2Total).toBe(24000);
   });
 });
+
+describe("StrategyArenaEngine — on-chain initialisation (slice fix)", () => {
+  // Regression test for the bug where StrategyArena.initMatch was never
+  // called on-chain. Asserts the engine threads through to contractClient
+  // when one is provided, but still works without one (for unit tests).
+
+  it("initMatch without contractClient does not throw", async () => {
+    const e = new StrategyArenaEngine();
+    await expect(
+      e.initMatch(1, ["0x" + "1".repeat(40), "0x" + "2".repeat(40)], {})
+    ).resolves.toBeUndefined();
+  });
+
+  it("initMatch with contractClient calls initStrategyMatch", async () => {
+    const calls: Array<{ matchId: number; player1: string; player2: string }> = [];
+    const stubClient = {
+      initStrategyMatch: async (
+        matchId: number,
+        p1: string,
+        p2: string,
+        _totalRounds: number,
+        _commitTimeout: number,
+        _revealTimeout: number,
+      ): Promise<void> => {
+        calls.push({ matchId, player1: p1, player2: p2 });
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = new StrategyArenaEngine(stubClient as any);
+    const p1 = "0x" + "1".repeat(40);
+    const p2 = "0x" + "2".repeat(40);
+    await e.initMatch(99, [p1, p2], {});
+    expect(calls).toHaveLength(1);
+    expect(calls[0].matchId).toBe(99);
+    expect(calls[0].player1).toBe(p1);
+    expect(calls[0].player2).toBe(p2);
+  });
+
+  it("initMatch swallows on-chain init errors so the in-memory engine still works", async () => {
+    const stubClient = {
+      initStrategyMatch: async (): Promise<void> => {
+        throw new Error("Only arena agent");
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = new StrategyArenaEngine(stubClient as any);
+    // The whole initMatch should still resolve — the engine logs but doesn't
+    // propagate the error, so a tournament with a misconfigured wallet still
+    // gets in-memory state initialised (matching auction-wars / quiz-bowl).
+    await expect(
+      e.initMatch(1, ["0x" + "1".repeat(40), "0x" + "2".repeat(40)], {})
+    ).resolves.toBeUndefined();
+  });
+});
