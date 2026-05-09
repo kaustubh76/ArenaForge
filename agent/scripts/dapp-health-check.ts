@@ -107,24 +107,43 @@ async function probeLeaderboard(): Promise<void> {
 }
 
 async function probeMatchHistory(): Promise<void> {
-  const r = await gql<{ matches: Array<{ id: number; winner: string | null; player1: string }> }>(
-    `{ matches(limit: 50) { id winner player1 } }`
+  // Two probes: (1) bulk matches resolver — must surface on-chain matches
+  // even when matchStore is empty (post-deploy this should pull from chain).
+  // (2) single match by ID — confirms the loader path works.
+  const r = await gql<{ matches: Array<{ id: number; winner: string | null; player1: string; status: string }> }>(
+    `{ matches(limit: 20) { id winner player1 status } }`
   );
   if (r.errors) {
     record("Match History", "(global)", "BROKEN", `GraphQL error: ${r.errors[0].message}`);
     return;
   }
   const ms = r.data?.matches ?? [];
-  const withWinners = ms.filter(m => m.winner);
+  const withWinners = ms.filter(m => m.winner && m.winner !== "0x0000000000000000000000000000000000000000");
   const withPlayers = ms.filter(m => m.player1 && m.player1 !== "");
+
+  // Cross-check: if on-chain has matches but bulk query returns 0, the
+  // resolver fallback I added isn't live yet (Render hasn't redeployed).
+  if (ms.length === 0 && registryAddr) {
+    try {
+      const onChainCount = await publicClient.readContract({
+        address: registryAddr, abi: RegistryAbi, functionName: "matchCounter",
+      }) as bigint;
+      if (onChainCount > 0n) {
+        record("Match History", "(global)", "WARN",
+          `0 in GraphQL but ${onChainCount} on-chain — resolver fallback not deployed yet (push commit 4443a19)`);
+        return;
+      }
+    } catch { /* ignore */ }
+  }
+
   if (ms.length === 0) {
-    record("Match History", "(global)", "NEEDS DATA", "0 matches in matchStore");
+    record("Match History", "(global)", "NEEDS DATA", "0 matches anywhere");
   } else if (withPlayers.length === 0) {
     record("Match History", "(global)", "WARN",
-      `${ms.length} matches but all have empty player1 — backend persistMatchResult may be missing player addresses`);
+      `${ms.length} matches but all have empty player1 — resolver should pull raw player addresses`);
   } else if (withWinners.length === 0) {
     record("Match History", "(global)", "WARN",
-      `${ms.length} matches but 0 have winners — may be drawn, or recordResult never fired`);
+      `${ms.length} matches but 0 have non-zero winners — recordResult never fired with a real winner`);
   } else {
     record("Match History", "(global)", "PASS",
       `${ms.length} matches (${withWinners.length} with winners, ${withPlayers.length} with player addresses)`);
