@@ -54,46 +54,49 @@ already-seeded data (31 tournaments, 34 agents, 10 A2A challenges).
 
 ## B. Render — push the StrategyArena init patch + redeploy
 
-The patch is already in your local tree:
+**Already pushed as commits `4443a19`, `7cbe6d4`, `3a48bb0` on `main`.**
+If `https://arenaforge-agent.onrender.com/health` shows uptime > a few
+minutes after the push, Render's auto-deploy probably isn't wired:
+
+1. Visit https://dashboard.render.com → arenaforge-agent.
+2. **Settings → Build & Deploy** — confirm:
+   - GitHub repo: `kaustubh76/ArenaForge`
+   - Branch: `main`
+   - "Auto-Deploy" toggle: **Yes**.
+3. If it's already on, click **Manual Deploy → Deploy latest commit**.
+4. Watch the build log; ETA ~3 min.
+
+The patch contents (already on `main`):
 - `agent/monad/contract-client.ts` — new `initStrategyMatch()` method.
 - `agent/game-engine/strategy-arena.ts` — calls it from `initMatch()`.
 - `agent/arena-manager.ts` — passes `contractClient` to the engine.
-
-To deploy:
-
-```bash
-# stage just the three patched files (the working tree has unrelated WIP from prior slices)
-git add agent/monad/contract-client.ts \
-        agent/game-engine/strategy-arena.ts \
-        agent/arena-manager.ts \
-        agent/scripts/seed-full-dapp.ts \
-        package.json \
-        DEPLOY_FIX.md
-
-git commit -m "fix(strategy-arena): initialise on-chain match state
-
-Mirrors AuctionWarsEngine/QuizBowlEngine pattern. Without this, the
-StrategyArena contract never sees the match and player commitMove() txs
-revert. Adds MonadContractClient.initStrategyMatch and threads
-contractClient into StrategyArenaEngine. Tests still 241/241 green."
-
-git push
-```
-
-Render auto-deploys on push to `main` (per `render.yaml`). Wait ~3 min for
-the new build.
+- `agent/api/graphql/resolvers.ts` — `matches` resolver now falls back
+  to scanning `MatchRegistry` directly when matchStore is empty.
 
 ## C. Re-seed the dApp
 
-Once both deployments are live:
+Once both deployments are live, run the validation pipeline:
 
 ```bash
-npm run seed:full
+npm run validate:live
 ```
 
-This will produce — visible in UI — 4 fresh tournaments (one per game type)
-with real completed matches, ELO updates, prize distribution, spectator
-bets, and A2A challenges.
+This is a single command that runs:
+1. `health:check` (snapshot the empty/broken state)
+2. `seed:full` (drive 4 tournaments end-to-end)
+3. `health:check` (confirm pages are now populated)
+
+If you'd rather see steps individually:
+
+```bash
+npm run health:check    # diagnostic — see what's missing
+npm run seed:full        # produces 4 game-type tournaments + bets + A2A
+npm run health:check    # confirm
+```
+
+After this runs, the UI should show real completed matches, ELO updates,
+prize distribution, spectator bets, A2A challenges, and (after a multi-
+round tournament) evolution records.
 
 ---
 
