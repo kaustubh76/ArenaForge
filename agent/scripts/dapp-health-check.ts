@@ -30,6 +30,12 @@ const registryAddr = process.env.MATCH_REGISTRY_ADDRESS as `0x${string}` | undef
 
 const RegistryAbi: Abi = [
   { type: "function", name: "matchCounter", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "getMatch", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "tuple", components: [{ name: "id", type: "uint256" }, { name: "tournamentId", type: "uint256" }, { name: "round", type: "uint256" }, { name: "player1", type: "address" }, { name: "player2", type: "address" }, { name: "winner", type: "address" }, { name: "resultHash", type: "bytes32" }, { name: "timestamp", type: "uint256" }, { name: "startTime", type: "uint256" }, { name: "duration", type: "uint256" }, { name: "status", type: "uint8" }] }] },
+];
+
+const strategyAddr = process.env.STRATEGY_ARENA_ADDRESS as `0x${string}` | undefined;
+const StrategyAbi: Abi = [
+  { type: "function", name: "getMatchState", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "tuple", components: [{ name: "p1", type: "address" }, { name: "p2", type: "address" }, { name: "totalRounds", type: "uint256" }, { name: "currentRound", type: "uint256" }, { name: "p1Score", type: "uint256" }, { name: "p2Score", type: "uint256" }, { name: "commitDeadline", type: "uint256" }, { name: "revealDeadline", type: "uint256" }, { name: "initialized", type: "bool" }] }] },
 ];
 
 interface GqlResponse<T> { data?: T; errors?: Array<{ message: string }>; }
@@ -312,6 +318,63 @@ async function probeOnChainMatches(): Promise<void> {
   }
 }
 
+async function probeStrategyInit(): Promise<void> {
+  // Walk back from the latest match looking for one in a Strategy tournament,
+  // then check if the StrategyArena contract considers it initialized. If
+  // even one Strategy match is initialized, the patch is live.
+  if (!registryAddr || !strategyAddr) {
+    record("Strategy init fix", "(on-chain)", "WARN", "registry/strategy address unset, skipping");
+    return;
+  }
+  try {
+    const counter = await publicClient.readContract({
+      address: registryAddr, abi: RegistryAbi, functionName: "matchCounter",
+    }) as bigint;
+    if (counter === 0n) {
+      record("Strategy init fix", "(on-chain)", "NEEDS DATA", "no matches yet");
+      return;
+    }
+    // Look at last 20 matches; find a Strategy one and check its init flag
+    const scanFrom = counter > 20n ? counter - 20n + 1n : 1n;
+    let foundStrategy = false;
+    let initializedCount = 0;
+    let totalStrategyChecked = 0;
+    for (let i = counter; i >= scanFrom; i--) {
+      const m = await publicClient.readContract({
+        address: registryAddr, abi: RegistryAbi, functionName: "getMatch",
+        args: [i],
+      }) as { id: bigint; tournamentId: bigint; player1: `0x${string}`; status: number };
+      // Read tournament gameType to confirm it's a Strategy match
+      // (skip — we can just probe the strategy contract directly; if it
+      // returns initialized=true, it must be a strategy match)
+      try {
+        const s = await publicClient.readContract({
+          address: strategyAddr, abi: StrategyAbi, functionName: "getMatchState",
+          args: [i],
+        }) as { initialized: boolean; p1: `0x${string}` };
+        // Non-Strategy matches return all zeros (not initialized, p1=0x0)
+        if (s.p1 !== "0x0000000000000000000000000000000000000000") {
+          foundStrategy = true;
+          totalStrategyChecked++;
+          if (s.initialized) initializedCount++;
+        }
+      } catch { /* skip */ }
+    }
+    if (!foundStrategy) {
+      record("Strategy init fix", "(on-chain)", "NEEDS DATA",
+        `scanned last ${counter - scanFrom + 1n} matches, none registered with StrategyArena contract`);
+    } else if (initializedCount === 0) {
+      record("Strategy init fix", "(on-chain)", "WARN",
+        `${totalStrategyChecked} Strategy matches found but 0 initialized — backend patch (4443a19) not deployed yet`);
+    } else {
+      record("Strategy init fix", "(on-chain)", "PASS",
+        `${initializedCount}/${totalStrategyChecked} recent Strategy matches initialized on-chain`);
+    }
+  } catch (e: unknown) {
+    record("Strategy init fix", "(on-chain)", "BROKEN", (e as Error).message?.slice(0, 100) ?? "unknown");
+  }
+}
+
 async function probeFrontendBundle(): Promise<void> {
   const url = "https://dist-sigma-five-61.vercel.app/";
   try {
@@ -371,6 +434,7 @@ async function main(): Promise<void> {
   await probeA2A();
   await probeToken();
   await probeOnChainMatches();
+  await probeStrategyInit();
 
   // Render
   const widthPage = Math.max(...results.map(r => r.page.length));

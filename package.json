@@ -27,6 +27,7 @@
     "faucet:topup": "npx ts-node --transpile-only agent/scripts/faucet-topup.ts",
     "seed:full": "npx ts-node --transpile-only agent/scripts/seed-full-dapp.ts",
     "health:check": "npx ts-node --transpile-only agent/scripts/dapp-health-check.ts",
+    "validate:live": "bash agent/scripts/validate-live.sh",
     "typecheck": "npx tsc --noEmit"
   },
   "dependencies": {
