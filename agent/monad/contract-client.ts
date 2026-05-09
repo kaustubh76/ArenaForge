@@ -363,6 +363,29 @@ export class MonadContractClient {
     await confirmTx(hash, "resolveDuel");
   }
 
+  // --- StrategyArena Write ---
+
+  async initStrategyMatch(
+    matchId: number,
+    player1: string,
+    player2: string,
+    totalRounds: number,
+    commitTimeout: number,
+    revealTimeout: number,
+  ): Promise<void> {
+    const hash = await this.strategyArena.write.initMatch([
+      BigInt(matchId),
+      player1 as `0x${string}`,
+      player2 as `0x${string}`,
+      BigInt(totalRounds),
+      BigInt(commitTimeout),
+      BigInt(revealTimeout),
+    ]);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error(`initStrategyMatch tx failed: ${hash}`);
+    log.info("Initialized StrategyArena match", { matchId });
+  }
+
   // --- AuctionWars Write ---
 
   async initAuctionMatch(matchId: number, players: string[], totalRounds: number): Promise<void> {
@@ -371,7 +394,7 @@ export class MonadContractClient {
     ]);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new Error(`initAuctionMatch tx failed: ${hash}`);
-    console.log(`[Chain] Initialized AuctionWars match ${matchId}`);
+    log.info("Initialized AuctionWars match", { matchId });
   }
 
   async resolveAuctionRound(matchId: number, roundNum: number, actualValue: bigint): Promise<void> {
@@ -380,7 +403,7 @@ export class MonadContractClient {
     ]);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new Error(`resolveAuction tx failed: ${hash}`);
-    console.log(`[Chain] Resolved AuctionWars match ${matchId} round ${roundNum}`);
+    log.info("Resolved AuctionWars round", { matchId, roundNum });
   }
 
   async getAuctionScore(matchId: number, player: string): Promise<bigint> {
@@ -399,7 +422,7 @@ export class MonadContractClient {
     ]);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new Error(`initQuizMatch tx failed: ${hash}`);
-    console.log(`[Chain] Initialized QuizBowl match ${matchId}`);
+    log.info("Initialized QuizBowl match", { matchId });
   }
 
   async resolveQuizQuestion(matchId: number, questionIndex: number, correctAnswer: number): Promise<void> {
@@ -408,7 +431,7 @@ export class MonadContractClient {
     ]);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new Error(`resolveQuestion tx failed: ${hash}`);
-    console.log(`[Chain] Resolved QuizBowl match ${matchId} question ${questionIndex}`);
+    log.info("Resolved QuizBowl question", { matchId, questionIndex });
   }
 
   async getQuizScore(matchId: number, player: string): Promise<bigint> {
@@ -486,7 +509,7 @@ export class MonadContractClient {
 
   async recordSeasonalMatch(winner: string, loser: string, eloChange: number): Promise<void> {
     if (!this.seasonalRankings) {
-      console.warn("[ContractClient] SeasonalRankings not configured, skipping recordSeasonalMatch");
+      log.warn("SeasonalRankings not configured; skipping", { method: "recordSeasonalMatch" });
       return;
     }
     const hash = await this.seasonalRankings.write.recordSeasonalMatch([
@@ -495,37 +518,37 @@ export class MonadContractClient {
       BigInt(eloChange),
     ]);
     await confirmTx(hash, "recordSeasonalMatch");
-    console.log(`[Chain] Recorded seasonal match: winner=${winner}, eloChange=${eloChange}`);
+    log.info("Recorded seasonal match", { winner, loser, eloChange });
   }
 
   async startNewSeason(): Promise<void> {
     if (!this.seasonalRankings) {
-      console.warn("[ContractClient] SeasonalRankings not configured, skipping startNewSeason");
+      log.warn("SeasonalRankings not configured; skipping", { method: "startNewSeason" });
       return;
     }
     const hash = await this.seasonalRankings.write.startNewSeason([]);
     await confirmTx(hash, "startNewSeason");
-    console.log("[Chain] Started new season");
+    log.info("Started new season");
   }
 
   async endSeason(): Promise<void> {
     if (!this.seasonalRankings) {
-      console.warn("[ContractClient] SeasonalRankings not configured, skipping endSeason");
+      log.warn("SeasonalRankings not configured; skipping", { method: "endSeason" });
       return;
     }
     const hash = await this.seasonalRankings.write.endSeason([]);
     await confirmTx(hash, "endSeason");
-    console.log("[Chain] Ended current season");
+    log.info("Ended current season");
   }
 
   async distributeSeasonRewards(seasonId: number): Promise<void> {
     if (!this.seasonalRankings) {
-      console.warn("[ContractClient] SeasonalRankings not configured, skipping distributeSeasonRewards");
+      log.warn("SeasonalRankings not configured; skipping", { method: "distributeSeasonRewards" });
       return;
     }
     const hash = await this.seasonalRankings.write.distributeSeasonRewards([BigInt(seasonId)]);
     await confirmTx(hash, "distributeSeasonRewards");
-    console.log(`[Chain] Distributed rewards for season ${seasonId}`);
+    log.info("Distributed season rewards", { seasonId });
   }
 
   async getCurrentSeasonId(): Promise<number | null> {
@@ -577,7 +600,7 @@ export class MonadContractClient {
 
   async openBetting(matchId: number, player1: string, player2: string): Promise<void> {
     if (!this.spectatorBetting) {
-      console.warn("[ContractClient] SpectatorBetting not configured, skipping openBetting");
+      log.warn("SpectatorBetting not configured; skipping", { method: "openBetting" });
       return;
     }
     const hash = await this.spectatorBetting.write.openBetting([
@@ -586,22 +609,22 @@ export class MonadContractClient {
       player2 as `0x${string}`,
     ]);
     await confirmTx(hash, "openBetting");
-    console.log(`[Chain] Opened betting for match ${matchId}`);
+    log.info("Opened betting", { matchId });
   }
 
   async closeBetting(matchId: number): Promise<void> {
     if (!this.spectatorBetting) {
-      console.warn("[ContractClient] SpectatorBetting not configured, skipping closeBetting");
+      log.warn("SpectatorBetting not configured; skipping", { method: "closeBetting" });
       return;
     }
     const hash = await this.spectatorBetting.write.closeBetting([BigInt(matchId)]);
     await confirmTx(hash, "closeBetting");
-    console.log(`[Chain] Closed betting for match ${matchId}`);
+    log.info("Closed betting", { matchId });
   }
 
   async settleBets(matchId: number, actualWinner: string): Promise<void> {
     if (!this.spectatorBetting) {
-      console.warn("[ContractClient] SpectatorBetting not configured, skipping settleBets");
+      log.warn("SpectatorBetting not configured; skipping", { method: "settleBets" });
       return;
     }
     const hash = await this.spectatorBetting.write.settleBets([
@@ -609,17 +632,17 @@ export class MonadContractClient {
       actualWinner as `0x${string}`,
     ]);
     await confirmTx(hash, "settleBets");
-    console.log(`[Chain] Settled bets for match ${matchId}, winner: ${actualWinner}`);
+    log.info("Settled bets", { matchId, winner: actualWinner });
   }
 
   async refundMatchBets(matchId: number): Promise<void> {
     if (!this.spectatorBetting) {
-      console.warn("[ContractClient] SpectatorBetting not configured, skipping refundMatchBets");
+      log.warn("SpectatorBetting not configured; skipping", { method: "refundMatchBets" });
       return;
     }
     const hash = await this.spectatorBetting.write.refundMatch([BigInt(matchId)]);
     await confirmTx(hash, "refundMatch");
-    console.log(`[Chain] Refunded bets for cancelled match ${matchId}`);
+    log.info("Refunded bets for cancelled match", { matchId });
   }
 
   async getMatchPool(matchId: number): Promise<{
@@ -668,7 +691,7 @@ export class MonadContractClient {
       stateHash,
     ]);
     await confirmTx(hash, "storeRoundState");
-    console.log(`[Chain] Stored round state for match ${matchId}`);
+    log.info("Stored round state for match", { matchId });
   }
 
   async getReplayData(matchId: number): Promise<{ roundStateHashes: string[]; roundCount: number; available: boolean } | null> {

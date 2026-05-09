@@ -129,7 +129,7 @@ export class ArenaManager {
       GameType.OracleDuel,
       new OracleDuelEngine(config.contractClient, config.nadFunClient)
     );
-    this.engines.set(GameType.StrategyArena, new StrategyArenaEngine());
+    this.engines.set(GameType.StrategyArena, new StrategyArenaEngine(config.contractClient));
     this.engines.set(GameType.AuctionWars, new AuctionWarsEngine(config.nadFunClient, config.contractClient));
     this.engines.set(GameType.QuizBowl, new QuizBowlEngine(undefined, config.contractClient));
   }
@@ -192,12 +192,12 @@ export class ArenaManager {
         const state = this.matchStore.loadTournamentState(id);
         if (state && (state.status === "open" || state.status === "active" || state.status === "completing")) {
           this.tournaments.set(id, state);
-          console.log(`[ArenaManager] Restored tournament #${id} from persistence (status: ${state.status})`);
+          log.info("Restored tournament from persistence", { tournamentId: id, status: state.status });
         }
       }
 
       if (activeTournamentIds.length > 0) {
-        console.log(`[ArenaManager] Restored ${activeTournamentIds.length} tournaments from persistence`);
+        log.info("Restored tournaments from persistence", { count: activeTournamentIds.length });
       }
     } catch (err) {
       log.error("Failed to restore from persistence", { error: err });
@@ -325,7 +325,7 @@ export class ArenaManager {
       })
     );
 
-    console.log(`[ArenaManager] Created tournament #${tournamentId}: ${sanitizedConfig.name}`);
+    log.info("Created tournament", { tournamentId, name: sanitizedConfig.name });
     return tournamentId;
   }
 
@@ -346,9 +346,12 @@ export class ArenaManager {
 
     state.participants.push(newParticipant);
 
-    console.log(
-      `[ArenaManager] Agent ${agentAddress.slice(0, 10)} joined tournament #${tournamentId} (${state.participants.length}/${state.config.maxParticipants})`
-    );
+    log.info("Agent joined tournament", {
+      tournamentId,
+      agent: agentAddress,
+      participants: state.participants.length,
+      maxParticipants: state.config.maxParticipants,
+    });
 
     // Emit real-time event
     this.broadcaster.emit("tournament:participantJoined", {
@@ -443,7 +446,7 @@ export class ArenaManager {
       // Generate first round pairings
       await this.startRound(tournamentId, state);
 
-      console.log(`[ArenaManager] Tournament #${tournamentId} started with ${state.participants.length} participants`);
+      log.info("Tournament started", { tournamentId, participants: state.participants.length });
     });
   }
 
@@ -462,7 +465,7 @@ export class ArenaManager {
       });
 
       this.persistTournamentState(tournamentId, state);
-      console.log(`[ArenaManager] Tournament #${tournamentId} paused at round ${state.currentRound}`);
+      log.info("Tournament paused", { tournamentId, round: state.currentRound });
     });
   }
 
@@ -481,7 +484,7 @@ export class ArenaManager {
       });
 
       this.persistTournamentState(tournamentId, state);
-      console.log(`[ArenaManager] Tournament #${tournamentId} resumed at round ${state.currentRound}`);
+      log.info("Tournament resumed", { tournamentId, round: state.currentRound });
 
       // Resume processing the active round (already inside the lock).
       await this.processActiveRound(tournamentId, state);
@@ -590,7 +593,7 @@ export class ArenaManager {
       });
     }
 
-    console.log(`[ArenaManager] Match #${matchId}: ${player1.slice(0, 10)} vs ${player2.slice(0, 10)}`);
+    log.info("Match created", { matchId, player1, player2 });
   }
 
   private async processActiveRound(tournamentId: number, state: TournamentState): Promise<void> {
@@ -771,9 +774,7 @@ export class ArenaManager {
       // Persist tournament state after round completion
       this.persistTournamentState(tournamentId, state);
 
-      console.log(
-        `[ArenaManager] Tournament #${tournamentId} round ${currentRound.round} complete`
-      );
+      log.info("Tournament round complete", { tournamentId, round: currentRound.round });
     }
   }
 
@@ -884,7 +885,7 @@ export class ArenaManager {
       timestamp: Date.now(),
     });
 
-    console.log(`[ArenaManager] Tournament #${tournamentId} complete. Winner: ${winner.handle}`);
+    log.info("Tournament complete", { tournamentId, winner: winner.handle, winnerAddress: winner.address });
 
     // Clean up
     this.tournaments.delete(tournamentId);
@@ -1014,9 +1015,7 @@ export class ArenaManager {
     }
 
     this.activeMatches.delete(matchId);
-    console.log(
-      `[ArenaManager] Match #${matchId} resolved. Winner: ${outcome.winner?.slice(0, 10) ?? "draw"}`
-    );
+    log.info("Match resolved", { matchId, winner: outcome.winner ?? null, draw: !outcome.winner });
   }
 
   // --- Discovery ---
@@ -1060,7 +1059,7 @@ export class ArenaManager {
           };
 
           this.tournaments.set(i, state);
-          console.log(`[ArenaManager] Discovered tournament #${i}: ${config.name}`);
+          log.info("Discovered tournament", { tournamentId: i, name: config.name });
         }
       }
     } catch (error) {

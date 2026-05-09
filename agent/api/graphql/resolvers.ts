@@ -119,29 +119,61 @@ export const resolvers = {
         }));
       }
 
-      // Get recent matches from store
+      // Try matchStore first (has rich stats: isDraw, isUpset, duration)
       if (context.matchStore) {
         const recentMatches = context.matchStore.getRecentMatches(limit + offset);
-        return recentMatches.slice(offset, offset + limit).map((r) => ({
-          id: r.matchId,
-          tournamentId: r.tournamentId,
-          round: r.round,
-          player1: r.loser ?? "",
-          player2: r.winner ?? "",
-          winner: r.winner,
-          resultHash: "",
-          timestamp: 0,
-          status: matchStatusToEnum(2),
-          gameType: gameTypeToEnum(r.gameType),
-          stats: {
-            duration: r.duration,
-            isUpset: r.isUpset,
-            isDraw: r.isDraw,
-          },
-        }));
+        if (recentMatches.length > 0) {
+          return recentMatches.slice(offset, offset + limit).map((r) => {
+            // Pull raw player1/player2 if available — getRecentMatches only
+            // surfaces winner/loser which loses ordering and breaks UI cards
+            // that compare addresses to determine who's "left" vs "right".
+            const raw = context.matchStore!.getMatchRaw(r.matchId);
+            return {
+              id: r.matchId,
+              tournamentId: r.tournamentId,
+              round: r.round,
+              player1: raw?.player1 ?? r.loser ?? "",
+              player2: raw?.player2 ?? r.winner ?? "",
+              winner: r.winner,
+              resultHash: "",
+              timestamp: 0,
+              status: matchStatusToEnum(2),
+              gameType: gameTypeToEnum(r.gameType),
+              stats: {
+                duration: r.duration,
+                isUpset: r.isUpset,
+                isDraw: r.isDraw,
+              },
+            };
+          });
+        }
       }
 
-      return [];
+      // Fallback: matchStore empty (e.g. fresh deploy on ephemeral disk).
+      // Scan the on-chain MatchRegistry directly so the page still renders.
+      // Mirrors the `liveMatches` pattern below.
+      try {
+        const count = await context.contractClient.getMatchCount();
+        const scanFrom = Math.max(1, count - (limit + offset) * 2);
+        const out: Array<Record<string, unknown>> = [];
+        for (let i = count; i >= scanFrom && out.length < limit + offset; i--) {
+          const m = await context.loaders.matchLoader.load(i);
+          if (!m) continue;
+          out.push({
+            ...m,
+            status: matchStatusToEnum(m.status),
+            gameType: gameTypeToEnum(m.gameType),
+            stats: {
+              duration: m.duration,
+              isUpset: m.isUpset,
+              isDraw: m.isDraw,
+            },
+          });
+        }
+        return out.slice(offset, offset + limit);
+      } catch {
+        return [];
+      }
     },
 
     match: async (_: unknown, args: { id: number }, context: ResolverContext) => {
@@ -774,7 +806,7 @@ export const resolvers = {
         }
       } catch (err) {
         // Replay contract may not have data for this match — log for debugging
-        console.debug(`[GraphQL] Replay data unavailable for match #${args.matchId}:`, err);
+        log.debug("Replay data unavailable", { matchId: args.matchId, error: err });
       }
 
       // Build rounds from SQLite stats_json (resultData from game engine)
@@ -1034,7 +1066,7 @@ export const resolvers = {
           fromCache: result.fromCache,
         };
       } catch (err) {
-        console.debug("[GraphQL] Commentary generation failed:", err);
+        log.debug("Commentary generation failed", { error: err });
         return null;
       }
     },
@@ -1258,7 +1290,7 @@ export const resolvers = {
           }
         }
       } catch (err) {
-        console.debug(`[GraphQL] Agent.tournaments lookup failed:`, err);
+        log.debug("Agent.tournaments lookup failed", { error: err });
       }
 
       return result;

@@ -24,6 +24,9 @@
     "test:testnet": "npx ts-node agent/test-testnet.ts",
     "setup:arena": "npx ts-node --transpile-only agent/setup-arena.ts",
     "db:backup": "npx ts-node --transpile-only agent/scripts/backup-db.ts",
+    "faucet:topup": "npx ts-node --transpile-only agent/scripts/faucet-topup.ts",
+    "seed:full": "npx ts-node --transpile-only agent/scripts/seed-full-dapp.ts",
+    "health:check": "npx ts-node --transpile-only agent/scripts/dapp-health-check.ts",
     "typecheck": "npx tsc --noEmit"
   },
   "dependencies": {

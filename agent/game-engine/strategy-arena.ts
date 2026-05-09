@@ -9,6 +9,10 @@ import type {
 } from "./game-mode.interface";
 import { GameType, StrategyMove } from "./game-mode.interface";
 import { keccak256, toBytes, encodePacked } from "viem";
+import type { MonadContractClient } from "../monad/contract-client";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("StrategyArena");
 
 interface StrategyState {
   matchId: number;
@@ -36,6 +40,11 @@ const DEFAULT_PAYOFFS = {
 export class StrategyArenaEngine implements GameMode {
   readonly gameType = GameType.StrategyArena;
   private matches = new Map<number, StrategyState>();
+  private contractClient: MonadContractClient | null;
+
+  constructor(contractClient?: MonadContractClient) {
+    this.contractClient = contractClient ?? null;
+  }
 
   async initMatch(
     matchId: number,
@@ -48,6 +57,7 @@ export class StrategyArenaEngine implements GameMode {
 
     const totalRounds = params.strategyRoundCount ?? 5;
     const commitTimeout = params.strategyCommitTimeout ?? 60;
+    const revealTimeout = params.strategyRevealTimeout ?? 60;
     const now = Math.floor(Date.now() / 1000);
 
     const state: StrategyState = {
@@ -68,6 +78,25 @@ export class StrategyArenaEngine implements GameMode {
     // Initialize first round
     state.rounds.push(this.createRound(1));
     this.matches.set(matchId, state);
+
+    // Initialize on-chain StrategyArena contract so player commit/reveal txs
+    // succeed. Mirrors the pattern in AuctionWarsEngine and QuizBowlEngine.
+    // Without this, the StrategyArena contract has no record of the match
+    // and any commitMove() from a player wallet reverts.
+    if (this.contractClient) {
+      try {
+        await this.contractClient.initStrategyMatch(
+          matchId,
+          players[0],
+          players[1],
+          totalRounds,
+          commitTimeout,
+          revealTimeout,
+        );
+      } catch (error) {
+        log.warn("On-chain initMatch failed", { matchId, error });
+      }
+    }
   }
 
   async processAction(
