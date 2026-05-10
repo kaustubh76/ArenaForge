@@ -9,6 +9,9 @@ import {
   calculateOdds,
 } from '@/lib/contracts';
 import { fetchGraphQL } from '@/lib/api';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('bettingStore');
 
 interface BettingState {
   // Data
@@ -122,7 +125,7 @@ export const useBettingStore = create<BettingState>()(
             }));
           }
         } catch (e) {
-          console.error('[bettingStore] Failed to fetch pool:', e);
+          log.error('Failed to fetch pool', { error: e });
         }
       },
 
@@ -149,7 +152,7 @@ export const useBettingStore = create<BettingState>()(
             set({ userBets: bets });
           }
         } catch (e) {
-          console.error('[bettingStore] Failed to fetch bets:', e);
+          log.error('Failed to fetch bets', { error: e });
         }
       },
 
@@ -181,7 +184,7 @@ export const useBettingStore = create<BettingState>()(
             });
           }
         } catch (e) {
-          console.error('[bettingStore] Failed to fetch profile:', e);
+          log.error('Failed to fetch profile', { error: e });
         }
       },
 
@@ -208,7 +211,7 @@ export const useBettingStore = create<BettingState>()(
             set({ topBettors: bettors });
           }
         } catch (e) {
-          console.error('[bettingStore] Failed to fetch top bettors:', e);
+          log.error('Failed to fetch top bettors', { error: e });
         }
       },
 
@@ -218,7 +221,7 @@ export const useBettingStore = create<BettingState>()(
           const odds = await calculateOdds(matchId, prediction);
           set({ pendingOdds: odds });
         } catch (e) {
-          console.error('[bettingStore] Failed to refresh odds:', e);
+          log.error('Failed to refresh odds', { error: e });
         }
       },
 
@@ -281,7 +284,7 @@ export const useBettingStore = create<BettingState>()(
           set({ placingBet: false });
           return success;
         } catch (e) {
-          console.error('[bettingStore] Failed to place bet:', e);
+          log.error('Failed to place bet', { error: e });
           set({ error: String(e), placingBet: false });
           return false;
         }
@@ -309,7 +312,7 @@ export const useBettingStore = create<BettingState>()(
 
           return success;
         } catch (e) {
-          console.error('[bettingStore] Failed to claim winnings:', e);
+          log.error('Failed to claim winnings', { error: e });
           set({ error: String(e), claimingWinnings: false });
           return false;
         }

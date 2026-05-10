@@ -93,7 +93,7 @@ export class ClaudeAnalysisService {
       try {
         this.client = new ClaudeClient();
       } catch (error) {
-        console.warn("[ClaudeAnalysis] Failed to initialize client:", error);
+        log.warn("Failed to initialize client; disabling Claude analysis", { error });
         this.enabled = false;
       }
     }
@@ -191,7 +191,7 @@ export class ClaudeAnalysisService {
       };
     } catch (error) {
       this.onFailure(error);
-      console.error("[ClaudeAnalysis] Evolution analysis failed:", error);
+      log.error("Evolution analysis failed", { error });
       return null;
     }
   }
@@ -229,7 +229,7 @@ export class ClaudeAnalysisService {
       };
     } catch (error) {
       this.onFailure(error);
-      console.error("[ClaudeAnalysis] Commentary generation failed:", error);
+      log.error("Commentary generation failed", { error });
       return null;
     }
   }
@@ -274,7 +274,7 @@ export class ClaudeAnalysisService {
       };
     } catch (error) {
       this.onFailure(error);
-      console.error("[ClaudeAnalysis] Token selection failed:", error);
+      log.error("Token selection failed", { error });
       return null;
     }
   }
@@ -366,7 +366,7 @@ export class ClaudeAnalysisService {
         summary: typeof parsed.summary === "string" ? parsed.summary : "",
       };
     } catch (error) {
-      console.warn("[ClaudeAnalysis] Failed to parse mutations response:", error);
+      log.warn("Failed to parse mutations response", { error });
       return { mutations: [], confidence: 0, summary: "" };
     }
   }
@@ -385,19 +385,22 @@ export class ClaudeAnalysisService {
         reason: parsed.reason || "",
       };
     } catch (error) {
-      console.warn("[ClaudeAnalysis] Failed to parse token selection response:", error);
+      log.warn("Failed to parse token selection response", { error });
       return { selectedSymbol: "", reason: "" };
     }
   }
 
   private logResponse(type: string, response: ThinkingResponse): void {
     if (this.logTokenUsage) {
-      console.log(
-        `[ClaudeAnalysis] ${type}: ${response.inputTokens} in, ${response.outputTokens} out, ${response.latencyMs}ms`
-      );
+      log.info("Claude response", {
+        type,
+        inputTokens: response.inputTokens,
+        outputTokens: response.outputTokens,
+        latencyMs: response.latencyMs,
+      });
     }
     if (this.logThinking && response.thinking) {
-      console.log(`[ClaudeAnalysis] ${type} thinking:\n${response.thinking.slice(0, 500)}...`);
+      log.debug("Claude thinking", { type, thinking: response.thinking.slice(0, 500) });
     }
   }
 
@@ -410,7 +413,7 @@ export class ClaudeAnalysisService {
     if (Date.now() - this.circuitBreaker.lastFailure > this.CIRCUIT_RESET_MS) {
       this.circuitBreaker.isOpen = false;
       this.circuitBreaker.failures = 0;
-      console.log("[ClaudeAnalysis] Circuit breaker reset");
+      log.info("Circuit breaker reset");
       return false;
     }
 
@@ -428,9 +431,7 @@ export class ClaudeAnalysisService {
 
     if (this.circuitBreaker.failures >= this.CIRCUIT_THRESHOLD) {
       this.circuitBreaker.isOpen = true;
-      console.warn(
-        `[ClaudeAnalysis] Circuit breaker opened after ${this.CIRCUIT_THRESHOLD} failures`
-      );
+      log.warn("Circuit breaker opened", { threshold: this.CIRCUIT_THRESHOLD });
     }
   }
 }

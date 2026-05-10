@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { MatchReplay, ReplayRound } from '@/types/arena';
 import { fetchReplayData } from '@/lib/contracts';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('replayStore');
 
 interface ReplayState {
   // Current replay data
@@ -105,7 +108,7 @@ export const useReplayStore = create<ReplayState>((set, get) => ({
         isPlaying: false,
       });
     } catch (e) {
-      console.error('[replayStore] Failed to load replay:', e);
+      log.error('Failed to load replay', { error: e });
       set({ error: String(e), loading: false });
     }
   },

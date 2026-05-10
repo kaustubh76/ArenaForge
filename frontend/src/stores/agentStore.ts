@@ -3,6 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { AgentProfileExtended } from '@/types/arena';
 import { fetchAllTournaments, fetchAgentsFromTournaments } from '@/lib/contracts';
 import { indexedDBStorage, isCacheFresh, isOnline } from '@/lib/indexeddb-storage';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('agentStore');
 
 type SortField = 'elo' | 'wins' | 'winRate' | 'matches';
 
@@ -79,7 +82,7 @@ export const useAgentStore = create<AgentState>()(
         // If offline, use cached data if available
         if (!isOnline()) {
           if (agents.length > 0) {
-            console.log('[agentStore] Offline - using cached data');
+            log.info('Offline - using cached data');
             return true;
           }
           set({ error: 'Offline and no cached data available', loading: false });
@@ -88,7 +91,7 @@ export const useAgentStore = create<AgentState>()(
 
         // If cache is fresh and not forcing refresh, skip network call
         if (!forceRefresh && isCacheFresh(lastFetchTimestamp ?? undefined) && agents.length > 0) {
-          console.log('[agentStore] Using fresh cached data');
+          log.debug('Using fresh cached data');
           return true;
         }
 
@@ -104,10 +107,10 @@ export const useAgentStore = create<AgentState>()(
           });
           return true;
         } catch (e) {
-          console.error('[agentStore] Chain fetch failed:', e);
+          log.error('Chain fetch failed', { error: e });
           // If fetch fails but we have cached data, use it
           if (agents.length > 0) {
-            console.log('[agentStore] Network error - falling back to cached data');
+            log.info('Network error - falling back to cached data');
             set({ error: String(e), loading: false });
             return true;
           }

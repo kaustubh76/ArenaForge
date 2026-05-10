@@ -13,6 +13,28 @@ import {
   type ReplayMetadata, type MatchReplay, type ReplayRound,
 } from '@/types/arena';
 import { fetchGraphQL } from '@/lib/api';
+import { getLogger } from '@/lib/logger';
+import { ZERO_ADDRESS } from '@/lib/contract-constants';
+import {
+  toTournament,
+  toAgent,
+  toMatch,
+  toSeason,
+  toSeasonalProfile,
+  toMatchPool,
+  toBet,
+  toBettorProfile,
+  type ChainTournament,
+  type ChainAgent,
+  type ChainMatch,
+  type ChainSeason,
+  type ChainSeasonalProfile,
+  type ChainMatchPool,
+  type ChainBet,
+  type ChainBettorProfile,
+} from '@/lib/transformers';
+
+const log = getLogger('contracts');
 
 // Contract addresses from environment (trim to avoid trailing whitespace/newlines)
 const trimAddr = (v: string | undefined) => (v || '').trim() as `0x${string}`;
@@ -161,52 +183,9 @@ const MatchRegistryReplayAbi = [
 
 // =========================================================================
 // Converters: chain data → frontend types
+// (Pure transformers + Chain* shapes live in ./transformers; this file
+// just imports them and supplies the pre-formatted ether strings.)
 // =========================================================================
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-
-interface ChainTournament {
-  id: bigint;
-  name: string;
-  gameType: number;
-  format: number;
-  status: number;
-  entryStake: bigint;
-  maxParticipants: bigint;
-  currentParticipants: bigint;
-  prizePool: bigint;
-  startTime: bigint;
-  roundCount: bigint;
-  currentRound: bigint;
-  parametersHash: string;
-}
-
-interface ChainAgent {
-  agentAddress: string;
-  moltbookHandle: string;
-  avatarURI: string;
-  elo: bigint;
-  matchesPlayed: bigint;
-  wins: bigint;
-  losses: bigint;
-  currentStreak: bigint;
-  longestWinStreak: bigint;
-  registered: boolean;
-}
-
-interface ChainMatch {
-  id: bigint;
-  tournamentId: bigint;
-  round: bigint;
-  player1: string;
-  player2: string;
-  winner: string;
-  resultHash: string;
-  timestamp: bigint;
-  startTime: bigint;
-  duration: bigint;
-  status: number;
-}
 
 // Game state types (exported for use in components)
 export interface StrategyArenaState {
@@ -235,59 +214,49 @@ export interface QuizBowlState {
   totalQuestions: number;
 }
 
-async function toTournament(raw: ChainTournament): Promise<Tournament> {
-  return {
-    id: Number(raw.id),
-    name: raw.name,
-    gameType: raw.gameType,
-    format: raw.format,
-    status: raw.status,
-    entryStake: await ethFormat(raw.entryStake),
-    maxParticipants: Number(raw.maxParticipants),
-    currentParticipants: Number(raw.currentParticipants),
-    prizePool: await ethFormat(raw.prizePool),
-    startTime: Number(raw.startTime) * 1000,
-    roundCount: Number(raw.roundCount),
-    currentRound: Number(raw.currentRound),
-    parametersHash: raw.parametersHash,
-  };
+// Async wrapper around the pure `toTournament` transformer that handles the
+// wei → MON formatting (which requires the lazily-loaded viem `formatEther`).
+async function toTournamentAsync(raw: ChainTournament): Promise<Tournament> {
+  const [entryStake, prizePool] = await Promise.all([
+    ethFormat(raw.entryStake),
+    ethFormat(raw.prizePool),
+  ]);
+  return toTournament(raw, { entryStake, prizePool });
 }
 
-function toAgent(raw: ChainAgent): AgentProfileExtended {
-  const wins = Number(raw.wins);
-  const matchesPlayed = Number(raw.matchesPlayed);
-  return {
-    agentAddress: raw.agentAddress,
-    moltbookHandle: raw.moltbookHandle,
-    avatarUrl: raw.avatarURI || undefined,
-    elo: Number(raw.elo),
-    matchesPlayed,
-    wins,
-    losses: Number(raw.losses),
-    registered: raw.registered,
-    winRate: matchesPlayed > 0 ? (wins / matchesPlayed) * 100 : 0,
-    eloHistory: [1200, Number(raw.elo)],
-    recentMatches: [],
-    streak: Number(raw.currentStreak),
-    longestWinStreak: Number(raw.longestWinStreak),
-  };
+async function toSeasonAsync(raw: ChainSeason): Promise<Season> {
+  const totalPrizePool = await ethFormat(raw.totalPrizePool);
+  return toSeason(raw, { totalPrizePool });
 }
 
-function toMatch(raw: ChainMatch): Match {
-  return {
-    id: Number(raw.id),
-    tournamentId: Number(raw.tournamentId),
-    round: Number(raw.round),
-    player1: raw.player1,
-    player2: raw.player2,
-    winner: raw.winner.toLowerCase() === ZERO_ADDRESS.toLowerCase() ? null : raw.winner,
-    resultHash: raw.resultHash,
-    timestamp: Number(raw.timestamp) * 1000,
-    startTime: Number(raw.startTime) * 1000,
-    duration: Number(raw.duration),
-    status: raw.status,
-  };
+async function toMatchPoolAsync(raw: ChainMatchPool): Promise<MatchPool> {
+  const [totalPlayer1Bets, totalPlayer2Bets] = await Promise.all([
+    ethFormat(raw.totalPlayer1Bets),
+    ethFormat(raw.totalPlayer2Bets),
+  ]);
+  return toMatchPool(raw, { totalPlayer1Bets, totalPlayer2Bets });
 }
+
+async function toBetAsync(raw: ChainBet): Promise<Bet> {
+  const [amount, payout] = await Promise.all([
+    ethFormat(raw.amount),
+    ethFormat(raw.payout),
+  ]);
+  return toBet(raw, { amount, payout });
+}
+
+async function toBettorProfileAsync(raw: ChainBettorProfile): Promise<BettorProfile> {
+  const [totalWagered, totalWon, totalLost] = await Promise.all([
+    ethFormat(raw.totalWagered),
+    ethFormat(raw.totalWon),
+    ethFormat(raw.totalLost),
+  ]);
+  return toBettorProfile(raw, { totalWagered, totalWon, totalLost });
+}
+
+// Synchronous transformers (toAgent, toMatch, toSeasonalProfile) come
+// directly from `./transformers` — no wrapper needed since they don't
+// touch ether formatting.
 
 // =========================================================================
 // Fetch functions (with rate limiting for testnet RPC: 15 req/sec)
@@ -319,7 +288,7 @@ export async function fetchAllTournaments(): Promise<Tournament[]> {
       functionName: 'getTournament',
       args: [BigInt(i)],
     }) as unknown as ChainTournament;
-    tournaments.push(await toTournament(raw));
+    tournaments.push(await toTournamentAsync(raw));
   }
 
   return tournaments;
@@ -436,7 +405,7 @@ export async function fetchStrategyArenaState(matchId: number): Promise<Strategy
       totalRounds: Number(raw.totalRounds),
     };
   } catch (e) {
-    console.warn('[contracts] fetchStrategyArenaState failed:', e);
+    log.warn('fetchStrategyArenaState failed', { error: e });
     return null;
   }
 }
@@ -458,7 +427,7 @@ export async function fetchOracleDuelState(matchId: number): Promise<OracleDuelS
       resolved: raw.resolved,
     };
   } catch (e) {
-    console.warn('[contracts] fetchOracleDuelState failed:', e);
+    log.warn('fetchOracleDuelState failed', { error: e });
     return null;
   }
 }
@@ -478,7 +447,7 @@ export async function fetchAuctionWarsState(matchId: number): Promise<AuctionWar
       revealed: raw.revealed,
     };
   } catch (e) {
-    console.warn('[contracts] fetchAuctionWarsState failed:', e);
+    log.warn('fetchAuctionWarsState failed', { error: e });
     return null;
   }
 }
@@ -500,7 +469,7 @@ export async function fetchQuizBowlState(matchId: number): Promise<QuizBowlState
       totalQuestions: Number(raw.totalQuestions),
     };
   } catch (e) {
-    console.warn('[contracts] fetchQuizBowlState failed:', e);
+    log.warn('fetchQuizBowlState failed', { error: e });
     return null;
   }
 }
@@ -584,7 +553,7 @@ export async function fetchEvolutionRecords(
       timestamp: (r.timestamp as number) * 1000,
     }));
   } catch (e) {
-    console.warn('[contracts] fetchEvolutionRecords failed:', e);
+    log.warn('fetchEvolutionRecords failed', { error: e });
     return [];
   }
 }
@@ -592,55 +561,11 @@ export async function fetchEvolutionRecords(
 // =========================================================================
 // Phase 2: Seasonal Rankings Functions
 // =========================================================================
-
-interface ChainSeason {
-  id: bigint;
-  startTime: bigint;
-  endTime: bigint;
-  active: boolean;
-  rewardsDistributed: boolean;
-  totalPrizePool: bigint;
-}
-
-interface ChainSeasonalProfile {
-  agent: string;
-  seasonId: bigint;
-  seasonalElo: bigint;
-  peakElo: bigint;
-  matchesPlayed: bigint;
-  wins: bigint;
-  losses: bigint;
-  tier: number;
-  placementComplete: boolean;
-  placementMatches: bigint;
-  rewardClaimed: boolean;
-}
-
-async function toSeason(raw: ChainSeason): Promise<Season> {
-  return {
-    id: Number(raw.id),
-    startTime: Number(raw.startTime) * 1000,
-    endTime: Number(raw.endTime) * 1000,
-    active: raw.active,
-    rewardsDistributed: raw.rewardsDistributed,
-    totalPrizePool: await ethFormat(raw.totalPrizePool),
-  };
-}
-
-function toSeasonalProfile(raw: ChainSeasonalProfile): SeasonalProfile {
-  return {
-    address: raw.agent,
-    seasonalElo: Number(raw.seasonalElo),
-    peakElo: Number(raw.peakElo),
-    matchesPlayed: Number(raw.matchesPlayed),
-    wins: Number(raw.wins),
-    losses: Number(raw.losses),
-    tier: raw.tier as RankTier,
-    placementMatches: Number(raw.placementMatches),
-    placementComplete: raw.placementComplete,
-    rewardClaimed: raw.rewardClaimed,
-  };
-}
+//
+// (ChainSeason / ChainSeasonalProfile shapes + the matching transformer
+// functions live in `./transformers`. This file uses `toSeasonAsync` for
+// the prize-pool ether formatting and the sync `toSeasonalProfile` import
+// for the rest.)
 
 export async function fetchCurrentSeason(): Promise<Season | null> {
   if (!SEASONAL_RANKINGS) return null;
@@ -654,9 +579,9 @@ export async function fetchCurrentSeason(): Promise<Season | null> {
     }) as unknown as ChainSeason;
 
     if (Number(raw.id) === 0) return null;
-    return toSeason(raw);
+    return await toSeasonAsync(raw);
   } catch (e) {
-    console.warn('[contracts] fetchCurrentSeason failed:', e);
+    log.warn('fetchCurrentSeason failed', { error: e });
     return null;
   }
 }
@@ -679,7 +604,7 @@ export async function fetchSeasonalProfile(
     if (raw.agent === ZERO_ADDRESS) return null;
     return toSeasonalProfile(raw);
   } catch (e) {
-    console.warn('[contracts] fetchSeasonalProfile failed:', e);
+    log.warn('fetchSeasonalProfile failed', { error: e });
     return null;
   }
 }
@@ -708,7 +633,7 @@ export async function fetchSeasonLeaderboard(
 
     return profiles;
   } catch (e) {
-    console.warn('[contracts] fetchSeasonLeaderboard failed:', e);
+    log.warn('fetchSeasonLeaderboard failed', { error: e });
     return [];
   }
 }
@@ -736,7 +661,7 @@ export async function fetchTierRewards(): Promise<TierReward[]> {
     }
     return rewards;
   } catch (e) {
-    console.warn('[contracts] fetchTierRewards failed:', e);
+    log.warn('fetchTierRewards failed', { error: e });
     return [];
   }
 }
@@ -757,7 +682,7 @@ async function getWalletClient() {
 
 export async function claimSeasonReward(seasonId: number): Promise<boolean> {
   if (!SEASONAL_RANKINGS) {
-    console.warn('[contracts] Seasonal rankings contract not configured');
+    log.warn('Seasonal rankings contract not configured');
     return false;
   }
 
@@ -772,10 +697,10 @@ export async function claimSeasonReward(seasonId: number): Promise<boolean> {
       account,
     });
 
-    console.log(`[contracts] Season reward claimed, tx: ${hash}`);
+    log.info('Season reward claimed', { txHash: hash });
     return true;
   } catch (e) {
-    console.error('[contracts] claimSeasonReward failed:', e);
+    log.error('claimSeasonReward failed', { error: e });
     return false;
   }
 }
@@ -783,90 +708,15 @@ export async function claimSeasonReward(seasonId: number): Promise<boolean> {
 // =========================================================================
 // Phase 2: Spectator Betting Functions
 // =========================================================================
+//
+// (ChainMatchPool / ChainBet / ChainBettorProfile + their pure
+// transformers live in `./transformers`. Below we use the *Async wrappers
+// defined near the top of this file to handle wei→MON formatting.)
 
-interface ChainMatchPool {
-  matchId: bigint;
-  player1: string;
-  player2: string;
-  totalPlayer1Bets: bigint;
-  totalPlayer2Bets: bigint;
-  bettingOpen: boolean;
-  settled: boolean;
-  winner: string;
-}
-
-interface ChainBet {
-  id: bigint;
-  matchId: bigint;
-  bettor: string;
-  predictedWinner: string;
-  amount: bigint;
-  odds: bigint;
-  timestamp: bigint;
-  status: number;
-  payout: bigint;
-}
-
-interface ChainBettorProfile {
-  bettor: string;
-  totalBets: bigint;
-  wins: bigint;
-  losses: bigint;
-  totalWagered: bigint;
-  totalWon: bigint;
-  totalLost: bigint;
-  currentStreak: bigint;
-  longestWinStreak: bigint;
-}
-
+// Odds are stored on-chain as fixed-point with 1e18 precision.
+// Mirrors the constant used inside `transformers.ts:toBet` so the
+// `calculateOdds` fetch helper formats odds the same way as decoded bets.
 const ODDS_PRECISION = 1e18;
-
-async function toMatchPool(raw: ChainMatchPool): Promise<MatchPool> {
-  return {
-    matchId: Number(raw.matchId),
-    player1: raw.player1,
-    player2: raw.player2,
-    totalPlayer1Bets: await ethFormat(raw.totalPlayer1Bets),
-    totalPlayer2Bets: await ethFormat(raw.totalPlayer2Bets),
-    bettingOpen: raw.bettingOpen,
-    settled: raw.settled,
-  };
-}
-
-async function toBet(raw: ChainBet): Promise<Bet> {
-  return {
-    id: Number(raw.id),
-    matchId: Number(raw.matchId),
-    bettor: raw.bettor,
-    predictedWinner: raw.predictedWinner,
-    amount: await ethFormat(raw.amount),
-    odds: (Number(raw.odds) / ODDS_PRECISION).toFixed(4),
-    status: raw.status,
-    payout: await ethFormat(raw.payout),
-    timestamp: Number(raw.timestamp) * 1000,
-  };
-}
-
-async function toBettorProfile(raw: ChainBettorProfile): Promise<BettorProfile> {
-  const totalWagered = await ethFormat(raw.totalWagered);
-  const totalWon = await ethFormat(raw.totalWon);
-  const totalLost = await ethFormat(raw.totalLost);
-  const wins = Number(raw.wins);
-  const totalBets = Number(raw.totalBets);
-
-  return {
-    address: raw.bettor,
-    totalBets,
-    wins,
-    losses: Number(raw.losses),
-    totalWagered,
-    totalWon,
-    netProfit: (parseFloat(totalWon) - parseFloat(totalLost)).toFixed(6),
-    currentStreak: Number(raw.currentStreak),
-    longestWinStreak: Number(raw.longestWinStreak),
-    winRate: totalBets > 0 ? (wins / totalBets) * 100 : 0,
-  };
-}
 
 export async function fetchMatchPool(matchId: number): Promise<MatchPool | null> {
   if (!SPECTATOR_BETTING) return null;
@@ -881,9 +731,9 @@ export async function fetchMatchPool(matchId: number): Promise<MatchPool | null>
     }) as unknown as ChainMatchPool;
 
     if (Number(raw.matchId) === 0) return null;
-    return toMatchPool(raw);
+    return await toMatchPoolAsync(raw);
   } catch (e) {
-    console.warn('[contracts] fetchMatchPool failed:', e);
+    log.warn('fetchMatchPool failed', { error: e });
     return null;
   }
 }
@@ -909,12 +759,12 @@ export async function fetchUserBets(address: string): Promise<Bet[]> {
         functionName: 'getBet',
         args: [betId],
       }) as unknown as ChainBet;
-      bets.push(await toBet(raw));
+      bets.push(await toBetAsync(raw));
     }
 
     return bets;
   } catch (e) {
-    console.warn('[contracts] fetchUserBets failed:', e);
+    log.warn('fetchUserBets failed', { error: e });
     return [];
   }
 }
@@ -932,9 +782,9 @@ export async function fetchBettorProfile(address: string): Promise<BettorProfile
     }) as unknown as ChainBettorProfile;
 
     if (raw.bettor === ZERO_ADDRESS) return null;
-    return toBettorProfile(raw);
+    return await toBettorProfileAsync(raw);
   } catch (e) {
-    console.warn('[contracts] fetchBettorProfile failed:', e);
+    log.warn('fetchBettorProfile failed', { error: e });
     return null;
   }
 }
@@ -994,7 +844,7 @@ export async function fetchTopBettors(limit: number = 50): Promise<BettorProfile
 
     return profiles.slice(0, limit);
   } catch (e) {
-    console.warn('[contracts] fetchTopBettors failed:', e);
+    log.warn('fetchTopBettors failed', { error: e });
     return [];
   }
 }
@@ -1013,7 +863,7 @@ export async function calculateOdds(matchId: number, prediction: string): Promis
 
     return (Number(odds) / ODDS_PRECISION).toFixed(4);
   } catch (e) {
-    console.warn('[contracts] calculateOdds failed:', e);
+    log.warn('calculateOdds failed', { error: e });
     return '1.0';
   }
 }
@@ -1024,7 +874,7 @@ export async function placeBet(
   amount: string
 ): Promise<boolean> {
   if (!SPECTATOR_BETTING) {
-    console.warn('[contracts] Spectator betting contract not configured');
+    log.warn('Spectator betting contract not configured');
     return false;
   }
 
@@ -1041,17 +891,17 @@ export async function placeBet(
       account,
     });
 
-    console.log(`[contracts] Bet placed for match ${matchId}, tx: ${hash}`);
+    log.info('Bet placed', { matchId, txHash: hash });
     return true;
   } catch (e) {
-    console.error('[contracts] placeBet failed:', e);
+    log.error('placeBet failed', { error: e });
     return false;
   }
 }
 
 export async function claimBetWinnings(betId: number): Promise<boolean> {
   if (!SPECTATOR_BETTING) {
-    console.warn('[contracts] Spectator betting contract not configured');
+    log.warn('Spectator betting contract not configured');
     return false;
   }
 
@@ -1066,10 +916,10 @@ export async function claimBetWinnings(betId: number): Promise<boolean> {
       account,
     });
 
-    console.log(`[contracts] Bet winnings claimed for bet ${betId}, tx: ${hash}`);
+    log.info('Bet winnings claimed', { betId, txHash: hash });
     return true;
   } catch (e) {
-    console.error('[contracts] claimBetWinnings failed:', e);
+    log.error('claimBetWinnings failed', { error: e });
     return false;
   }
 }
@@ -1097,7 +947,7 @@ export async function fetchReplayMetadata(matchId: number): Promise<ReplayMetada
       available: raw[2],
     };
   } catch (e) {
-    console.warn('[contracts] fetchReplayMetadata failed:', e);
+    log.warn('fetchReplayMetadata failed', { error: e });
     return null;
   }
 }
@@ -1170,7 +1020,7 @@ export async function fetchReplayData(matchId: number): Promise<MatchReplay | nu
       };
     }
   } catch (e) {
-    console.warn('[contracts] GraphQL matchReplay failed, falling back to on-chain:', e);
+    log.warn('GraphQL matchReplay failed; falling back to on-chain', { error: e });
   }
 
   // Fallback to on-chain data
@@ -1211,7 +1061,7 @@ export async function fetchReplayData(matchId: number): Promise<MatchReplay | nu
       metadata,
     };
   } catch (e) {
-    console.warn('[contracts] fetchReplayData on-chain fallback failed:', e);
+    log.warn('fetchReplayData on-chain fallback failed', { error: e });
     return null;
   }
 }

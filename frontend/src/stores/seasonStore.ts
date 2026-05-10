@@ -9,6 +9,9 @@ import {
   fetchTierRewards,
   claimSeasonReward,
 } from '@/lib/contracts';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('seasonStore');
 
 interface SeasonState {
   // Data
@@ -103,7 +106,7 @@ export const useSeasonStore = create<SeasonState>()(
         // If offline, use cached data if available
         if (isOffline) {
           if (currentSeason) {
-            console.log('[seasonStore] Offline - using cached data');
+            log.info('Offline - using cached data');
             set({ usingCachedData: true, loading: false });
             return true;
           }
@@ -113,7 +116,7 @@ export const useSeasonStore = create<SeasonState>()(
 
         // If cache is fresh and not forcing refresh, skip network call
         if (!forceRefresh && isCacheFresh(lastFetchTimestamp ?? undefined) && currentSeason) {
-          console.log('[seasonStore] Using fresh cached data');
+          log.debug('Using fresh cached data');
           set({ usingCachedData: true });
           return true;
         }
@@ -133,14 +136,14 @@ export const useSeasonStore = create<SeasonState>()(
             usingCachedData: false,
           });
           return true;
-        } catch (e) {
-          console.error('[seasonStore] Fetch failed:', e);
+        } catch (error) {
+          log.error('Fetch failed', { error });
           if (currentSeason) {
-            console.log('[seasonStore] Network error - falling back to cached data');
-            set({ error: String(e), loading: false, usingCachedData: true });
+            log.info('Network error - falling back to cached data');
+            set({ error: String(error), loading: false, usingCachedData: true });
             return true;
           }
-          set({ error: String(e), loading: false });
+          set({ error: String(error), loading: false });
           return false;
         }
       },
@@ -149,15 +152,15 @@ export const useSeasonStore = create<SeasonState>()(
       fetchMyProfile: async (address: string) => {
         const { currentSeason } = get();
         if (!currentSeason) {
-          console.warn('[seasonStore] No current season, cannot fetch profile');
+          log.warn('No current season, cannot fetch profile');
           return;
         }
 
         try {
           const profile = await fetchSeasonalProfile(currentSeason.id, address);
           set({ mySeasonalProfile: profile });
-        } catch (e) {
-          console.error('[seasonStore] Failed to fetch profile:', e);
+        } catch (error) {
+          log.error('Failed to fetch profile', { error });
         }
       },
 
@@ -165,15 +168,15 @@ export const useSeasonStore = create<SeasonState>()(
       fetchLeaderboard: async (limit = 100) => {
         const { currentSeason } = get();
         if (!currentSeason) {
-          console.warn('[seasonStore] No current season, cannot fetch leaderboard');
+          log.warn('No current season, cannot fetch leaderboard');
           return;
         }
 
         try {
           const leaderboard = await fetchSeasonLeaderboard(currentSeason.id, limit);
           set({ seasonLeaderboard: leaderboard });
-        } catch (e) {
-          console.error('[seasonStore] Failed to fetch leaderboard:', e);
+        } catch (error) {
+          log.error('Failed to fetch leaderboard', { error });
         }
       },
 
@@ -193,9 +196,9 @@ export const useSeasonStore = create<SeasonState>()(
             }
           }
           return success;
-        } catch (e) {
-          console.error('[seasonStore] Claim reward failed:', e);
-          set({ error: String(e), claimingReward: false });
+        } catch (error) {
+          log.error('Claim reward failed', { error });
+          set({ error: String(error), claimingReward: false });
           return false;
         }
       },

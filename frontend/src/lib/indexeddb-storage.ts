@@ -1,5 +1,8 @@
 import { get, set, del, createStore } from 'idb-keyval';
 import type { StateStorage } from 'zustand/middleware';
+import { getLogger } from './logger';
+
+const log = getLogger('IndexedDB');
 
 // Create a custom IndexedDB store for ArenaForge
 const arenaStore = createStore('arenaforge-db', 'arenaforge-store');
@@ -13,23 +16,23 @@ export const indexedDBStorage: StateStorage = {
     try {
       const value = await get<string>(name, arenaStore);
       return value ?? null;
-    } catch (err) {
-      console.warn('[IndexedDB] Failed to get item:', name, err);
+    } catch (error) {
+      log.warn('Failed to get item', { name, error });
       return null;
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try {
       await set(name, value, arenaStore);
-    } catch (err) {
-      console.warn('[IndexedDB] Failed to set item:', name, err);
+    } catch (error) {
+      log.warn('Failed to set item', { name, error });
     }
   },
   removeItem: async (name: string): Promise<void> => {
     try {
       await del(name, arenaStore);
-    } catch (err) {
-      console.warn('[IndexedDB] Failed to remove item:', name, err);
+    } catch (error) {
+      log.warn('Failed to remove item', { name, error });
     }
   },
 };

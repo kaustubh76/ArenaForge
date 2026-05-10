@@ -2,6 +2,7 @@
 // Provides rate limiting, 429 detection, and exponential backoff retry.
 
 import { TokenBucketRateLimiter } from "./rate-limiter";
+import { getLogger } from "./logger";
 
 export interface ThrottledFetchConfig {
   /** Rate limiter instance to use */
@@ -36,13 +37,14 @@ export async function throttledFetch(
   const baseDelay = config.baseRetryDelayMs ?? 1000;
   const serviceName = config.serviceName ?? "ExternalAPI";
   const timeoutMs = config.timeoutMs ?? 15000;
+  const log = getLogger(serviceName);
 
   // Pre-flight rate limit: wait until a token is available
   let waitAttempts = 0;
   while (!config.rateLimiter.consume(key)) {
     const waitMs = config.rateLimiter.retryAfterMs(key);
     const bounded = Math.min(waitMs, 5000);
-    console.log(`[${serviceName}] Rate limited, waiting ${bounded}ms`);
+    log.debug("Rate limited; waiting", { waitMs: bounded });
     await sleep(bounded);
     waitAttempts++;
     if (waitAttempts > 10) {
@@ -78,15 +80,16 @@ export async function throttledFetch(
             delayMs = baseDelay * Math.pow(2, attempt);
           }
 
-          console.warn(
-            `[${serviceName}] 429 received (attempt ${attempt + 1}/${maxRetries + 1}), ` +
-              `retrying in ${delayMs}ms`
-          );
+          log.warn("429 received; retrying", {
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            delayMs,
+          });
           await sleep(delayMs);
           continue;
         }
         // Last attempt still 429 — return the response as-is
-        console.error(`[${serviceName}] 429 persists after ${maxRetries + 1} attempts`);
+        log.error("429 persists after all attempts", { totalAttempts: maxRetries + 1 });
       }
 
       return response;
@@ -95,18 +98,17 @@ export async function throttledFetch(
 
       // Don't retry on abort (intentional cancellation)
       if ((error as Error).name === "AbortError" && attempt === 0) {
-        // First attempt timeout — retry
-        console.warn(
-          `[${serviceName}] Request timed out (attempt ${attempt + 1}), retrying`
-        );
+        log.warn("Request timed out; retrying", { attempt: attempt + 1 });
       }
 
       if (attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt);
-        console.warn(
-          `[${serviceName}] Request failed (attempt ${attempt + 1}/${maxRetries + 1}), ` +
-            `retrying in ${delay}ms: ${(error as Error).message}`
-        );
+        log.warn("Request failed; retrying", {
+          attempt: attempt + 1,
+          maxRetries: maxRetries + 1,
+          delayMs: delay,
+          error,
+        });
         await sleep(delay);
       }
     }

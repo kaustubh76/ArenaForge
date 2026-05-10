@@ -8,6 +8,9 @@ import type {
   Room,
 } from "./events";
 import { getRoomName, getEventRooms } from "./events";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("EventBroadcaster");
 
 type EventHandler<T extends BroadcastEventName> = (
   payload: BroadcastEvents[T],
@@ -46,10 +49,7 @@ export class EventBroadcaster {
     const rooms = getEventRooms(event, payload);
 
     if (this.enableLogging) {
-      console.log(
-        `[EventBroadcaster] Emitting ${event} to rooms:`,
-        rooms.map(getRoomName)
-      );
+      log.debug("Emitting event", { event, rooms: rooms.map(getRoomName) });
     }
 
     // Emit to specific event listeners
@@ -59,8 +59,8 @@ export class EventBroadcaster {
     for (const handler of this.anyHandlers) {
       try {
         handler(event, payload, rooms);
-      } catch (err) {
-        console.error(`[EventBroadcaster] Error in any handler:`, err);
+      } catch (error) {
+        log.error("Error in any-handler", { event, error });
       }
     }
   }

@@ -1,6 +1,11 @@
 // Centralized GraphQL fetch utility with rate limit handling and retry logic.
 
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || "http://localhost:4000/graphql";
+import { getLogger } from "./logger";
+
+const log = getLogger("API");
+
+const DEFAULT_GRAPHQL_URL =
+  (import.meta.env.VITE_GRAPHQL_URL as string | undefined) || "http://localhost:4000/graphql";
 
 export interface GraphQLResponse<T = Record<string, unknown>> {
   data?: T;
@@ -17,6 +22,10 @@ export interface FetchGraphQLOptions {
   baseDelayMs?: number;
   /** AbortSignal for cancellation (e.g., from useEffect cleanup) */
   signal?: AbortSignal;
+  /** Override the GraphQL URL (defaults to VITE_GRAPHQL_URL). Test seam. */
+  url?: string;
+  /** Override fetch (defaults to globalThis.fetch). Test seam. */
+  fetchImpl?: typeof fetch;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -26,20 +35,25 @@ function sleep(ms: number): Promise<void> {
 /**
  * Centralized GraphQL fetch with 429 handling and exponential backoff retry.
  * Returns { data, errors } — never throws for HTTP/rate-limit errors.
+ *
+ * Throws ONLY on AbortError (caller asked to cancel) so React effects'
+ * cleanup propagation works without surprise log noise.
  */
 export async function fetchGraphQL<T = Record<string, unknown>>(
   query: string,
   variables?: Record<string, unknown>,
-  options?: FetchGraphQLOptions
+  options?: FetchGraphQLOptions,
 ): Promise<GraphQLResponse<T>> {
   const maxRetries = options?.maxRetries ?? 3;
   const baseDelay = options?.baseDelayMs ?? 1000;
+  const url = options?.url ?? DEFAULT_GRAPHQL_URL;
+  const fetchImpl = options?.fetchImpl ?? globalThis.fetch;
 
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const res = await fetch(GRAPHQL_URL, {
+      const res = await fetchImpl(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, variables }),
@@ -54,9 +68,11 @@ export async function fetchGraphQL<T = Record<string, unknown>>(
             ? Number(retryAfter) * 1000
             : baseDelay * Math.pow(2, attempt);
 
-          console.warn(
-            `[API] Rate limited (429), retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`
-          );
+          log.warn("Rate limited (429); retrying", {
+            attempt: attempt + 1,
+            maxRetries,
+            delayMs,
+          });
           await sleep(delayMs);
           continue;
         }
@@ -79,15 +95,19 @@ export async function fetchGraphQL<T = Record<string, unknown>>(
       const json = (await res.json()) as GraphQLResponse<T>;
       return json;
     } catch (error) {
-      // Don't retry if explicitly aborted
+      // Don't retry if explicitly aborted — let the caller's effect cleanup
+      // observe the AbortError.
       if ((error as Error).name === "AbortError") throw error;
 
       lastError = error as Error;
       if (attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt);
-        console.warn(
-          `[API] Request failed, retry ${attempt + 1}/${maxRetries} in ${delay}ms`
-        );
+        log.warn("Request failed; retrying", {
+          attempt: attempt + 1,
+          maxRetries,
+          delayMs: delay,
+          error: (error as Error).message,
+        });
         await sleep(delay);
       }
     }

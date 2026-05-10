@@ -1,5 +1,8 @@
 import type { TokenBucketRateLimiter } from "../utils/rate-limiter";
 import { throttledFetch } from "../utils/throttled-fetch";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("Submolt");
 
 interface SubmoltConfig {
   moltbookApiUrl: string;
@@ -47,7 +50,7 @@ export class SubmoltManager {
     const existing = await this.findSubmolt(this.config.submoltName);
     if (existing) {
       this.submoltId = existing.id;
-      console.log(`Joined existing submolt: ${existing.name} (${existing.id})`);
+      log.info("Joined existing submolt", { name: existing.name, id: existing.id });
       return existing.id;
     }
 
@@ -57,7 +60,7 @@ export class SubmoltManager {
       "The ArenaForge competitive AI gaming arena. Tournaments, match results, evolution reports, and agent strategy discussion."
     );
     this.submoltId = id;
-    console.log(`Created submolt: ${this.config.submoltName} (${id})`);
+    log.info("Created submolt", { name: this.config.submoltName, id });
 
     // Post welcome message
     await this.postWelcome();
@@ -92,7 +95,7 @@ export class SubmoltManager {
    */
   async post(title: string, content: string): Promise<string | null> {
     if (!this.submoltId) {
-      console.error("Submolt not initialized");
+      log.error("Submolt not initialized");
       return null;
     }
 
@@ -118,7 +121,7 @@ export class SubmoltManager {
       const data = await response.json() as Record<string, unknown>;
       return (data.id || data.postId || null) as string | null;
     } catch (error) {
-      console.error("Failed to post to submolt:", error);
+      log.error("Failed to post to submolt", { error });
       return null;
     }
   }
@@ -143,7 +146,7 @@ export class SubmoltManager {
 
       return response.ok;
     } catch (error) {
-      console.error("Failed to comment:", error);
+      log.error("Failed to comment", { error });
       return false;
     }
   }

@@ -14,6 +14,7 @@ import type {
   FormatState,
   PairingResult,
 } from "./format.interface";
+import { shuffle } from "../utils/random";
 
 /**
  * Royal Rumble Format: Free-for-all with staggered entry and continuous elimination.
@@ -39,8 +40,10 @@ export class RoyalRumbleFormat implements TournamentFormatHandler {
     const entryInterval = config?.entryIntervalSeconds ?? this.defaultEntryInterval;
     const startingCount = config?.startingParticipants ?? this.defaultStartingParticipants;
 
-    // Randomize entry order
-    const shuffled = [...participants].sort(() => Math.random() - 0.5);
+    // Randomize entry order. Uses Fisher-Yates (uniform) instead of the
+    // earlier `sort(() => Math.random() - 0.5)` which is a known biased
+    // shuffle and was a real correctness bug for tournament fairness.
+    const shuffled = shuffle(participants);
 
     const rumbleParticipants: RumbleParticipant[] = shuffled.map((p, index) => ({
       address: p.address,

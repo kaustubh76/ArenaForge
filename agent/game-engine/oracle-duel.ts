@@ -12,6 +12,7 @@ import { GameType } from "./game-mode.interface";
 import { MonadContractClient } from "../monad/contract-client";
 import { NadFunClient } from "../monad/nadfun-client";
 import { keccak256, toBytes, encodePacked } from "viem";
+import { pickOne, defaultRng } from "../utils/random";
 
 interface DuelState {
   matchId: number;
@@ -238,7 +239,8 @@ export class OracleDuelEngine implements GameMode {
             t.hourlyVolatility <= maxVol
         );
         if (eligible.length > 0) {
-          return eligible[Math.floor(Math.random() * eligible.length)];
+          const choice = pickOne(eligible);
+          if (choice) return choice;
         }
       }
     }
@@ -257,7 +259,7 @@ export class OracleDuelEngine implements GameMode {
 
     switch (method) {
       case "random": {
-        const idx = Math.random() < 0.5 ? 0 : 1;
+        const idx = defaultRng() < 0.5 ? 0 : 1;
         return [players[idx], players[1 - idx]];
       }
       case "alternating":

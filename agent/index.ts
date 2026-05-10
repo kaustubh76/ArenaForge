@@ -10,6 +10,8 @@ import { SubmoltManager } from "./moltbook/submolt-manager";
 import { ArenaManager } from "./arena-manager";
 import { AutonomousScheduler } from "./autonomous/scheduler";
 import { getAgentAddress } from "./monad/rpc";
+import { createFaucetClient } from "./monad/faucet";
+import { checkBalanceAndMaybeTopup } from "./monad/balance";
 import { GameType, TournamentFormat } from "./game-engine/game-mode.interface";
 import type { TournamentConfig } from "./game-engine/game-mode.interface";
 import { ClaudeAnalysisService, setClaudeAnalysisService } from "./claude";
@@ -21,17 +23,25 @@ import { getLogger } from "./utils/logger";
 import { makeSingleFlight } from "./utils/single-flight";
 
 const heartbeatLog = getLogger("Heartbeat");
+const bootLog = getLogger("Boot");
+const eventLog = getLogger("Event");
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
 // Warn if a single tick exceeds this — likely an RPC stall starving the loop.
 const HEARTBEAT_SLOW_TICK_MS = HEARTBEAT_INTERVAL * 4;
 
 async function main(): Promise<void> {
-  console.log("=== ArenaForge Agent Starting ===");
+  bootLog.info("ArenaForge Agent starting");
 
   // --- Initialize Clients ---
   const agentAddress = getAgentAddress();
-  console.log(`Agent address: ${agentAddress}`);
+  bootLog.info("Agent address resolved", { agentAddress });
+
+  // Boot-time balance check. If AUTO_FAUCET_TOPUP=true and balance is
+  // below MIN_BALANCE_MON the faucet is hit; otherwise we just log a
+  // warning so operators see the low-balance state.
+  const faucet = createFaucetClient();
+  await checkBalanceAndMaybeTopup(agentAddress as `0x${string}`, faucet);
 
   const isTestnet = process.env.USE_TESTNET === "true";
   const contractClient = new MonadContractClient();
@@ -45,7 +55,7 @@ async function main(): Promise<void> {
   // Auto-register with Moltbook if no bearer token is configured
   if (!moltbookToken) {
     try {
-      console.log("No MOLTBOOK_BEARER_TOKEN found. Attempting agent registration...");
+      bootLog.info("No MOLTBOOK_BEARER_TOKEN found; attempting agent registration");
       const regResponse = await fetch(`${moltbookUrl}/api/v1/agents/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,18 +69,16 @@ async function main(): Promise<void> {
         const regData = await regResponse.json() as { agent?: { api_key?: string; claim_url?: string; verification_code?: string } };
         if (regData.agent?.api_key) {
           moltbookToken = regData.agent.api_key;
-          console.log("Moltbook registration successful!");
-          console.log(`  API Key: ${moltbookToken.slice(0, 16)}...`);
-          if (regData.agent.claim_url) {
-            console.log(`  Claim URL: ${regData.agent.claim_url}`);
-          }
-          console.log("  IMPORTANT: Save this API key to MOLTBOOK_BEARER_TOKEN in .env");
+          bootLog.info("Moltbook registration successful — save this api_key to MOLTBOOK_BEARER_TOKEN in .env", {
+            apiKeyPrefix: moltbookToken.slice(0, 16) + "…",
+            claimUrl: regData.agent.claim_url ?? null,
+          });
         }
       } else {
-        console.warn(`Moltbook registration failed: HTTP ${regResponse.status}`);
+        bootLog.warn("Moltbook registration failed", { status: regResponse.status });
       }
     } catch (error) {
-      console.warn("Moltbook registration failed (non-fatal):", error);
+      bootLog.warn("Moltbook registration failed (non-fatal)", { error });
     }
   }
 
@@ -93,9 +101,9 @@ async function main(): Promise<void> {
   // Initialize submolt
   try {
     await submoltManager.initialize();
-    console.log("Moltbook submolt initialized");
+    bootLog.info("Moltbook submolt initialized");
   } catch (error) {
-    console.warn("Moltbook initialization failed (non-fatal):", error);
+    bootLog.warn("Moltbook initialization failed (non-fatal)", { error });
   }
 
   // --- Initialize Claude Analysis Service ---
@@ -106,15 +114,15 @@ async function main(): Promise<void> {
     try {
       claudeService = new ClaudeAnalysisService({ enabled: true });
       setClaudeAnalysisService(claudeService);
-      console.log("Claude Analysis Service initialized");
-      console.log(`  Model: ${process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514"}`);
-      console.log(`  Thinking Budget: ${process.env.CLAUDE_THINKING_BUDGET || "10000"}`);
-      console.log(`  Extended Thinking: Enabled`);
+      bootLog.info("Claude Analysis Service initialized", {
+        model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
+        thinkingBudget: process.env.CLAUDE_THINKING_BUDGET || "10000",
+      });
     } catch (error) {
-      console.warn("Claude initialization failed (non-fatal):", error);
+      bootLog.warn("Claude initialization failed (non-fatal)", { error });
     }
   } else {
-    console.log("Claude Analysis Service: Disabled (set CLAUDE_ENABLED=true to enable)");
+    bootLog.info("Claude Analysis Service disabled (set CLAUDE_ENABLED=true to enable)");
   }
 
   // --- Initialize Token Manager ---
@@ -131,22 +139,20 @@ async function main(): Promise<void> {
       network: isTestnet ? "testnet" : "mainnet",
       existingTokenAddress: process.env.ARENA_TOKEN_ADDRESS || undefined,
     });
-    console.log("Token Manager initialized");
-
-    if (process.env.ARENA_TOKEN_ADDRESS) {
-      console.log(`  Existing token: ${process.env.ARENA_TOKEN_ADDRESS}`);
-    }
+    bootLog.info("Token Manager initialized", {
+      existingTokenAddress: process.env.ARENA_TOKEN_ADDRESS ?? null,
+    });
   } else {
-    console.log("Token Manager: Disabled (no ARENA_AGENT_PRIVATE_KEY)");
+    bootLog.info("Token Manager disabled (no ARENA_AGENT_PRIVATE_KEY)");
   }
 
   // --- Launch ARENA token if enabled and not already launched ---
   const autoLaunchToken = process.env.AUTO_LAUNCH_TOKEN === "true";
   if (autoLaunchToken && tokenManager && !tokenManager.isLaunched()) {
     try {
-      console.log("Auto-launching ARENA token on nad.fun...");
+      bootLog.info("Auto-launching ARENA token on nad.fun");
       const result = await tokenManager.launchToken();
-      console.log(`ARENA token launched at: ${result.tokenAddress}`);
+      bootLog.info("ARENA token launched", { tokenAddress: result.tokenAddress });
 
       // Post token launch to Moltbook
       publisher.enqueue({
@@ -164,7 +170,7 @@ async function main(): Promise<void> {
         priority: 10,
       });
     } catch (error) {
-      console.error("Token launch failed (non-fatal):", error);
+      bootLog.error("Token launch failed (non-fatal)", { error });
     }
   }
 
@@ -180,44 +186,49 @@ async function main(): Promise<void> {
 
   // --- Set Up Event Listeners ---
   eventListener.watchRegistrations((agent, handle) => {
-    console.log(`[Event] Agent registered: ${handle} (${agent.slice(0, 10)})`);
+    eventLog.info("Agent registered", { agent, handle });
   });
 
   eventListener.watchTournamentJoins((tournamentId, agent) => {
-    console.log(`[Event] Agent joined tournament #${tournamentId}: ${agent.slice(0, 10)}`);
+    eventLog.info("Agent joined tournament", { tournamentId, agent });
     arenaManager.onParticipantJoined(tournamentId, agent);
   });
 
   eventListener.watchMatchCompletions((matchId, winner) => {
-    console.log(`[Event] Match #${matchId} completed. Winner: ${winner.slice(0, 10)}`);
+    eventLog.info("Match completed", { matchId, winner });
   });
 
   eventListener.watchMoveCommitments((matchId, round, player) => {
-    console.log(`[Event] Move committed: Match #${matchId} R${round} by ${player.slice(0, 10)}`);
+    eventLog.debug("Move committed", { matchId, round, player });
   });
 
   // Betting event listeners — persist to SQLite
   const betsMatchStore = getMatchStore();
 
   eventListener.watchBettingOpened((matchId, player1, player2) => {
-    console.log(`[Event] Betting opened: Match #${matchId} (${player1.slice(0, 10)} vs ${player2.slice(0, 10)})`);
+    eventLog.info("Betting opened", { matchId, player1, player2 });
   });
 
   eventListener.watchBetPlaced((matchId, bettor, predictedWinner, amount) => {
-    console.log(`[Event] Bet placed: Match #${matchId} by ${bettor.slice(0, 10)} for ${predictedWinner.slice(0, 10)} (${amount})`);
+    eventLog.info("Bet placed", {
+      matchId,
+      bettor,
+      predictedWinner,
+      amount: amount.toString(),
+    });
     if (betsMatchStore) {
       betsMatchStore.saveBet(matchId, bettor, predictedWinner, amount.toString());
     }
   });
 
   eventListener.watchBetsSettled((matchId, winner) => {
-    console.log(`[Event] Bets settled: Match #${matchId}, winner: ${winner.slice(0, 10)}`);
+    eventLog.info("Bets settled", { matchId, winner });
     if (betsMatchStore) {
       betsMatchStore.settleBets(matchId, winner);
     }
   });
 
-  console.log("Event listeners active");
+  bootLog.info("Event listeners active");
 
   // --- Initialize Autonomous Scheduler (created before API so it's available in GraphQL context) ---
   let scheduler: AutonomousScheduler | undefined;
@@ -237,7 +248,7 @@ async function main(): Promise<void> {
       autoTokenUpdates: process.env.AUTO_TOKEN_UPDATES !== "false",
       autoAgentDiscovery: process.env.AUTO_AGENT_DISCOVERY !== "false",
     });
-    console.log("Autonomous Scheduler initialized");
+    bootLog.info("Autonomous Scheduler initialized");
   } else if (autonomousEnabled && !tokenManager) {
     scheduler = new AutonomousScheduler({
       arenaManager,
@@ -255,9 +266,9 @@ async function main(): Promise<void> {
       autoTokenUpdates: false,
       autoAgentDiscovery: process.env.AUTO_AGENT_DISCOVERY !== "false",
     });
-    console.log("Autonomous Scheduler initialized (without token features)");
+    bootLog.info("Autonomous Scheduler initialized (without token features)");
   } else {
-    console.log("Autonomous Scheduler: Disabled (set AUTONOMOUS_ENABLED=true to enable)");
+    bootLog.info("Autonomous Scheduler disabled (set AUTONOMOUS_ENABLED=true to enable)");
   }
 
   // --- Start API Servers (WebSocket + GraphQL) ---
@@ -272,9 +283,12 @@ async function main(): Promise<void> {
       arenaManager,
       scheduler,
     });
-    console.log("API servers started (WebSocket: 3001, GraphQL: 4000)");
+    bootLog.info("API servers started", {
+      wsPort: Number(process.env.WS_PORT) || 3001,
+      graphqlPort: Number(process.env.GRAPHQL_PORT) || 4000,
+    });
   } catch (error) {
-    console.error("Failed to start API servers:", error);
+    bootLog.error("Failed to start API servers", { error });
   }
 
   // --- Create Initial Tournament If None Exist ---
@@ -287,7 +301,7 @@ async function main(): Promise<void> {
     try {
       const tournamentCount = await contractClient.getTournamentCount();
       if (tournamentCount === 0) {
-        console.log("No tournaments found. Creating initial Genesis tournament (BOOTSTRAP_SEED_TOURNAMENT=true)...");
+        bootLog.info("No tournaments found; creating initial Genesis tournament (BOOTSTRAP_SEED_TOURNAMENT=true)");
 
         const initialConfig: TournamentConfig = {
           name: "ArenaForge Genesis Tournament",
@@ -308,26 +322,25 @@ async function main(): Promise<void> {
         };
 
         await arenaManager.createTournament(initialConfig);
-        console.log("Initial tournament created");
+        bootLog.info("Initial tournament created");
       } else {
-        console.log(`Found ${tournamentCount} existing tournament(s)`);
+        bootLog.info("Found existing tournaments", { count: tournamentCount });
       }
     } catch (error) {
-      console.error("Error checking/creating initial tournament:", error);
+      bootLog.error("Error checking/creating initial tournament", { error });
     }
   } else {
-    console.log("Skipping Genesis tournament bootstrap (set BOOTSTRAP_SEED_TOURNAMENT=true to enable)");
+    bootLog.info("Skipping Genesis tournament bootstrap (set BOOTSTRAP_SEED_TOURNAMENT=true to enable)");
   }
 
   // --- Start Autonomous Scheduler (after API servers are up) ---
   if (scheduler) {
     scheduler.start();
-    console.log("Autonomous Scheduler started");
+    bootLog.info("Autonomous Scheduler started");
   }
 
   // --- Heartbeat Loop ---
-  console.log(`Heartbeat interval: ${HEARTBEAT_INTERVAL / 1000}s`);
-  console.log("=== ArenaForge Agent Running ===\n");
+  bootLog.info("ArenaForge Agent running", { heartbeatIntervalSec: HEARTBEAT_INTERVAL / 1000 });
 
   let tickCount = 0;
   const singleFlight = makeSingleFlight({ tag: "Heartbeat", slowMs: HEARTBEAT_SLOW_TICK_MS });

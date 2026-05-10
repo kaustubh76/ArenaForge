@@ -3,6 +3,9 @@
 import type { Server, Socket } from "socket.io";
 import type { Room, RoomType } from "../../events";
 import { getRoomName } from "../../events";
+import { getLogger } from "../../utils/logger";
+
+const log = getLogger("WSS:rooms");
 
 export interface RoomSubscription {
   type: RoomType;
@@ -26,7 +29,7 @@ export function joinRoom(socket: Socket, room: Room): void {
   }
   socketSubscriptions.get(socket.id)!.add(roomName);
 
-  console.log(`[WebSocket] Socket ${socket.id} joined room: ${roomName}`);
+  log.debug("Socket joined room", { socketId: socket.id, roomName });
 }
 
 /**
@@ -39,7 +42,7 @@ export function leaveRoom(socket: Socket, room: Room): void {
   // Remove from tracking
   socketSubscriptions.get(socket.id)?.delete(roomName);
 
-  console.log(`[WebSocket] Socket ${socket.id} left room: ${roomName}`);
+  log.debug("Socket left room", { socketId: socket.id, roomName });
 }
 
 /**
@@ -54,7 +57,7 @@ export function getSocketRooms(socket: Socket): string[] {
  */
 export function cleanupSocket(socket: Socket): void {
   socketSubscriptions.delete(socket.id);
-  console.log(`[WebSocket] Cleaned up subscriptions for socket ${socket.id}`);
+  log.debug("Cleaned up subscriptions", { socketId: socket.id });
 }
 
 /**

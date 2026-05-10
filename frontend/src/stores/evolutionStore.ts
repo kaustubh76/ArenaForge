@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { EvolutionRecord } from '@/types/arena';
 import { fetchGraphQL } from '@/lib/api';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('evolutionStore');
 
 interface EvolutionState {
   records: EvolutionRecord[];
@@ -101,7 +104,7 @@ export const useEvolutionStore = create<EvolutionState>((set, get) => ({
       set({ loading: false });
       return false;
     } catch (e) {
-      console.error('[evolutionStore] GraphQL fetch failed:', e);
+      log.error('GraphQL fetch failed', { error: e });
       set({ error: e instanceof Error ? e.message : String(e), loading: false });
       return false;
     }

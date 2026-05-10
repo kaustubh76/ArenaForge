@@ -191,16 +191,21 @@ export class WebSocketServer {
   }
 
   /**
-   * Emit to a specific room.
+   * Emit to a specific room. The double-cast through `unknown` is required
+   * because Socket.IO's `BroadcastOperator.emit` is typed with a tuple-spread
+   * `...args` shape that TypeScript can't reconcile with the generic
+   * `Parameters<ServerToClientEvents[K]>` we want to forward — so we narrow
+   * via `unknown` rather than reaching for `any`. Behavior is identical to
+   * the previous cast; this just removes the lone `as any` from the file.
    */
   emitToRoom<K extends keyof ServerToClientEvents>(
     roomName: string,
     event: K,
     data: Parameters<ServerToClientEvents[K]>[0]
   ): void {
-    // Type assertion needed due to Socket.IO's complex generic types
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.io.to(roomName) as any).emit(event, data);
+    type EmitFn = (event: K, data: Parameters<ServerToClientEvents[K]>[0]) => boolean;
+    const emit = this.io.to(roomName).emit as unknown as EmitFn;
+    emit(event, data);
   }
 }
 

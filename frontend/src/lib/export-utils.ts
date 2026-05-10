@@ -1,22 +1,46 @@
 import { AgentProfileExtended, Match, Tournament } from '@/types/arena';
 
 /**
+ * RFC 4180 CSV field escape.
+ *
+ * If a value contains a comma, double-quote, or newline, it must be wrapped
+ * in double quotes; embedded quotes are doubled (`"` -> `""`).
+ *
+ * Without this, exporting any agent / tournament whose name contains `,` or
+ * `"` produced a broken CSV — silent data corruption when an operator
+ * downloaded their data.
+ */
+export function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/** Render a row of fields with proper escaping. */
+function csvRow(fields: unknown[]): string {
+  return fields.map(csvEscape).join(',');
+}
+
+/**
  * Export agent data to CSV format
  */
 export function exportAgentsToCSV(agents: AgentProfileExtended[]): string {
   const headers = ['Handle', 'Address', 'ELO', 'Matches', 'Wins', 'Losses', 'Win Rate', 'Streak'];
-  const rows = agents.map(a => [
+  const rows = agents.map(a => csvRow([
     a.moltbookHandle,
     a.agentAddress,
-    a.elo.toString(),
-    a.matchesPlayed.toString(),
-    a.wins.toString(),
-    a.losses.toString(),
+    a.elo,
+    a.matchesPlayed,
+    a.wins,
+    a.losses,
     a.winRate.toFixed(2) + '%',
-    a.streak.toString(),
-  ]);
+    a.streak,
+  ]));
 
-  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  return [csvRow(headers), ...rows].join('\n');
 }
 
 /**
@@ -43,18 +67,18 @@ export function exportAgentsToJSON(agents: AgentProfileExtended[]): string {
  */
 export function exportMatchesToCSV(matches: Match[]): string {
   const headers = ['Match ID', 'Tournament ID', 'Round', 'Player 1', 'Player 2', 'Winner', 'Status', 'Timestamp'];
-  const rows = matches.map(m => [
-    m.id.toString(),
-    m.tournamentId.toString(),
-    m.round.toString(),
+  const rows = matches.map(m => csvRow([
+    m.id,
+    m.tournamentId,
+    m.round,
     m.player1,
     m.player2,
-    m.winner || 'N/A',
+    m.winner ?? 'N/A',
     ['Scheduled', 'InProgress', 'Completed', 'Disputed'][m.status],
     new Date(m.timestamp * 1000).toISOString(),
-  ]);
+  ]));
 
-  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  return [csvRow(headers), ...rows].join('\n');
 }
 
 /**
@@ -83,9 +107,9 @@ export function exportTournamentsToCSV(tournaments: Tournament[]): string {
   const gameTypes = ['Oracle Duel', 'Strategy Arena', 'Auction Wars', 'Quiz Bowl'];
   const statuses = ['Open', 'Active', 'Completed', 'Cancelled'];
 
-  const rows = tournaments.map(t => [
-    t.id.toString(),
-    `"${t.name}"`,
+  const rows = tournaments.map(t => csvRow([
+    t.id,
+    t.name,
     gameTypes[t.gameType],
     statuses[t.status],
     t.entryStake,
@@ -93,9 +117,9 @@ export function exportTournamentsToCSV(tournaments: Tournament[]): string {
     `${t.currentParticipants}/${t.maxParticipants}`,
     `${t.currentRound}/${t.roundCount}`,
     new Date(t.startTime * 1000).toISOString(),
-  ]);
+  ]));
 
-  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  return [csvRow(headers), ...rows].join('\n');
 }
 
 /**

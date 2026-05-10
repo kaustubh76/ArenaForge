@@ -3,6 +3,9 @@ import type { ClaudeAnalysisService } from "../claude";
 import type { TokenBucketRateLimiter } from "../utils/rate-limiter";
 import { throttledFetch } from "../utils/throttled-fetch";
 import { sanitizeText, sanitizeHandle } from "../utils/sanitize";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("Publisher");
 
 // Rate limits (matching Moltbook API limits)
 const POST_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between posts
@@ -58,11 +61,11 @@ export class MoltbookPublisher {
     try {
       const result = await this.claudeService.generateCommentary(context, data);
       if (result) {
-        console.log(`[Publisher] Generated ${context} commentary (${result.latencyMs}ms)`);
+        log.debug("Generated dynamic commentary", { context, latencyMs: result.latencyMs });
         return result.text;
       }
     } catch (error) {
-      console.warn(`[Publisher] Dynamic commentary generation failed for ${context}:`, error);
+      log.warn("Dynamic commentary generation failed", { context, error });
     }
 
     return null;
@@ -173,7 +176,7 @@ export class MoltbookPublisher {
       this.dailyPostCount++;
       return true;
     } catch (error) {
-      console.error("Failed to publish post:", error);
+      log.error("Failed to publish post", { error });
       // Re-enqueue with lower priority
       post.priority = Math.max(0, post.priority - 1);
       this.queue.push(post);
@@ -207,7 +210,7 @@ export class MoltbookPublisher {
       this.lastCommentTime = now;
       return true;
     } catch (error) {
-      console.error("Failed to post comment:", error);
+      log.error("Failed to post comment", { error });
       return false;
     }
   }

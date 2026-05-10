@@ -11,6 +11,10 @@ import { GameType } from "./game-mode.interface";
 import { keccak256, toBytes } from "viem";
 import { SubmoltManager } from "../moltbook/submolt-manager";
 import { MonadContractClient } from "../monad/contract-client";
+import { getLogger } from "../utils/logger";
+import { shuffle, randomInt } from "../utils/random";
+
+const log = getLogger("QuizBowl");
 
 interface QuizState {
   matchId: number;
@@ -91,8 +95,8 @@ export class QuizBowlEngine implements GameMode {
     if (this.contractClient) {
       try {
         await this.contractClient.initQuizMatch(matchId, players, questionCount, answerTime);
-      } catch (e) {
-        console.warn(`[QuizBowl] On-chain initMatch failed for match #${matchId}:`, e);
+      } catch (error) {
+        log.warn("On-chain initMatch failed", { matchId, error });
       }
     }
   }
@@ -349,7 +353,7 @@ export class QuizBowlEngine implements GameMode {
     // Write question result to on-chain contract
     if (this.contractClient) {
       this.contractClient.resolveQuizQuestion(state.matchId, qIdx, question.correctAnswer)
-        .catch((e) => console.warn(`[QuizBowl] On-chain resolveQuestion failed:`, e));
+        .catch((error) => log.warn("On-chain resolveQuestion failed", { matchId: state.matchId, error }));
     }
 
     // Advance to next question
@@ -404,7 +408,7 @@ export class QuizBowlEngine implements GameMode {
       difficulty: "easy" | "medium" | "hard"
     ): void => {
       const pool = QUESTION_POOL[difficulty];
-      const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
+      const shuffledPool = shuffle(pool);
 
       let added = 0;
       for (const q of shuffledPool) {
@@ -434,9 +438,11 @@ export class QuizBowlEngine implements GameMode {
     generateForDifficulty(mediumCount, "medium");
     generateForDifficulty(hardCount, "hard");
 
-    // Shuffle final question order
+    // Shuffle final question order. Hand-rolled Fisher-Yates here (not the
+    // shared `shuffle()` helper) because we also need to keep each
+    // question's `index` field in sync with its array position post-swap.
     for (let i = questions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = randomInt(0, i);
       [questions[i], questions[j]] = [questions[j], questions[i]];
       questions[i].index = i;
       questions[j].index = j;

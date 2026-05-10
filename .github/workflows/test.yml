@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: typecheck · test · build
+  agent:
+    name: agent · typecheck · test · build
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -57,3 +57,48 @@ jobs:
             exit 1
           fi
           echo "✓ dist/ contains no test files"
+
+  frontend:
+    name: frontend · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      # Same test-quietness flag the agent uses; the frontend logger reads
+      # this via import.meta.env.VITE_LOG_LEVEL only — but the frontend
+      # vitest config already forces silent in test mode.
+      VITE_LOG_LEVEL: "silent"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test -- --reporter=default
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify no test files leaked into dist
+        run: |
+          if find dist -name "*.test.*" 2>/dev/null | grep -q .; then
+            echo "::error::Test files found in frontend/dist/" >&2
+            find dist -name "*.test.*"
+            exit 1
+          fi
+          echo "✓ frontend/dist/ contains no test files"

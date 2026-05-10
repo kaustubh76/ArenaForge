@@ -1,6 +1,9 @@
 // Socket.IO client for real-time updates
 
 import { io, Socket } from "socket.io-client";
+import { getLogger } from "./logger";
+
+const log = getLogger("WS");
 
 // Event types from backend
 export interface MatchStateChangedEvent {
@@ -198,17 +201,17 @@ class WebSocketClient {
     if (!this.socket) return;
 
     this.socket.on("connect", () => {
-      console.log("[WebSocket] Connected");
+      log.info("Connected");
       this.notifyStatusChange("connected");
     });
 
     this.socket.on("disconnect", (reason) => {
-      console.log("[WebSocket] Disconnected:", reason);
+      log.info("Disconnected", { reason });
       this.notifyStatusChange("disconnected");
     });
 
     this.socket.on("connect_error", (error) => {
-      console.error("[WebSocket] Connection error:", error);
+      log.error("Connection error", { error });
       this.notifyStatusChange("error");
     });
 

@@ -7,6 +7,9 @@ import type { MatchStore } from "../persistence/match-store";
 import type { ArenaManager } from "../arena-manager";
 import type { AutonomousScheduler } from "../autonomous/scheduler";
 import { buildCorsOrigin } from "../utils/cors";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("API");
 
 export interface ApiServerConfig {
   wsPort?: number;
@@ -58,7 +61,7 @@ export async function startApiServers(config: ApiServerConfig = {}): Promise<voi
       await wsServer.start(); // no-op, just logs
     }
 
-    console.log(`[API] All servers started on single port ${singlePort}`);
+    log.info("All servers started on single port", { port: singlePort });
   } else {
     // --- Dual-port mode (development) ---
     const wsServer = getWebSocketServer({
@@ -79,7 +82,10 @@ export async function startApiServers(config: ApiServerConfig = {}): Promise<voi
       await graphqlServer.start();
     }
 
-    console.log("[API] All servers started");
+    log.info("All servers started", {
+      wsPort: mergedConfig.wsPort,
+      graphqlPort: mergedConfig.graphqlPort,
+    });
   }
 }
 
@@ -90,7 +96,7 @@ export async function stopApiServers(): Promise<void> {
   await stopWebSocketServer();
   await stopGraphQLServer();
 
-  console.log("[API] All servers stopped");
+  log.info("All servers stopped");
 }
 
 // Re-export submodules

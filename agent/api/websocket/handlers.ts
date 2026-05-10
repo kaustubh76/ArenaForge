@@ -6,6 +6,9 @@ import { joinRoom, leaveRoom, cleanupSocket, getSocketRooms } from "./rooms";
 import { setupChatHandler, cleanupChatRateLimit, type ChatMessage } from "./chat";
 import { createRateLimiter } from "../../utils/rate-limiter";
 import { normalizeAddress } from "../../utils/normalize";
+import { getLogger } from "../../utils/logger";
+
+const log = getLogger("WSS:handlers");
 
 export interface ClientToServerEvents {
   "join:tournament": (tournamentId: number) => void;
@@ -84,7 +87,7 @@ export function setupSocketHandlers(
   // Auto-join global room
   joinRoom(socket, { type: "global" });
 
-  console.log(`[WebSocket] Client connected: ${socket.id}`);
+  log.debug("Client connected", { socketId: socket.id });
 
   // --- Tournament subscriptions ---
 
@@ -162,7 +165,7 @@ export function setupSocketHandlers(
   // --- Disconnect handler ---
 
   socket.on("disconnect", (reason: string) => {
-    console.log(`[WebSocket] Client disconnected: ${socket.id} (${reason})`);
+    log.debug("Client disconnected", { socketId: socket.id, reason });
     cleanupChatRateLimit(socket.id);
     roomEventLimiter.reset(socket.id);
     cleanupSocket(socket);

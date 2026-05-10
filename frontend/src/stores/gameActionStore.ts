@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { StrategyMove } from '@/types/arena';
 import { GameContracts, getClient } from '@/lib/contracts';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('gameAction');
 
 interface GameActionState {
   // Pending actions before submission
@@ -196,7 +199,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
         account,
       });
 
-      console.log(`[Chain] Move committed for match ${matchId}, tx: ${hash}`);
+      log.info('Move committed', { matchId, txHash: hash });
 
       // Record successful submission
       recordSubmission(matchId, 'move', hash);
@@ -204,7 +207,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, pendingMove: null, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.debug('[gameActionStore] submitMove failed:', error);
+      log.debug('submitMove failed', { error });
       // Clear submission record on failure to allow retry
       clearSubmission(matchId, 'move');
       set({
@@ -269,7 +272,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
         account,
       });
 
-      console.log(`[Chain] Bids submitted for match ${matchId}, tx: ${hash}`);
+      log.info('Bids submitted', { matchId, txHash: hash });
 
       // Record successful submission
       recordSubmission(matchId, 'bids', hash);
@@ -277,7 +280,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, pendingBids: {}, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.debug('[gameActionStore] submitBids failed:', error);
+      log.debug('submitBids failed', { error });
       clearSubmission(matchId, 'bids');
       set({
         submitting: false,
@@ -345,7 +348,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
         account,
       });
 
-      console.log(`[Chain] Answer submitted for match ${matchId}, tx: ${hash}`);
+      log.info('Answer submitted', { matchId, txHash: hash });
 
       // Record successful submission for this question
       recordSubmission(matchId, `answer_${questionIndex}`, hash);
@@ -353,7 +356,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.debug('[gameActionStore] submitAnswer failed:', error);
+      log.debug('submitAnswer failed', { error });
       set({
         submitting: false,
         submitError: error instanceof Error ? error.message : 'Submission failed',
@@ -399,7 +402,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
         account,
       });
 
-      console.log(`[Chain] Prediction submitted for match ${matchId}, tx: ${hash}`);
+      log.info('Prediction submitted', { matchId, txHash: hash });
 
       // Record successful submission
       recordSubmission(matchId, 'prediction', hash);
@@ -407,7 +410,7 @@ export const useGameActionStore = create<GameActionState>((set, get) => ({
       set({ submitting: false, lastSubmitSuccess: true });
       return true;
     } catch (error) {
-      console.debug('[gameActionStore] submitPrediction failed:', error);
+      log.debug('submitPrediction failed', { error });
       clearSubmission(matchId, 'prediction');
       set({
         submitting: false,

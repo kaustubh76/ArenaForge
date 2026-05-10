@@ -2,6 +2,9 @@
 
 import { PubSub } from "graphql-subscriptions";
 import type { EventBroadcaster, BroadcastEventName } from "../../events";
+import { getLogger } from "../../utils/logger";
+
+const log = getLogger("Subscriptions");
 
 // PubSub instance for GraphQL subscriptions
 export const pubsub = new PubSub();
@@ -218,7 +221,7 @@ export function bridgeBroadcasterToSubscriptions(broadcaster: EventBroadcaster):
     });
   });
 
-  console.log("[GraphQL] Subscriptions bridged to EventBroadcaster");
+  log.info("Subscriptions bridged to EventBroadcaster");
 }
 
 // Subscription resolvers

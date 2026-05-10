@@ -10,6 +10,7 @@ import {
 import { getEventBroadcaster } from "../events";
 import { normalizeAddress } from "../utils/normalize";
 import { getLogger } from "../utils/logger";
+import { pickOne } from "../utils/random";
 
 const log = getLogger("A2A");
 
@@ -148,7 +149,7 @@ export class A2ACoordinator {
     for (let i = 0; i < Math.min(agents.length, 3); i++) {
       const target = agents[i];
       if (target.address.toLowerCase() === ourAddr.toLowerCase()) continue;
-      const taunt = TAUNTS[Math.floor(Math.random() * TAUNTS.length)];
+      const taunt = pickOne(TAUNTS) ?? "";
       this.sendMessage(ourAddr, target.address, "TAUNT", JSON.stringify({ message: taunt }));
     }
 
@@ -620,19 +621,20 @@ export class A2ACoordinator {
       );
 
       if (candidates.length > 0) {
-        const target = candidates[Math.floor(Math.random() * candidates.length)];
+        const target = pickOne(candidates);
         const gameTypes = [
           GameType.StrategyArena,
           GameType.OracleDuel,
           GameType.AuctionWars,
           GameType.QuizBowl,
         ];
-        const gameType = gameTypes[Math.floor(Math.random() * gameTypes.length)];
+        const gameType = pickOne(gameTypes) ?? GameType.StrategyArena;
+        if (!target) return;
 
         this.sendChallenge(ourAddr, target.address, gameType, "0.1");
 
         // Send a taunt
-        const taunt = TAUNTS[Math.floor(Math.random() * TAUNTS.length)];
+        const taunt = pickOne(TAUNTS) ?? "";
         this.sendMessage(ourAddr, target.address, "TAUNT", JSON.stringify({ message: taunt }));
 
         // Post to Moltbook

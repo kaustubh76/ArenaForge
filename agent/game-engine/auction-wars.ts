@@ -13,6 +13,10 @@ import { GameType } from "./game-mode.interface";
 import { NadFunClient } from "../monad/nadfun-client";
 import { MonadContractClient } from "../monad/contract-client";
 import { keccak256, toBytes, encodePacked } from "viem";
+import { getLogger } from "../utils/logger";
+import { shuffle, randomId } from "../utils/random";
+
+const log = getLogger("AuctionWars");
 
 interface AuctionRound {
   roundNumber: number;
@@ -61,8 +65,16 @@ export class AuctionWarsEngine implements GameMode {
 
     const totalRounds = params.auctionBoxCount ?? 3;
 
-    // Generate the first mystery box
+    // Generate the first mystery box. If NadFun can't supply a real token
+    // we abort match creation rather than fabricate fake game state — the
+    // outer caller (arena-manager.createMatch) is wrapped in withRetry +
+    // try/catch, so this match gets skipped and the tournament moves on.
     const box = await this.generateMysteryBox(params);
+    if (!box) {
+      throw new Error(
+        `AuctionWars initMatch aborted for match #${matchId}: no real NadFun token available. Match will be skipped.`,
+      );
+    }
 
     const biddingDuration = params.auctionBiddingDuration ?? 60;
     const now = Math.floor(Date.now() / 1000);
@@ -103,8 +115,8 @@ export class AuctionWarsEngine implements GameMode {
     if (this.contractClient) {
       try {
         await this.contractClient.initAuctionMatch(matchId, players, totalRounds);
-      } catch (e) {
-        console.warn(`[AuctionWars] On-chain initMatch failed for match #${matchId}:`, e);
+      } catch (error) {
+        log.warn("On-chain initMatch failed", { matchId, error });
       }
     }
   }
@@ -340,7 +352,7 @@ export class AuctionWarsEngine implements GameMode {
     // Write round result to on-chain contract
     if (this.contractClient) {
       this.contractClient.resolveAuctionRound(state.matchId, round.roundNumber, actualValue)
-        .catch((e) => console.warn(`[AuctionWars] On-chain resolveAuction failed:`, e));
+        .catch((error) => log.warn("On-chain resolveAuction failed", { matchId: state.matchId, error }));
     }
 
     // Advance to next round
@@ -354,6 +366,31 @@ export class AuctionWarsEngine implements GameMode {
 
   private async startNextRound(state: AuctionState): Promise<void> {
     const box = await this.generateMysteryBox(state.params);
+    if (!box) {
+      // No real token available for this round. Mark the match completed
+      // with the current leader rather than fabricating game state.
+      log.warn("Cannot start next auction round: no real token; ending match early", {
+        matchId: state.matchId,
+        currentRound: state.currentRound,
+      });
+      state.completed = true;
+      // Resolve winner from cumulative scores; if tied, leave winner null.
+      let topScore = -Infinity;
+      let topPlayer: string | null = null;
+      let tied = false;
+      for (const [player, score] of state.totalScores) {
+        if (score > topScore) {
+          topScore = score;
+          topPlayer = player;
+          tied = false;
+        } else if (score === topScore) {
+          tied = true;
+        }
+      }
+      state.winner = tied ? null : topPlayer;
+      return;
+    }
+
     const biddingDuration = state.params.auctionBiddingDuration ?? 60;
     const now = Math.floor(Date.now() / 1000);
 
@@ -371,84 +408,63 @@ export class AuctionWarsEngine implements GameMode {
     });
   }
 
-  private async generateMysteryBox(params: GameParameters): Promise<MysteryBox> {
+  /**
+   * Build a mystery box from a real on-chain token. Returns `null` if
+   * NadFun can't supply a token after one retry — in that case the caller
+   * MUST refuse to start the auction round. We never fabricate game state:
+   * a previous version of this method synthesized a fake box (timestamp-
+   * derived value, `synthetic-fallback` hint, sentinel address `0x...0001`)
+   * which players bid against thinking it was real. That mock is gone.
+   */
+  private async generateMysteryBox(params: GameParameters): Promise<MysteryBox | null> {
     const hintCount = params.auctionHintCount ?? 2;
 
-    // Try to get a real token for the box
+    // First attempt.
     let token: TokenInfo | null = null;
     try {
       token = await this.nadFunClient.getRandomActiveToken();
-    } catch {
-      // Fallback to synthetic box
+    } catch (error) {
+      log.warn("NadFun getRandomActiveToken failed (1st attempt)", { error });
     }
 
-    const hints: BoxHint[] = [];
-    if (token) {
-      // Generate hints from real token data
-      const possibleHints: BoxHint[] = [
-        { type: "category", value: token.graduated ? "graduated" : "bonding_curve" },
-        {
-          type: "marketCapRange",
-          value: categorizeMarketCap(token.marketCap),
-        },
-        {
-          type: "tradeCount",
-          value: token.volume24h > BigInt(100e18) ? "high_volume" : "low_volume",
-        },
-        {
-          type: "age",
-          value: categorizeAge(token.lastTradeTimestamp),
-        },
-      ];
-
-      // Select random hints up to hintCount
-      const shuffled = possibleHints.sort(() => Math.random() - 0.5);
-      for (let i = 0; i < Math.min(hintCount, shuffled.length); i++) {
-        hints.push(shuffled[i]);
+    // One retry — covers transient RPC blips. If both fail we give up
+    // honestly rather than fabricate.
+    if (!token) {
+      log.warn("Primary token lookup yielded no token; retrying NadFun");
+      try {
+        token = await this.nadFunClient.getRandomActiveToken();
+      } catch (error) {
+        log.warn("NadFun getRandomActiveToken failed (retry)", { error });
       }
-
-      return {
-        id: `box-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        tokenAddress: token.address,
-        positionValue: token.price,
-        hints,
-        createdAt: Math.floor(Date.now() / 1000),
-      };
     }
 
-    // Fallback: retry NadFun token fetch before using synthetic
-    console.warn("[AuctionWars] Primary token lookup failed, retrying NadFun...");
-    try {
-      const retryToken = await this.nadFunClient.getRandomActiveToken();
-      if (retryToken) {
-        hints.push({ type: "category", value: retryToken.graduated ? "graduated" : "bonding_curve" });
-        hints.push({ type: "marketCapRange", value: categorizeMarketCap(retryToken.marketCap) });
-        return {
-          id: `box-${Date.now()}-${retryToken.address.slice(2, 10)}`,
-          tokenAddress: retryToken.address,
-          positionValue: retryToken.price,
-          hints,
-          createdAt: Math.floor(Date.now() / 1000),
-        };
-      }
-    } catch {
-      // Retry also failed
+    if (!token) {
+      log.error(
+        "No real token available from NadFun for AuctionWars box; refusing to fabricate. Caller will skip this match.",
+      );
+      return null;
     }
 
-    // Last resort: use a deterministic value based on timestamp (no random)
-    // This ensures reproducible results for the game round
-    const timestamp = Math.floor(Date.now() / 1000);
-    const deterministicValue = BigInt((timestamp % 100) + 1) * BigInt(1e18);
-    console.warn(`[AuctionWars] Using deterministic fallback value: ${deterministicValue / BigInt(1e18)} ETH`);
-    hints.push({ type: "category", value: "synthetic-fallback" });
-    hints.push({ type: "marketCapRange", value: "unknown" });
+    const possibleHints: BoxHint[] = [
+      { type: "category", value: token.graduated ? "graduated" : "bonding_curve" },
+      { type: "marketCapRange", value: categorizeMarketCap(token.marketCap) },
+      {
+        type: "tradeCount",
+        value: token.volume24h > BigInt(100e18) ? "high_volume" : "low_volume",
+      },
+      { type: "age", value: categorizeAge(token.lastTradeTimestamp) },
+    ];
+
+    // Select random hints up to hintCount (uniform via Fisher-Yates).
+    const shuffled = shuffle(possibleHints);
+    const hints = shuffled.slice(0, Math.min(hintCount, shuffled.length));
 
     return {
-      id: `box-${timestamp}-fallback`,
-      tokenAddress: "0x0000000000000000000000000000000000000001",
-      positionValue: deterministicValue,
+      id: randomId(`box-${Date.now()}`),
+      tokenAddress: token.address,
+      positionValue: token.price,
       hints,
-      createdAt: timestamp,
+      createdAt: Math.floor(Date.now() / 1000),
     };
   }
 }

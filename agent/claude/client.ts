@@ -1,4 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { getLogger } from "../utils/logger";
+
+const log = getLogger("Claude");
 
 export interface ClaudeConfig {
   apiKey: string;
@@ -111,10 +114,7 @@ export class ClaudeClient {
 
         if (isRetryableError(error) && attempt < this.config.retryAttempts) {
           const delay = this.config.retryDelayMs * Math.pow(2, attempt);
-          console.warn(
-            `[Claude] Request failed (attempt ${attempt + 1}), retrying in ${delay}ms:`,
-            error instanceof Error ? error.message : error
-          );
+          log.warn("Request failed; retrying", { attempt: attempt + 1, delayMs: delay, error });
           await sleep(delay);
           continue;
         }

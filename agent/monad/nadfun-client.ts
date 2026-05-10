@@ -1,6 +1,10 @@
 import type { TokenInfo } from "../game-engine/game-mode.interface";
 import { TokenBucketRateLimiter } from "../utils/rate-limiter";
 import { throttledFetch } from "../utils/throttled-fetch";
+import { getLogger } from "../utils/logger";
+import { pickOne } from "../utils/random";
+
+const log = getLogger("NadFun");
 
 export class NadFunClient {
   private baseUrl: string;
@@ -32,7 +36,7 @@ export class NadFunClient {
       const data = await response.json() as Record<string, unknown>;
       return BigInt((data.price as string) || "0");
     } catch (error) {
-      console.error(`Failed to get token price for ${tokenAddress}:`, error);
+      log.error("Failed to get token price", { tokenAddress, error });
       return BigInt(0);
     }
   }
@@ -48,7 +52,7 @@ export class NadFunClient {
       const data = await response.json() as Record<string, unknown>;
       return ((data.tokens || []) as Record<string, unknown>[]).map(this.mapToken);
     } catch (error) {
-      console.error("Failed to get active tokens:", error);
+      log.error("Failed to get active tokens", { error });
       return [];
     }
   }
@@ -68,7 +72,7 @@ export class NadFunClient {
     );
 
     if (eligible.length === 0) return null;
-    return eligible[Math.floor(Math.random() * eligible.length)];
+    return pickOne(eligible) ?? null;
   }
 
   async getTokensByVolume(limit: number = 20): Promise<TokenInfo[]> {
@@ -82,7 +86,7 @@ export class NadFunClient {
       const data = await response.json() as Record<string, unknown>;
       return ((data.tokens || []) as Record<string, unknown>[]).map(this.mapToken);
     } catch (error) {
-      console.error("Failed to get tokens by volume:", error);
+      log.error("Failed to get tokens by volume", { error });
       return [];
     }
   }

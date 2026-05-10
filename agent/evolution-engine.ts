@@ -8,6 +8,9 @@ import type {
 } from "./game-engine/game-mode.interface";
 import { GameType as GT, StrategyMove } from "./game-engine/game-mode.interface";
 import { keccak256, toBytes } from "viem";
+import { getLogger } from "./utils/logger";
+
+const log = getLogger("Evolution");
 import type { ClaudeAnalysisService } from "./claude";
 
 export interface EvolutionEngineConfig {
@@ -119,16 +122,17 @@ export class EvolutionEngine {
         );
 
         if (analysis && analysis.mutations.length > 0) {
-          console.log(
-            `[Evolution] Claude analysis (confidence: ${analysis.confidence.toFixed(2)}): ${analysis.reasoning}`
-          );
+          log.info("Claude analysis applied", {
+            confidence: analysis.confidence,
+            reasoning: analysis.reasoning,
+          });
           if (analysis.thinkingLog) {
-            console.log(`[Evolution] Thinking preview: ${analysis.thinkingLog.slice(0, 200)}...`);
+            log.debug("Claude thinking preview", { preview: analysis.thinkingLog.slice(0, 200) });
           }
           return analysis.mutations;
         }
       } catch (error) {
-        console.warn("[Evolution] Claude analysis failed, falling back to rules:", error);
+        log.warn("Claude analysis failed; falling back to rules", { error });
       }
     }
 

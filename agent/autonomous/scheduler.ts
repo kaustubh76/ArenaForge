@@ -12,6 +12,7 @@ import type { MatchStore } from "../persistence/match-store";
 import { A2ACoordinator } from "./a2a-coordinator";
 import { normalizeAddress } from "../utils/normalize";
 import { getLogger } from "../utils/logger";
+import { pickOne } from "../utils/random";
 
 const log = getLogger("Scheduler");
 
@@ -265,7 +266,7 @@ export class AutonomousScheduler {
         FORMAT_ROTATION[this.formatIndex % FORMAT_ROTATION.length];
 
       const names = TOURNAMENT_NAMES[gameType];
-      const name = names[Math.floor(Math.random() * names.length)];
+      const name = pickOne(names) ?? "Tournament";
 
       const config: TournamentConfig = {
         name: `${name} #${this.tickCount}`,

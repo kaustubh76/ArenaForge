@@ -12,6 +12,9 @@ import {
 } from '@/lib/contracts';
 import { indexedDBStorage, isCacheFresh, isOnline } from '@/lib/indexeddb-storage';
 import { fetchGraphQL } from '@/lib/api';
+import { getLogger } from '@/lib/logger';
+
+const log = getLogger('arenaStore');
 
 // =========================================================================
 // Format-Specific Data Builders
@@ -399,7 +402,7 @@ export const useArenaStore = create<ArenaState>()(
 
           return false;
         } catch (e) {
-          console.debug('[arenaStore] GraphQL fetch failed:', e);
+          log.debug('GraphQL fetch failed', { error: e });
           return false;
         }
       },
@@ -410,7 +413,7 @@ export const useArenaStore = create<ArenaState>()(
         // If offline, use cached data if available
         if (isOffline) {
           if (tournaments.length > 0) {
-            console.log('[arenaStore] Offline - using cached data');
+            log.info('Offline - using cached data');
             set({ usingCachedData: true, loading: false });
             return true;
           }
@@ -420,7 +423,7 @@ export const useArenaStore = create<ArenaState>()(
 
         // If cache is fresh and not forcing refresh, skip network call
         if (!forceRefresh && isCacheFresh(lastFetchTimestamp ?? undefined) && tournaments.length > 0) {
-          console.log('[arenaStore] Using fresh cached data');
+          log.debug('Using fresh cached data');
           set({ usingCachedData: true });
           return true;
         }
@@ -579,10 +582,10 @@ export const useArenaStore = create<ArenaState>()(
           });
           return true;
         } catch (e) {
-          console.error('[arenaStore] Chain fetch failed:', e);
+          log.error('Chain fetch failed', { error: e });
           // If fetch fails but we have cached data, use it
           if (tournaments.length > 0) {
-            console.log('[arenaStore] Network error - falling back to cached data');
+            log.info('Network error - falling back to cached data');
             set({ error: String(e), loading: false, usingCachedData: true });
             return true;
           }
