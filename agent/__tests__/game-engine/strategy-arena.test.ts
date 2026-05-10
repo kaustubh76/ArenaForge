@@ -113,11 +113,84 @@ describe("StrategyArenaEngine — on-chain initialisation (slice fix)", () => {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const e = new StrategyArenaEngine(stubClient as any);
-    // The whole initMatch should still resolve — the engine logs but doesn't
-    // propagate the error, so a tournament with a misconfigured wallet still
-    // gets in-memory state initialised (matching auction-wars / quiz-bowl).
     await expect(
       e.initMatch(1, ["0x" + "1".repeat(40), "0x" + "2".repeat(40)], {})
     ).resolves.toBeUndefined();
+  });
+
+  it("isResolvable reads on-chain round state when both players revealed there", async () => {
+    // Setup: engine doesn't know players revealed (in-memory flags false),
+    // but on-chain says both did. Patched isResolvable should sync and
+    // return true.
+    let getCount = 0;
+    const stubClient = {
+      initStrategyMatch: async () => undefined,
+      getStrategyRound: async () => {
+        getCount++;
+        return {
+          player1Commitment: ("0x" + "11".repeat(32)) as `0x${string}`,
+          player2Commitment: ("0x" + "22".repeat(32)) as `0x${string}`,
+          player1Move: 1, player2Move: 2,
+          player1Revealed: true, player2Revealed: true,
+          resolved: false,
+        };
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = new StrategyArenaEngine(stubClient as any);
+    await e.initMatch(7, ["0x" + "1".repeat(40), "0x" + "2".repeat(40)], {});
+    const result = await e.isResolvable(7);
+    expect(result).toBe(true);
+    expect(getCount).toBe(1);
+  });
+
+  it("isResolvable returns false when on-chain shows nobody revealed", async () => {
+    const stubClient = {
+      initStrategyMatch: async () => undefined,
+      getStrategyRound: async () => ({
+        player1Commitment: ("0x" + "00".repeat(32)) as `0x${string}`,
+        player2Commitment: ("0x" + "00".repeat(32)) as `0x${string}`,
+        player1Move: 0, player2Move: 0,
+        player1Revealed: false, player2Revealed: false,
+        resolved: false,
+      }),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = new StrategyArenaEngine(stubClient as any);
+    await e.initMatch(8, ["0x" + "1".repeat(40), "0x" + "2".repeat(40)], {});
+    const result = await e.isResolvable(8);
+    expect(result).toBe(false);
+  });
+
+  it("resolve() uses on-chain resolveStrategyRound when both players revealed", async () => {
+    let resolveCount = 0;
+    const stubClient = {
+      initStrategyMatch: async () => undefined,
+      getStrategyRound: async () => ({
+        player1Commitment: ("0x" + "11".repeat(32)) as `0x${string}`,
+        player2Commitment: ("0x" + "22".repeat(32)) as `0x${string}`,
+        player1Move: 1, // Cooperate
+        player2Move: 2, // Defect
+        player1Revealed: true, player2Revealed: true,
+        resolved: false,
+      }),
+      resolveStrategyRound: async () => {
+        resolveCount++;
+        // Cooperate vs Defect: p1=0, p2=10000
+        return { player1Score: 0n, player2Score: 10000n };
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = new StrategyArenaEngine(stubClient as any);
+    const p1Addr = "0x" + "1".repeat(40);
+    const p2Addr = "0x" + "2".repeat(40);
+    await e.initMatch(9, [p1Addr, p2Addr], { strategyRoundCount: 1 });
+    const outcome = await e.resolve(9);
+    expect(resolveCount).toBe(1);
+    // After 1 round with totalRounds=1, the engine's "all rounds done"
+    // path picks p2 as winner (higher payoff).
+    expect(outcome.winner?.toLowerCase()).toBe(p2Addr.toLowerCase());
+    expect(outcome.scores.get(p1Addr)).toBe(0);
+    expect(outcome.scores.get(p2Addr)).toBe(10000);
   });
 });

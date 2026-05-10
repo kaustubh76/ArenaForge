@@ -73,6 +73,7 @@ const StrategyArenaAbi: Abi = [
   { type: "function", name: "advanceRound", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "commitTimeout", type: "uint256" }, { name: "revealTimeout", type: "uint256" }], outputs: [] },
   { type: "function", name: "forfeitRound", stateMutability: "nonpayable", inputs: [{ name: "matchId", type: "uint256" }, { name: "forfeiter", type: "address" }], outputs: [] },
   { type: "function", name: "getMatchState", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "tuple", components: [{ name: "player1", type: "address" }, { name: "player2", type: "address" }, { name: "totalRounds", type: "uint256" }, { name: "currentRound", type: "uint256" }, { name: "player1Score", type: "uint256" }, { name: "player2Score", type: "uint256" }, { name: "commitDeadline", type: "uint256" }, { name: "revealDeadline", type: "uint256" }, { name: "initialized", type: "bool" }] }] },
+  { type: "function", name: "getRound", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "roundNum", type: "uint256" }], outputs: [{ name: "", type: "tuple", components: [{ name: "player1Commitment", type: "bytes32" }, { name: "player2Commitment", type: "bytes32" }, { name: "player1Move", type: "uint8" }, { name: "player2Move", type: "uint8" }, { name: "player1Revealed", type: "bool" }, { name: "player2Revealed", type: "bool" }, { name: "resolved", type: "bool" }] }] },
   { type: "event", name: "MoveCommitted", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }] },
   { type: "event", name: "MoveRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }, { name: "move", type: "uint8", indexed: false }] },
 ];
@@ -384,6 +385,64 @@ export class MonadContractClient {
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new Error(`initStrategyMatch tx failed: ${hash}`);
     log.info("Initialized StrategyArena match", { matchId });
+  }
+
+  /**
+   * Read the per-round commit/reveal/resolved state from StrategyArena.
+   * Returns null if the match isn't initialised on-chain or the read fails.
+   *
+   * Used by the engine to detect when both players have revealed on-chain
+   * (the realistic path when players act directly on the contract rather
+   * than via the backend's WebSocket-driven processAction).
+   */
+  async getStrategyRound(matchId: number, roundNum: number): Promise<{
+    player1Commitment: `0x${string}`;
+    player2Commitment: `0x${string}`;
+    player1Move: number;
+    player2Move: number;
+    player1Revealed: boolean;
+    player2Revealed: boolean;
+    resolved: boolean;
+  } | null> {
+    try {
+      const result = await this.strategyArena.read.getRound([
+        BigInt(matchId), BigInt(roundNum),
+      ]) as {
+        player1Commitment: `0x${string}`;
+        player2Commitment: `0x${string}`;
+        player1Move: number;
+        player2Move: number;
+        player1Revealed: boolean;
+        player2Revealed: boolean;
+        resolved: boolean;
+      };
+      return result;
+    } catch (error) {
+      log.warn("getStrategyRound failed", { matchId, roundNum, error });
+      return null;
+    }
+  }
+
+  /**
+   * Call StrategyArena.resolveRound on-chain. Only the arenaAgent can do this.
+   * The contract reads the revealed moves, computes payoffs from the on-chain
+   * payoff matrix, and updates per-player scores in the MatchState. Returns
+   * the resulting (player1Score, player2Score) so the engine can determine
+   * the round winner without re-running the calculation in TypeScript.
+   */
+  async resolveStrategyRound(matchId: number): Promise<{ player1Score: bigint; player2Score: bigint } | null> {
+    try {
+      const hash = await this.strategyArena.write.resolveRound([BigInt(matchId)]);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== "success") throw new Error(`resolveRound tx failed: ${hash}`);
+      const state = await this.getStrategyMatchState(matchId);
+      if (!state) return null;
+      log.info("Resolved StrategyArena round", { matchId, p1Score: String(state.player1Score), p2Score: String(state.player2Score) });
+      return { player1Score: state.player1Score, player2Score: state.player2Score };
+    } catch (error) {
+      log.warn("resolveStrategyRound failed", { matchId, error });
+      return null;
+    }
   }
 
   // --- AuctionWars Write ---

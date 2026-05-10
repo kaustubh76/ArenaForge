@@ -462,6 +462,49 @@ async function runStrategyArena(players: Player[], stake: bigint): Promise<bigin
 }
 
 // =========================================================================
+// PHASE B (minimal): StrategyArena tournament with 2 players, 1 match
+// =========================================================================
+
+async function runStrategyArenaMinimal(players: Player[], stake: bigint): Promise<bigint> {
+  console.log("\n--- Phase B (minimal): StrategyArena 2-player Tournament ---");
+  if (players.length < 2) throw new Error("minimal Strategy needs 2 players");
+  const [p1, p2] = players;
+  const stakeStr = formatEther(stake);
+  const tid = await gqlCreateTournament({
+    name: `Min Strategy ${Date.now() % 10000}`,
+    gameType: "STRATEGY_ARENA", format: "SINGLE_ELIMINATION",
+    entryStake: stakeStr, maxParticipants: 2, roundCount: 1,
+  });
+  console.log(`  Tournament ID: ${tid}`);
+
+  await joinTournament(p1, tid, stake);
+  console.log(`  ${p1.handle} joined`);
+  await joinTournament(p2, tid, stake);
+  console.log(`  ${p2.handle} joined`);
+
+  console.log(`  Waiting for backend to auto-start + create match on-chain...`);
+  const matches = await pollOnChainMatchesForTournament(tid, 1);
+  console.log(`  Backend created ${matches.length} on-chain match`);
+
+  const m = matches[0];
+  const driveP1 = players.find(p => p.account.address.toLowerCase() === m.player1.toLowerCase());
+  const driveP2 = players.find(p => p.account.address.toLowerCase() === m.player2.toLowerCase());
+  if (!driveP1 || !driveP2) {
+    throw new Error(`could not match players for match ${m.id} (p1=${m.player1}, p2=${m.player2})`);
+  }
+  console.log(`  Match #${m.id}: ${driveP1.handle} vs ${driveP2.handle}`);
+  try {
+    await driveStrategyMatch(m.id, driveP1, driveP2);
+    console.log(`    Waiting for backend to resolve + record...`);
+    await pollForMatchCompletion(m.id, 240000);
+    console.log(`    Match #${m.id} completed`);
+  } catch (e: unknown) {
+    console.log(`    Drive failed: ${(e as Error).message?.slice(0, 200)}`);
+  }
+  return tid;
+}
+
+// =========================================================================
 // PHASE C: Oracle Duel (no player action needed — backend handles snapshot/resolve)
 // =========================================================================
 
@@ -738,36 +781,55 @@ async function runTokenBuy(): Promise<void> {
 // =========================================================================
 
 async function main(): Promise<void> {
+  // MINIMAL mode: run only one Strategy tournament (2 players, no bettors,
+  // no Auction/Quiz/Oracle). Use when the seed wallet is low on MON, e.g.
+  // when the Monad faucet has rate-limited recent top-up attempts. Total
+  // budget needed: ~1.2 MON instead of 5.2 MON for the full run.
+  const minimal = process.env.MINIMAL === "true";
+
   const seedBalance = await publicClient.getBalance({ address: seedAccount.address });
   console.log(`Seed wallet: ${seedAccount.address}`);
   console.log(`Balance: ${formatEther(seedBalance)} MON`);
   console.log(`GraphQL: ${graphqlUrl}`);
+  console.log(`Mode: ${minimal ? "MINIMAL (1 Strategy tournament + A2A only)" : "FULL (4 game types + bets + A2A)"}`);
 
-  // Need ~4.6 MON for funding the 6 ephemeral wallets + ~0.5 MON seed-wallet
-  // gas overhead = 5.1 MON minimum. Be slightly generous.
-  if (seedBalance < parseEther("5.2")) {
-    console.error(`Need at least 5.2 MON. Have ${formatEther(seedBalance)}.`);
+  const requiredBalance = minimal ? "1.2" : "5.2";
+  if (seedBalance < parseEther(requiredBalance)) {
+    console.error(`Need at least ${requiredBalance} MON. Have ${formatEther(seedBalance)}.`);
     console.error(`Top up the seed wallet (${seedAccount.address}) and re-run.`);
+    if (!minimal) {
+      console.error(`(or set MINIMAL=true to run a smaller seeding pass that needs only 1.2 MON)`);
+    }
     process.exit(1);
   }
 
   const stake = parseEther("0.005");
 
-  // === Phase A: Make 4 player wallets + 2 bettors ===
+  // === Phase A: Make wallets ===
   console.log("\n--- Phase A: Ephemeral Wallets ---");
-  const players = [
-    makePlayer(`SeedAlpha_${Date.now() % 10000}`),
-    makePlayer(`SeedBeta_${Date.now() % 10000 + 1}`),
-    makePlayer(`SeedGamma_${Date.now() % 10000 + 2}`),
-    makePlayer(`SeedDelta_${Date.now() % 10000 + 3}`),
-  ];
-  const bettors = [
-    makePlayer(`SeedBettor1_${Date.now() % 10000 + 4}`),
-    makePlayer(`SeedBettor2_${Date.now() % 10000 + 5}`),
-  ];
+  const players = minimal
+    ? [
+        makePlayer(`MinAlpha_${Date.now() % 10000}`),
+        makePlayer(`MinBeta_${Date.now() % 10000 + 1}`),
+      ]
+    : [
+        makePlayer(`SeedAlpha_${Date.now() % 10000}`),
+        makePlayer(`SeedBeta_${Date.now() % 10000 + 1}`),
+        makePlayer(`SeedGamma_${Date.now() % 10000 + 2}`),
+        makePlayer(`SeedDelta_${Date.now() % 10000 + 3}`),
+      ];
+  const bettors = minimal
+    ? []
+    : [
+        makePlayer(`SeedBettor1_${Date.now() % 10000 + 4}`),
+        makePlayer(`SeedBettor2_${Date.now() % 10000 + 5}`),
+      ];
 
+  // Funding amounts: minimal mode uses 0.5 MON per player (each runs ~5 txs);
+  // full mode uses 1.0 MON per player (~10 txs across multiple tournaments).
+  const playerFunding = minimal ? parseEther("0.5") : parseEther("1.0");
   for (const p of players) {
-    await fundPlayer(p, parseEther("1.0"));
+    await fundPlayer(p, playerFunding);
     await registerPlayer(p);
     console.log(`  ${p.handle} → ${p.account.address}`);
   }
@@ -777,25 +839,39 @@ async function main(): Promise<void> {
     console.log(`  ${b.handle} (bettor) → ${b.account.address}`);
   }
 
-  // === Phases B-E: Run tournaments via GraphQL + on-chain joins + commit/reveal ===
+  // === Phase B-E: Tournaments ===
   let tidB: bigint | null = null, tidC: bigint | null = null, tidD: bigint | null = null, tidE: bigint | null = null;
 
-  try { tidB = await runStrategyArena(players, stake); }
-  catch (e: unknown) { console.log(`  Phase B failed: ${(e as Error).message?.slice(0, 200)}`); }
+  // In minimal mode we still want a full Strategy tournament — but with 2
+  // players, the runStrategyArena fn needs to handle 2 players in a single
+  // match (currently expects 4 + 2 matches). Use a simpler 2-player call.
+  if (minimal) {
+    try {
+      tidB = await runStrategyArenaMinimal(players, stake);
+    } catch (e: unknown) {
+      console.log(`  Phase B (minimal) failed: ${(e as Error).message?.slice(0, 200)}`);
+    }
+  } else {
+    try { tidB = await runStrategyArena(players, stake); }
+    catch (e: unknown) { console.log(`  Phase B failed: ${(e as Error).message?.slice(0, 200)}`); }
 
-  try { tidC = await runOracleDuel(players.slice(0, 2), stake); }
-  catch (e: unknown) { console.log(`  Phase C failed: ${(e as Error).message?.slice(0, 200)}`); }
+    try { tidC = await runOracleDuel(players.slice(0, 2), stake); }
+    catch (e: unknown) { console.log(`  Phase C failed: ${(e as Error).message?.slice(0, 200)}`); }
 
-  try { tidD = await runAuctionWars(players.slice(2, 4), stake); }
-  catch (e: unknown) { console.log(`  Phase D failed: ${(e as Error).message?.slice(0, 200)}`); }
+    try { tidD = await runAuctionWars(players.slice(2, 4), stake); }
+    catch (e: unknown) { console.log(`  Phase D failed: ${(e as Error).message?.slice(0, 200)}`); }
 
-  try { tidE = await runQuizBowl(players.slice(0, 2), stake); }
-  catch (e: unknown) { console.log(`  Phase E failed: ${(e as Error).message?.slice(0, 200)}`); }
+    try { tidE = await runQuizBowl(players.slice(0, 2), stake); }
+    catch (e: unknown) { console.log(`  Phase E failed: ${(e as Error).message?.slice(0, 200)}`); }
+  }
 
   // === Phase F: Spectator bet — needs an IN_PROGRESS match. We create a
   // dedicated 2-person strategy tournament, let the backend create the
   // match (which auto-opens betting), bet BEFORE driving commit/reveal,
   // then drive the match. ===
+  if (minimal) {
+    console.log("\n--- Phase F: SpectatorBetting (SKIPPED in minimal mode) ---");
+  } else
   try {
     console.log("\n--- Phase F: SpectatorBetting (dedicated match) ---");
     const tidF = await gqlCreateTournament({

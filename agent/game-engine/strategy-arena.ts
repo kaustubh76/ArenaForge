@@ -187,7 +187,25 @@ export class StrategyArenaEngine implements GameMode {
     const round = state.rounds[state.currentRound - 1];
     if (!round) return false;
 
-    // Resolvable if both revealed
+    // Sync from on-chain so the resolver sees commits/reveals that happened
+    // outside the engine's processAction path. See comments in resolve() for
+    // the rationale.
+    if (this.contractClient) {
+      try {
+        const onChainRound = await this.contractClient.getStrategyRound(matchId, state.currentRound);
+        if (onChainRound) {
+          if (onChainRound.player1Revealed) round.player1Revealed = true;
+          if (onChainRound.player2Revealed) round.player2Revealed = true;
+          if (onChainRound.player1Revealed) round.player1Committed = true;
+          if (onChainRound.player2Revealed) round.player2Committed = true;
+          if (onChainRound.resolved) round.resolved = true;
+        }
+      } catch {
+        // Best-effort: fall back to in-memory check below.
+      }
+    }
+
+    // Resolvable if both revealed (and not already resolved)
     if (round.player1Revealed && round.player2Revealed && !round.resolved) {
       return true;
     }
@@ -211,6 +229,36 @@ export class StrategyArenaEngine implements GameMode {
     // Handle timeout forfeit if needed
     const now = Math.floor(Date.now() / 1000);
     const round = state.rounds[state.currentRound - 1];
+
+    // CRITICAL: sync the engine's in-memory round flags from on-chain state
+    // before deciding what to do. Without this, when players commit/reveal
+    // directly on-chain (the realistic path — they hold their own keys), the
+    // engine's in-memory `playerXRevealed` flags stay false forever and
+    // every match falls into the "both forfeit → draw" branch below,
+    // producing winner=zero and 0 ELO movement.
+    //
+    // This sync requires contractClient. Without it (unit tests), behaviour
+    // matches the original in-memory-only path.
+    if (round && this.contractClient) {
+      try {
+        const onChainRound = await this.contractClient.getStrategyRound(matchId, state.currentRound);
+        if (onChainRound) {
+          if (onChainRound.player1Revealed) round.player1Revealed = true;
+          if (onChainRound.player2Revealed) round.player2Revealed = true;
+          if (onChainRound.player1Revealed) {
+            round.player1Move = onChainRound.player1Move;
+            round.player1Committed = true;
+          }
+          if (onChainRound.player2Revealed) {
+            round.player2Move = onChainRound.player2Move;
+            round.player2Committed = true;
+          }
+          round.resolved = onChainRound.resolved;
+        }
+      } catch {
+        // Best-effort: fall through to the original in-memory logic.
+      }
+    }
 
     if (round && !round.resolved) {
       // Check for commit timeout
@@ -240,9 +288,49 @@ export class StrategyArenaEngine implements GameMode {
         }
       }
 
-      // Normal resolution
+      // Normal resolution: both revealed. If we have a contractClient, do the
+      // resolution on-chain (which authoritatively computes scores) and
+      // mirror the result back into in-memory state. Otherwise fall back to
+      // the original in-memory calculation.
       if (round.player1Revealed && round.player2Revealed && !round.resolved) {
-        this.resolveRound(state);
+        if (this.contractClient) {
+          const scores = await this.contractClient.resolveStrategyRound(matchId);
+          if (scores) {
+            // The on-chain scores are cumulative match totals (basis points).
+            // Convert to a per-round delta vs the previous total, mirror into
+            // the per-round payoff fields, and reset the cumulative state.
+            const newP1Total = Number(scores.player1Score);
+            const newP2Total = Number(scores.player2Score);
+            round.player1Payoff = newP1Total - state.player1TotalPayoff;
+            round.player2Payoff = newP2Total - state.player2TotalPayoff;
+            round.resolved = true;
+            state.player1TotalPayoff = newP1Total;
+            state.player2TotalPayoff = newP2Total;
+            // Mirror in-memory resolveRound's post-resolution flow:
+            // advance round or complete match.
+            if (state.currentRound < state.totalRounds) {
+              state.currentRound++;
+              state.rounds.push(this.createRound(state.currentRound));
+              const commitTimeout = state.params.strategyCommitTimeout ?? 60;
+              state.commitDeadline = Math.floor(Date.now() / 1000) + commitTimeout;
+              state.revealDeadline = 0;
+            } else {
+              state.completed = true;
+              if (state.player1TotalPayoff > state.player2TotalPayoff) {
+                state.winner = state.players[0];
+              } else if (state.player2TotalPayoff > state.player1TotalPayoff) {
+                state.winner = state.players[1];
+              } else {
+                state.winner = null;
+              }
+            }
+          } else {
+            // resolveRound on-chain failed — fall back to in-memory calc
+            this.resolveRound(state);
+          }
+        } else {
+          this.resolveRound(state);
+        }
       }
     }
 
