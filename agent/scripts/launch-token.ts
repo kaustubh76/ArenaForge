@@ -28,6 +28,7 @@ if (process.env.ALLOW_INSECURE_NADFUN !== "false") {
 import { parseEther } from "@nadfun/sdk";
 import { TokenManager } from "../monad/token-manager";
 import { getLogger } from "../utils/logger";
+import { publicClient } from "../monad/rpc";
 
 const log = getLogger("LaunchToken");
 
@@ -67,6 +68,32 @@ async function main(): Promise<void> {
   const tm = new TokenManager({ rpcUrl, privateKey, network });
   try {
     const result = await tm.launchToken({ initialBuyAmount });
+
+    // SDK may declare "success" before the on-chain tx is actually mined,
+    // or even when the tx reverted. Wait for the receipt + verify the
+    // predicted token address has bytecode. Discovered the hard way: a
+    // prior nad.fun "success" response returned a CREATE2 address that
+    // had no contract deployed (tx reverted with "An internal error").
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: result.txHash as `0x${string}`,
+      timeout: 90_000,
+    });
+    if (receipt.status !== "success") {
+      throw new Error(
+        `Token launch tx ${result.txHash} reverted on-chain — ` +
+        `nad.fun SDK returned 'success' but the actual tx failed. ` +
+        `Likely cause: symbol "ARENA" already taken on testnet, ` +
+        `or initialBuyAmount too low for current curve fee.`,
+      );
+    }
+    const code = await publicClient.getCode({ address: result.tokenAddress as `0x${string}` });
+    if (!code || code === "0x") {
+      throw new Error(
+        `Token launch tx succeeded but ${result.tokenAddress} has no bytecode. ` +
+        `nad.fun returned a stale or computed address that wasn't actually deployed.`,
+      );
+    }
+
     log.info("Token launch succeeded", {
       tokenAddress: result.tokenAddress,
       poolAddress: result.poolAddress,

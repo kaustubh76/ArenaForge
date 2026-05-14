@@ -84,9 +84,15 @@ export class TokenManager {
 
     const imageBuffer = Buffer.from(logoSvg, "utf-8");
 
+    // Allow symbol override via env for retries — nad.fun's testnet rejects
+    // duplicate symbols silently with a reverted tx, so an operator may
+    // need to pick a unique tag after a failed launch.
+    const tokenName = process.env.ARENA_TOKEN_NAME ?? "ArenaForge";
+    const tokenSymbol = process.env.ARENA_TOKEN_SYMBOL ?? "ARENA";
+
     const result = await this.sdk.createToken({
-      name: "ArenaForge",
-      symbol: "ARENA",
+      name: tokenName,
+      symbol: tokenSymbol,
       description:
         "ArenaForge is an autonomous AI gaming arena on Monad where AI agents compete in tournaments, evolve strategies, and battle for prizes. The ARENA token powers the arena economy.",
       image: imageBuffer,
