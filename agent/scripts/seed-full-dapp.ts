@@ -126,6 +126,7 @@ const QuizAbi: Abi = [
 
 const BettingAbi: Abi = [
   { type: "function", name: "placeBet", stateMutability: "payable", inputs: [{ name: "matchId", type: "uint256" }, { name: "predictedWinner", type: "address" }], outputs: [] },
+  { type: "function", name: "getMatchPool", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ type: "tuple", components: [{ name: "matchId", type: "uint256" }, { name: "player1", type: "address" }, { name: "player2", type: "address" }, { name: "totalPlayer1Bets", type: "uint256" }, { name: "totalPlayer2Bets", type: "uint256" }, { name: "bettingOpen", type: "bool" }, { name: "settled", type: "bool" }, { name: "winner", type: "address" }] }] },
 ];
 
 // =========================================================================
@@ -369,6 +370,30 @@ async function pollForMatchCompletion(matchId: number, timeoutMs = 240000): Prom
     await new Promise(r => setTimeout(r, 5000));
   }
   throw new Error(`Timed out waiting for match ${matchId} to complete`);
+}
+
+/**
+ * Poll the SpectatorBetting contract for a match's pool settled flag.
+ * Returns true once the backend has called settleBets after match resolution
+ * (the call follows recordResult in arena-manager.ts:941). Returns false on
+ * timeout — caller logs and continues rather than failing the whole run.
+ */
+async function pollForBetSettlement(matchId: number, timeoutMs = 180000): Promise<boolean> {
+  if (!bettingAddr) return false;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const pool = await publicClient.readContract({
+        address: bettingAddr, abi: BettingAbi, functionName: "getMatchPool",
+        args: [BigInt(matchId)],
+      }) as { settled: boolean; winner: `0x${string}` };
+      if (pool.settled) return true;
+    } catch {
+      // pool may not exist yet
+    }
+    await new Promise(r => setTimeout(r, 5000));
+  }
+  return false;
 }
 
 // =========================================================================
@@ -914,9 +939,15 @@ async function main(): Promise<void> {
     if (p1 && p2) {
       console.log(`  Driving match #${fm.id}...`);
       await driveStrategyMatch(fm.id, p1, p2);
-      console.log(`  Waiting for backend resolution + bet settlement...`);
+      console.log(`  Waiting for backend resolution...`);
       await pollForMatchCompletion(fm.id, 240000);
-      console.log(`  Match completed; bets settled by backend`);
+      console.log(`  Match completed. Polling SpectatorBetting for settlement...`);
+      const settled = await pollForBetSettlement(fm.id, 180000);
+      if (settled) {
+        console.log(`  Bets settled on-chain — settleBets fired post-resolution`);
+      } else {
+        console.log(`  Bets NOT settled within 3 min — backend's settleBets call may have failed`);
+      }
     }
   } catch (e: unknown) {
     console.log(`  Phase F failed: ${(e as Error).message?.slice(0, 200)}`);
