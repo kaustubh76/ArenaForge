@@ -1,5 +1,6 @@
 # Render Blueprint — ArenaForge Backend
 # https://render.com/docs/blueprint-spec
+# Build trigger: 2026-05-14 nudge to force webhook re-sync
 
 services:
   - type: web
