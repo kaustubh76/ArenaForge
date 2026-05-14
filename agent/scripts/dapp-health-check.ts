@@ -38,6 +38,16 @@ const StrategyAbi: Abi = [
   { type: "function", name: "getMatchState", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "tuple", components: [{ name: "p1", type: "address" }, { name: "p2", type: "address" }, { name: "totalRounds", type: "uint256" }, { name: "currentRound", type: "uint256" }, { name: "p1Score", type: "uint256" }, { name: "p2Score", type: "uint256" }, { name: "commitDeadline", type: "uint256" }, { name: "revealDeadline", type: "uint256" }, { name: "initialized", type: "bool" }] }] },
 ];
 
+const auctionAddr = process.env.AUCTION_WARS_ADDRESS as `0x${string}` | undefined;
+const AuctionAbi: Abi = [
+  { type: "function", name: "auctionRounds", stateMutability: "view", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ name: "mysteryBoxHash", type: "bytes32" }, { name: "biddingDeadline", type: "uint256" }, { name: "revealDeadline", type: "uint256" }, { name: "actualValue", type: "uint256" }, { name: "winner", type: "address" }, { name: "winningBid", type: "uint256" }, { name: "resolved", type: "bool" }] },
+];
+
+const quizAddr = process.env.QUIZ_BOWL_ADDRESS as `0x${string}` | undefined;
+const QuizAbi: Abi = [
+  { type: "function", name: "questions", stateMutability: "view", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [{ name: "questionHash", type: "bytes32" }, { name: "correctAnswer", type: "uint256" }, { name: "deadline", type: "uint256" }, { name: "resolved", type: "bool" }] },
+];
+
 interface GqlResponse<T> { data?: T; errors?: Array<{ message: string }>; }
 
 async function gql<T>(query: string): Promise<GqlResponse<T>> {
@@ -392,6 +402,108 @@ async function probeStrategyInit(): Promise<void> {
   }
 }
 
+/**
+ * Generic per-game on-chain init probe. Walks recent matches in
+ * MatchRegistry; for each, asks the game contract whether the match is
+ * registered there (i.e. `init` flag true / round0 has non-zero deadline /
+ * question0 has non-zero deadline). Reports PASS if all recent matches in
+ * the game's tournaments are recognised.
+ */
+async function probeAuctionInit(): Promise<void> {
+  if (!registryAddr || !auctionAddr) {
+    record("Auction init fix", "(on-chain)", "WARN", "registry/auction address unset, skipping");
+    return;
+  }
+  try {
+    const counter = await publicClient.readContract({
+      address: registryAddr, abi: RegistryAbi, functionName: "matchCounter",
+    }) as bigint;
+    if (counter === 0n) {
+      record("Auction init fix", "(on-chain)", "NEEDS DATA", "no matches yet");
+      return;
+    }
+    const recentCutoff = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
+    const scanFrom = counter > 30n ? counter - 30n + 1n : 1n;
+    let recentAuction = 0;
+    let recentInitialized = 0;
+    for (let i = counter; i >= scanFrom; i--) {
+      const m = await publicClient.readContract({
+        address: registryAddr, abi: RegistryAbi, functionName: "getMatch", args: [i],
+      }) as { id: bigint; timestamp: bigint; status: number };
+      if (m.timestamp < recentCutoff) continue;
+      try {
+        const round = await publicClient.readContract({
+          address: auctionAddr, abi: AuctionAbi, functionName: "auctionRounds",
+          args: [i, 1n],
+        }) as readonly [`0x${string}`, bigint, bigint, bigint, `0x${string}`, bigint, boolean];
+        // Non-zero biddingDeadline (index 1) means the auction round was started.
+        if (round[1] > 0n) {
+          recentAuction++;
+          recentInitialized++;
+        }
+      } catch { /* not an auction match */ }
+    }
+    if (recentAuction === 0) {
+      record("Auction init fix", "(on-chain)", "NEEDS DATA",
+        "no recent AuctionWars matches with started rounds — re-run seed:full");
+    } else if (recentInitialized < recentAuction) {
+      record("Auction init fix", "(on-chain)", "WARN",
+        `${recentInitialized}/${recentAuction} recent Auction matches initialized`);
+    } else {
+      record("Auction init fix", "(on-chain)", "PASS",
+        `${recentInitialized}/${recentAuction} recent AuctionWars matches initialized — patch live`);
+    }
+  } catch (e: unknown) {
+    record("Auction init fix", "(on-chain)", "BROKEN", (e as Error).message?.slice(0, 100) ?? "unknown");
+  }
+}
+
+async function probeQuizInit(): Promise<void> {
+  if (!registryAddr || !quizAddr) {
+    record("Quiz init fix", "(on-chain)", "WARN", "registry/quiz address unset, skipping");
+    return;
+  }
+  try {
+    const counter = await publicClient.readContract({
+      address: registryAddr, abi: RegistryAbi, functionName: "matchCounter",
+    }) as bigint;
+    if (counter === 0n) {
+      record("Quiz init fix", "(on-chain)", "NEEDS DATA", "no matches yet");
+      return;
+    }
+    const recentCutoff = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
+    const scanFrom = counter > 30n ? counter - 30n + 1n : 1n;
+    let recentQuiz = 0;
+    let recentInitialized = 0;
+    for (let i = counter; i >= scanFrom; i--) {
+      const m = await publicClient.readContract({
+        address: registryAddr, abi: RegistryAbi, functionName: "getMatch", args: [i],
+      }) as { id: bigint; timestamp: bigint };
+      if (m.timestamp < recentCutoff) continue;
+      try {
+        const q = await publicClient.readContract({
+          address: quizAddr, abi: QuizAbi, functionName: "questions",
+          args: [i, 0n],
+        }) as readonly [`0x${string}`, bigint, bigint, boolean];
+        // Non-zero deadline (index 2) means a question was posted.
+        if (q[2] > 0n) {
+          recentQuiz++;
+          recentInitialized++;
+        }
+      } catch { /* not a quiz match */ }
+    }
+    if (recentQuiz === 0) {
+      record("Quiz init fix", "(on-chain)", "NEEDS DATA",
+        "no recent QuizBowl matches with posted questions — re-run seed:full");
+    } else {
+      record("Quiz init fix", "(on-chain)", "PASS",
+        `${recentInitialized}/${recentQuiz} recent QuizBowl matches initialized — patch live`);
+    }
+  } catch (e: unknown) {
+    record("Quiz init fix", "(on-chain)", "BROKEN", (e as Error).message?.slice(0, 100) ?? "unknown");
+  }
+}
+
 async function probeFrontendBundle(): Promise<void> {
   const url = "https://dist-sigma-five-61.vercel.app/";
   try {
@@ -452,6 +564,8 @@ async function main(): Promise<void> {
   await probeToken();
   await probeOnChainMatches();
   await probeStrategyInit();
+  await probeAuctionInit();
+  await probeQuizInit();
 
   // Render
   const widthPage = Math.max(...results.map(r => r.page.length));

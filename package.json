@@ -28,6 +28,7 @@
     "seed:full": "npx ts-node --transpile-only agent/scripts/seed-full-dapp.ts",
     "health:check": "npx ts-node --transpile-only agent/scripts/dapp-health-check.ts",
     "validate:live": "bash agent/scripts/validate-live.sh",
+    "token:launch": "npx ts-node --transpile-only agent/scripts/launch-token.ts",
     "typecheck": "npx tsc --noEmit"
   },
   "dependencies": {

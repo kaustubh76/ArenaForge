@@ -186,12 +186,54 @@ export class AuctionWarsEngine implements GameMode {
     }
   }
 
+  /**
+   * Pull the on-chain view of the current round and mirror it into the
+   * engine's in-memory state. Without this, when players commit/reveal
+   * directly on-chain the engine's `commits` and `bids` Maps stay empty,
+   * `isResolvable` returns false forever, and the match stalls — same bug
+   * pattern as StrategyArena had before commit fc69052.
+   *
+   * Best-effort: silently does nothing if contractClient is absent or any
+   * read fails. The caller falls back to the in-memory state.
+   */
+  private async syncRoundFromChain(state: AuctionState): Promise<void> {
+    if (!this.contractClient) return;
+    const round = state.rounds[state.currentRound - 1];
+    if (!round) return;
+    try {
+      const onChainRound = await this.contractClient.getAuctionRound(
+        state.matchId, state.currentRound,
+      );
+      if (onChainRound?.resolved) round.resolved = true;
+
+      // For each player, mirror commit + reveal state from the bids mapping.
+      for (const player of state.players) {
+        const bid = await this.contractClient.getAuctionBid(
+          state.matchId, state.currentRound, player,
+        );
+        if (!bid) continue;
+        if (bid.committed && !round.commits.has(player)) {
+          round.commits.set(player, bid.bidHash);
+        }
+        if (bid.revealed && !round.bids.has(player)) {
+          round.bids.set(player, bid.revealedAmount);
+        }
+      }
+    } catch {
+      // best-effort: callers fall back to in-memory.
+    }
+  }
+
   async isResolvable(matchId: number): Promise<boolean> {
     const state = this.matches.get(matchId);
     if (!state || state.completed) return false;
 
     const round = state.rounds[state.currentRound - 1];
     if (!round || round.resolved) return false;
+
+    // Sync from on-chain first so commits/bids made directly against the
+    // contract are visible to the resolver.
+    await this.syncRoundFromChain(state);
 
     // All bids revealed
     if (round.bids.size === round.commits.size && round.commits.size > 0) {
@@ -206,6 +248,11 @@ export class AuctionWarsEngine implements GameMode {
   async resolve(matchId: number): Promise<MatchOutcome> {
     const state = this.matches.get(matchId);
     if (!state) throw new Error(`Match ${matchId} not found`);
+
+    // Sync on-chain state into local round before resolving — without this
+    // the engine resolves with empty bids and produces winner=null even
+    // when both players acted on-chain.
+    await this.syncRoundFromChain(state);
 
     // Resolve current round if not done
     const round = state.rounds[state.currentRound - 1];

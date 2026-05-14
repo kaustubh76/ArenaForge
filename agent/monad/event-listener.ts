@@ -5,6 +5,11 @@ import {
   AgentJoinedTournamentArgs,
   MatchCompletedArgs,
   MoveCommittedArgs,
+  MoveRevealedArgs,
+  BidCommittedArgs,
+  BidRevealedArgs,
+  AnswerCommittedArgs,
+  AnswerRevealedArgs,
   BetPlacedArgs,
   BettingOpenedArgs,
   BetsSettledArgs,
@@ -29,6 +34,16 @@ const StrategyArenaEvents: Abi = [
   { type: "event", name: "MoveRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }, { name: "move", type: "uint8", indexed: false }] },
 ];
 
+const AuctionWarsEvents: Abi = [
+  { type: "event", name: "BidCommitted", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "agent", type: "address", indexed: false }] },
+  { type: "event", name: "BidRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "agent", type: "address", indexed: false }, { name: "amount", type: "uint256", indexed: false }] },
+];
+
+const QuizBowlEvents: Abi = [
+  { type: "event", name: "AnswerCommitted", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "questionIndex", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }] },
+  { type: "event", name: "AnswerRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "questionIndex", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }, { name: "answer", type: "uint256", indexed: false }] },
+];
+
 const SpectatorBettingEvents: Abi = [
   { type: "event", name: "BetPlaced", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "bettor", type: "address", indexed: true }, { name: "predictedWinner", type: "address", indexed: false }, { name: "amount", type: "uint256", indexed: false }] },
   { type: "event", name: "BettingOpened", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "player1", type: "address", indexed: false }, { name: "player2", type: "address", indexed: false }] },
@@ -40,6 +55,8 @@ export class MonadEventListener {
   private coreAddress: `0x${string}`;
   private registryAddress: `0x${string}`;
   private strategyAddress: `0x${string}`;
+  private auctionAddress: `0x${string}`;
+  private quizAddress: `0x${string}`;
   private bettingAddress: `0x${string}` | null;
   private unwatchers: (() => void)[] = [];
 
@@ -47,6 +64,8 @@ export class MonadEventListener {
     this.coreAddress = process.env.ARENA_CORE_ADDRESS as `0x${string}`;
     this.registryAddress = process.env.MATCH_REGISTRY_ADDRESS as `0x${string}`;
     this.strategyAddress = process.env.STRATEGY_ARENA_ADDRESS as `0x${string}`;
+    this.auctionAddress = process.env.AUCTION_WARS_ADDRESS as `0x${string}`;
+    this.quizAddress = process.env.QUIZ_BOWL_ADDRESS as `0x${string}`;
     this.bettingAddress = (process.env.SPECTATOR_BETTING_ADDRESS?.trim() as `0x${string}`) || null;
   }
 
@@ -116,6 +135,100 @@ export class MonadEventListener {
           });
           if (!args) continue;
           callback(Number(args.matchId), Number(args.round), args.player);
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchMoveReveals(callback: (matchId: number, round: number, player: string, move: number) => void): void {
+    const unwatch = publicClient.watchContractEvent({
+      address: this.strategyAddress,
+      abi: StrategyArenaEvents,
+      eventName: "MoveRevealed",
+      onLogs: (logs) => {
+        for (const entry of logs) {
+          const args = parseEventArgs(MoveRevealedArgs, (entry as { args?: unknown }).args, {
+            event: "MoveRevealed",
+          });
+          if (!args) continue;
+          callback(Number(args.matchId), Number(args.round), args.player, Number(args.move));
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchBidCommitments(callback: (matchId: number, round: number, agent: string) => void): void {
+    if (!this.auctionAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.auctionAddress,
+      abi: AuctionWarsEvents,
+      eventName: "BidCommitted",
+      onLogs: (logs) => {
+        for (const entry of logs) {
+          const args = parseEventArgs(BidCommittedArgs, (entry as { args?: unknown }).args, {
+            event: "BidCommitted",
+          });
+          if (!args) continue;
+          callback(Number(args.matchId), Number(args.round), args.agent);
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchBidReveals(callback: (matchId: number, round: number, agent: string, amount: bigint) => void): void {
+    if (!this.auctionAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.auctionAddress,
+      abi: AuctionWarsEvents,
+      eventName: "BidRevealed",
+      onLogs: (logs) => {
+        for (const entry of logs) {
+          const args = parseEventArgs(BidRevealedArgs, (entry as { args?: unknown }).args, {
+            event: "BidRevealed",
+          });
+          if (!args) continue;
+          callback(Number(args.matchId), Number(args.round), args.agent, BigInt(args.amount));
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchAnswerCommitments(callback: (matchId: number, questionIndex: number, player: string) => void): void {
+    if (!this.quizAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.quizAddress,
+      abi: QuizBowlEvents,
+      eventName: "AnswerCommitted",
+      onLogs: (logs) => {
+        for (const entry of logs) {
+          const args = parseEventArgs(AnswerCommittedArgs, (entry as { args?: unknown }).args, {
+            event: "AnswerCommitted",
+          });
+          if (!args) continue;
+          callback(Number(args.matchId), Number(args.questionIndex), args.player);
+        }
+      },
+    });
+    this.unwatchers.push(unwatch);
+  }
+
+  watchAnswerReveals(callback: (matchId: number, questionIndex: number, player: string, answer: bigint) => void): void {
+    if (!this.quizAddress) return;
+    const unwatch = publicClient.watchContractEvent({
+      address: this.quizAddress,
+      abi: QuizBowlEvents,
+      eventName: "AnswerRevealed",
+      onLogs: (logs) => {
+        for (const entry of logs) {
+          const args = parseEventArgs(AnswerRevealedArgs, (entry as { args?: unknown }).args, {
+            event: "AnswerRevealed",
+          });
+          if (!args) continue;
+          callback(Number(args.matchId), Number(args.questionIndex), args.player, BigInt(args.answer));
         }
       },
     });

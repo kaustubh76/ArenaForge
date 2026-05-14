@@ -126,7 +126,15 @@ The patch contents (already on `main`):
 
 ## C. Re-seed the dApp
 
-Once both deployments are live, run the validation pipeline:
+**One-time:** launch the ARENA bonding-curve token. Without this the Token
+page renders the "ARENA token not launched yet" empty state.
+
+```bash
+npm run token:launch        # needs ~0.15 MON for initial buy + gas
+# Copy the printed ARENA_TOKEN_ADDRESS into your Render env, then restart.
+```
+
+Then run the validation pipeline:
 
 ```bash
 npm run validate:live

@@ -202,6 +202,29 @@ async function main(): Promise<void> {
     eventLog.debug("Move committed", { matchId, round, player });
   });
 
+  // Strategy / Auction / Quiz reveal + commit events. We log them at info
+  // level so an operator tailing the logs can see progress, but we don't
+  // mutate engine state from here — `processActiveRound`'s next tick will
+  // call `engine.isResolvable`, which now syncs from on-chain (commits
+  // fc69052, this slice). The watchers exist primarily so we have a paper
+  // trail of moves and so the future "nudge tick on event" pattern has a
+  // landing spot.
+  eventListener.watchMoveReveals((matchId, round, player, move) => {
+    eventLog.info("Move revealed", { matchId, round, player, move });
+  });
+  eventListener.watchBidCommitments((matchId, round, agent) => {
+    eventLog.info("Auction bid committed", { matchId, round, agent });
+  });
+  eventListener.watchBidReveals((matchId, round, agent, amount) => {
+    eventLog.info("Auction bid revealed", { matchId, round, agent, amount: amount.toString() });
+  });
+  eventListener.watchAnswerCommitments((matchId, questionIndex, player) => {
+    eventLog.info("Quiz answer committed", { matchId, questionIndex, player });
+  });
+  eventListener.watchAnswerReveals((matchId, questionIndex, player, answer) => {
+    eventLog.info("Quiz answer revealed", { matchId, questionIndex, player, answer: answer.toString() });
+  });
+
   // Betting event listeners — persist to SQLite
   const betsMatchStore = getMatchStore();
 

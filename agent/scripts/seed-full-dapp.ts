@@ -423,38 +423,57 @@ async function driveStrategyMatch(matchId: number, p1: Player, p2: Player): Prom
 async function runStrategyArena(players: Player[], stake: bigint): Promise<bigint> {
   console.log("\n--- Phase B: StrategyArena Tournament ---");
   const stakeStr = formatEther(stake);
+  // Multi-round Swiss: triggers `evolutionHistory` records and populates the
+  // Evolution Dashboard UI. EVOLUTION_ROUNDS=N (default 3) lets operators
+  // crank rounds up or down per run.
+  const roundCount = Number(process.env.EVOLUTION_ROUNDS ?? "3");
   const tid = await gqlCreateTournament({
     name: `Seed Strategy ${Date.now() % 10000}`,
     gameType: "STRATEGY_ARENA", format: "SWISS_SYSTEM",
-    entryStake: stakeStr, maxParticipants: 4, roundCount: 1,
+    entryStake: stakeStr, maxParticipants: 4, roundCount,
   });
-  console.log(`  Tournament ID: ${tid}`);
+  console.log(`  Tournament ID: ${tid} (${roundCount} rounds)`);
 
   for (const p of players) {
     await joinTournament(p, tid, stake);
     console.log(`  ${p.handle} joined`);
   }
 
-  console.log(`  Waiting for backend to auto-start + create matches on-chain...`);
-  const matches = await pollOnChainMatchesForTournament(tid, 2);
-  console.log(`  Backend created ${matches.length} on-chain matches`);
-
-  // Match each backend-created match to player wallets and drive commit/reveal
-  for (const m of matches) {
-    const p1 = players.find(p => p.account.address.toLowerCase() === m.player1.toLowerCase());
-    const p2 = players.find(p => p.account.address.toLowerCase() === m.player2.toLowerCase());
-    if (!p1 || !p2) {
-      console.log(`  Match ${m.id}: could not match players (p1=${m.player1}, p2=${m.player2}), skipping`);
-      continue;
-    }
-    console.log(`  Match #${m.id}: ${p1.handle} vs ${p2.handle}`);
+  // Drive each round in sequence. After every round the backend's tick
+  // advances to the next round (running evolution between rounds, which
+  // is exactly what populates `evolutionHistory`).
+  const driven = new Set<number>();
+  for (let r = 1; r <= roundCount; r++) {
+    console.log(`  Waiting for backend to create round-${r} matches on-chain...`);
+    let matches: OnChainMatch[];
     try {
-      await driveStrategyMatch(m.id, p1, p2);
-      console.log(`    Waiting for backend to resolve + record...`);
-      await pollForMatchCompletion(m.id, 180000);
-      console.log(`    Match #${m.id} completed`);
+      // 2 matches per round (4 players, 1v1 pairings).
+      matches = await pollOnChainMatchesForTournament(tid, 2 * r, 240_000);
     } catch (e: unknown) {
-      console.log(`    Drive failed: ${(e as Error).message?.slice(0, 200)}`);
+      console.log(`    Round ${r} matches never appeared: ${(e as Error).message?.slice(0, 200)}`);
+      break;
+    }
+    const newMatches = matches.filter(m => !driven.has(m.id));
+    console.log(`  Round ${r}: ${newMatches.length} new matches to drive`);
+
+    for (const m of newMatches) {
+      const p1 = players.find(p => p.account.address.toLowerCase() === m.player1.toLowerCase());
+      const p2 = players.find(p => p.account.address.toLowerCase() === m.player2.toLowerCase());
+      if (!p1 || !p2) {
+        console.log(`  Match ${m.id}: could not match players, skipping`);
+        driven.add(m.id);
+        continue;
+      }
+      console.log(`  Match #${m.id} (round ${r}): ${p1.handle} vs ${p2.handle}`);
+      try {
+        await driveStrategyMatch(m.id, p1, p2);
+        console.log(`    Waiting for backend to resolve + record...`);
+        await pollForMatchCompletion(m.id, 180_000);
+        console.log(`    Match #${m.id} completed`);
+      } catch (e: unknown) {
+        console.log(`    Drive failed: ${(e as Error).message?.slice(0, 200)}`);
+      }
+      driven.add(m.id);
     }
   }
 

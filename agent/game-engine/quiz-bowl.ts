@@ -173,9 +173,44 @@ export class QuizBowlEngine implements GameMode {
     }
   }
 
+  /**
+   * Sync on-chain commit/reveal state into the engine's in-memory Maps for
+   * the current question. Without this, when players act directly on the
+   * QuizBowl contract the engine never sees their moves and `isResolvable`
+   * returns false forever — same bug pattern as StrategyArena (fc69052).
+   * Best-effort: silently does nothing if contractClient is absent.
+   */
+  private async syncQuestionFromChain(state: QuizState): Promise<void> {
+    if (!this.contractClient) return;
+    const qIdx = state.currentQuestionIdx;
+    try {
+      for (const player of state.players) {
+        const ans = await this.contractClient.getQuizAnswer(state.matchId, qIdx, player);
+        if (!ans) continue;
+        const commits = state.commits.get(player)!;
+        const answers = state.answers.get(player)!;
+        if (ans.committed && !commits.has(qIdx)) {
+          commits.set(qIdx, ans.answerHash);
+        }
+        if (ans.revealed && !answers.has(qIdx)) {
+          answers.set(qIdx, {
+            answer: Number(ans.revealedAnswer),
+            timestamp: Number(ans.submitTimestamp),
+          });
+        }
+      }
+    } catch {
+      // best-effort
+    }
+  }
+
   async isResolvable(matchId: number): Promise<boolean> {
     const state = this.matches.get(matchId);
     if (!state || state.completed) return false;
+
+    // Sync from on-chain first so commits/reveals made directly against the
+    // contract are visible to the resolver.
+    await this.syncQuestionFromChain(state);
 
     const now = Math.floor(Date.now() / 1000);
 
@@ -196,6 +231,9 @@ export class QuizBowlEngine implements GameMode {
   async resolve(matchId: number): Promise<MatchOutcome> {
     const state = this.matches.get(matchId);
     if (!state) throw new Error(`Match ${matchId} not found`);
+
+    // Sync once before scoring so the per-question loop sees on-chain reveals.
+    await this.syncQuestionFromChain(state);
 
     // Score remaining unanswered questions
     while (state.currentQuestionIdx < state.questions.length) {

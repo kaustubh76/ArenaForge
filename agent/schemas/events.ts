@@ -39,6 +39,40 @@ export const MoveCommittedArgs = z.object({
   player: Address,
 });
 
+export const MoveRevealedArgs = z.object({
+  matchId: Uint256,
+  round: Uint256,
+  player: Address,
+  move: z.union([z.number().int().nonnegative(), z.bigint()]),
+});
+
+// AuctionWars uses `agent` instead of `player` for the bidder field.
+export const BidCommittedArgs = z.object({
+  matchId: Uint256,
+  round: Uint256,
+  agent: Address,
+});
+
+export const BidRevealedArgs = z.object({
+  matchId: Uint256,
+  round: Uint256,
+  agent: Address,
+  amount: Uint256,
+});
+
+export const AnswerCommittedArgs = z.object({
+  matchId: Uint256,
+  questionIndex: Uint256,
+  player: Address,
+});
+
+export const AnswerRevealedArgs = z.object({
+  matchId: Uint256,
+  questionIndex: Uint256,
+  player: Address,
+  answer: Uint256,
+});
+
 export const BetPlacedArgs = z.object({
   matchId: Uint256,
   bettor: Address,

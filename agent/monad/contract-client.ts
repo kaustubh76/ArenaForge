@@ -87,6 +87,11 @@ const AuctionWarsAbi: Abi = [
   { type: "function", name: "getScore", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "player", type: "address" }], outputs: [{ name: "", type: "int256" }] },
   { type: "function", name: "getPlayers", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "address[]" }] },
   { type: "function", name: "getCurrentRound", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+  // Auto-generated public getters from the public mappings.
+  { type: "function", name: "auctionRounds", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "roundNum", type: "uint256" }], outputs: [{ name: "mysteryBoxHash", type: "bytes32" }, { name: "biddingDeadline", type: "uint256" }, { name: "revealDeadline", type: "uint256" }, { name: "actualValue", type: "uint256" }, { name: "winner", type: "address" }, { name: "winningBid", type: "uint256" }, { name: "resolved", type: "bool" }] },
+  { type: "function", name: "bids", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "roundNum", type: "uint256" }, { name: "player", type: "address" }], outputs: [{ name: "agent", type: "address" }, { name: "bidHash", type: "bytes32" }, { name: "revealedAmount", type: "uint256" }, { name: "committed", type: "bool" }, { name: "revealed", type: "bool" }] },
+  { type: "event", name: "BidCommitted", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "agent", type: "address", indexed: false }] },
+  { type: "event", name: "BidRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "round", type: "uint256", indexed: false }, { name: "agent", type: "address", indexed: false }, { name: "amount", type: "uint256", indexed: false }] },
 ];
 
 const QuizBowlAbi: Abi = [
@@ -98,6 +103,11 @@ const QuizBowlAbi: Abi = [
   { type: "function", name: "getScore", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "player", type: "address" }], outputs: [{ name: "", type: "int256" }] },
   { type: "function", name: "getPlayers", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "address[]" }] },
   { type: "function", name: "getCurrentQuestion", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+  // Auto-generated public getters from the public mappings.
+  { type: "function", name: "questions", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "questionIndex", type: "uint256" }], outputs: [{ name: "questionHash", type: "bytes32" }, { name: "correctAnswer", type: "uint256" }, { name: "deadline", type: "uint256" }, { name: "resolved", type: "bool" }] },
+  { type: "function", name: "answers", stateMutability: "view", inputs: [{ name: "matchId", type: "uint256" }, { name: "questionIndex", type: "uint256" }, { name: "player", type: "address" }], outputs: [{ name: "answerHash", type: "bytes32" }, { name: "revealedAnswer", type: "uint256" }, { name: "submitTimestamp", type: "uint256" }, { name: "committed", type: "bool" }, { name: "revealed", type: "bool" }, { name: "correct", type: "bool" }] },
+  { type: "event", name: "AnswerCommitted", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "questionIndex", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }] },
+  { type: "event", name: "AnswerRevealed", inputs: [{ name: "matchId", type: "uint256", indexed: true }, { name: "questionIndex", type: "uint256", indexed: false }, { name: "player", type: "address", indexed: false }, { name: "answer", type: "uint256", indexed: false }] },
 ];
 
 // Phase 2: Seasonal Rankings ABI
@@ -473,6 +483,69 @@ export class MonadContractClient {
     return Number(await this.auctionWars.read.getCurrentRound([BigInt(matchId)]));
   }
 
+  /**
+   * Read the per-round struct from AuctionWars. Returns null on read failure.
+   * Auto-generated getter from the `auctionRounds` public mapping.
+   */
+  async getAuctionRound(matchId: number, roundNum: number): Promise<{
+    mysteryBoxHash: `0x${string}`;
+    biddingDeadline: bigint;
+    revealDeadline: bigint;
+    actualValue: bigint;
+    winner: `0x${string}`;
+    winningBid: bigint;
+    resolved: boolean;
+  } | null> {
+    try {
+      // Solidity's auto-getter returns the struct as a tuple. viem decodes it
+      // as a positional array when there are no output names — but we named
+      // the outputs in the ABI, so it returns a named object.
+      const result = await this.auctionWars.read.auctionRounds([
+        BigInt(matchId), BigInt(roundNum),
+      ]) as readonly [`0x${string}`, bigint, bigint, bigint, `0x${string}`, bigint, boolean];
+      return {
+        mysteryBoxHash: result[0],
+        biddingDeadline: result[1],
+        revealDeadline: result[2],
+        actualValue: result[3],
+        winner: result[4],
+        winningBid: result[5],
+        resolved: result[6],
+      };
+    } catch (error) {
+      log.warn("getAuctionRound failed", { matchId, roundNum, error });
+      return null;
+    }
+  }
+
+  /**
+   * Read a single bid for `player` in match/round. Returns null on read failure.
+   * Auto-generated getter from the `bids` public mapping.
+   */
+  async getAuctionBid(matchId: number, roundNum: number, player: string): Promise<{
+    agent: `0x${string}`;
+    bidHash: `0x${string}`;
+    revealedAmount: bigint;
+    committed: boolean;
+    revealed: boolean;
+  } | null> {
+    try {
+      const result = await this.auctionWars.read.bids([
+        BigInt(matchId), BigInt(roundNum), player as `0x${string}`,
+      ]) as readonly [`0x${string}`, `0x${string}`, bigint, boolean, boolean];
+      return {
+        agent: result[0],
+        bidHash: result[1],
+        revealedAmount: result[2],
+        committed: result[3],
+        revealed: result[4],
+      };
+    } catch (error) {
+      log.warn("getAuctionBid failed", { matchId, roundNum, player, error });
+      return null;
+    }
+  }
+
   // --- QuizBowl Write ---
 
   async initQuizMatch(matchId: number, players: string[], totalQuestions: number, maxAnswerTime: number): Promise<void> {
@@ -499,6 +572,62 @@ export class MonadContractClient {
 
   async getQuizCurrentQuestion(matchId: number): Promise<number> {
     return Number(await this.quizBowl.read.getCurrentQuestion([BigInt(matchId)]));
+  }
+
+  /**
+   * Read the per-question struct from QuizBowl. Returns null on failure.
+   * Auto-getter from the public `questions` mapping.
+   */
+  async getQuizQuestion(matchId: number, questionIndex: number): Promise<{
+    questionHash: `0x${string}`;
+    correctAnswer: bigint;
+    deadline: bigint;
+    resolved: boolean;
+  } | null> {
+    try {
+      const result = await this.quizBowl.read.questions([
+        BigInt(matchId), BigInt(questionIndex),
+      ]) as readonly [`0x${string}`, bigint, bigint, boolean];
+      return {
+        questionHash: result[0],
+        correctAnswer: result[1],
+        deadline: result[2],
+        resolved: result[3],
+      };
+    } catch (error) {
+      log.warn("getQuizQuestion failed", { matchId, questionIndex, error });
+      return null;
+    }
+  }
+
+  /**
+   * Read a single player's answer for a question. Returns null on failure.
+   * Auto-getter from the public `answers` mapping.
+   */
+  async getQuizAnswer(matchId: number, questionIndex: number, player: string): Promise<{
+    answerHash: `0x${string}`;
+    revealedAnswer: bigint;
+    submitTimestamp: bigint;
+    committed: boolean;
+    revealed: boolean;
+    correct: boolean;
+  } | null> {
+    try {
+      const result = await this.quizBowl.read.answers([
+        BigInt(matchId), BigInt(questionIndex), player as `0x${string}`,
+      ]) as readonly [`0x${string}`, bigint, bigint, boolean, boolean, boolean];
+      return {
+        answerHash: result[0],
+        revealedAnswer: result[1],
+        submitTimestamp: result[2],
+        committed: result[3],
+        revealed: result[4],
+        correct: result[5],
+      };
+    } catch (error) {
+      log.warn("getQuizAnswer failed", { matchId, questionIndex, player, error });
+      return null;
+    }
   }
 
   // --- Strategy Arena Read ---

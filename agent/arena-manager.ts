@@ -907,6 +907,26 @@ export class ArenaManager {
         const resolvable = await engine.isResolvable(matchId);
         if (resolvable) {
           await this.resolveMatch(matchId, info.tournamentId, engine);
+        } else {
+          // Emit a `match:stateChanged` event so subscribed UIs refresh
+          // their mid-match view. The subscription's been defined in
+          // `agent/api/graphql/subscriptions.ts:24` since launch but
+          // nothing published it — making mid-match updates silently
+          // never arrive. Now they do, once per tick per active match.
+          try {
+            const state = await engine.getState(matchId);
+            this.broadcaster.emit("match:stateChanged", {
+              matchId,
+              state: {
+                gameType: info.gameType,
+                status: state.status,
+                data: state.data,
+              },
+              timestamp: Date.now(),
+            });
+          } catch (error) {
+            log.debug("Failed to emit match:stateChanged", { matchId, error });
+          }
         }
       } catch (error) {
         log.error("Error checking match", { matchId, error });
