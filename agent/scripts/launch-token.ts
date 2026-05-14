@@ -15,6 +15,16 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+// nad.fun's testnet API host (dev-api.nad.fun) has had an expired TLS cert
+// for an extended window in 2026; node.js's default fetch refuses such
+// connections with "fetch failed". This script targets a testnet operation
+// only and the cert mis-issuance is upstream and outside our control, so we
+// scope the relaxation to this process only. Set ALLOW_INSECURE_NADFUN=false
+// to disable. Never propagated to the long-running backend.
+if (process.env.ALLOW_INSECURE_NADFUN !== "false") {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+
 import { parseEther } from "@nadfun/sdk";
 import { TokenManager } from "../monad/token-manager";
 import { getLogger } from "../utils/logger";
